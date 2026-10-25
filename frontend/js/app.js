@@ -1,0 +1,4870 @@
+/**
+ * ============================================================================
+ * LÓGICA INTEGRAL MULTI-PÁGINA DANILLANOS
+ * - index.html  (Tienda + Menú Hamburger + Buscador Móvil Siempre Abierto + Cantidades Masivas)
+ * - perfil.html (Registro Completo Encriptado + Mapa Pin Exacto + Línea 4 Pasos + Soporte con Fotos)
+ * - pagos.html  (Pasarela de Pagos + Estimado de Entrega al Pagar + Bloqueo sin Sesión)
+ * - panel.html  (Panel con Menú Colapsable + Gráficas Pastel/Barras + Ruta Google Maps/Waze + Paradas Colapsables)
+ * ============================================================================
+ */
+
+(function () {
+  'use strict';
+
+  const CONFIG = window.DANILLANOS_CONFIG;
+  const CURRENT_PAGE = document.body.getAttribute('data-page') || 'store';
+
+  const state = {
+    theme: localStorage.getItem('danillanos_theme') || 'dark',
+    token: sessionStorage.getItem('danillanos_token') || null,
+    user: JSON.parse(sessionStorage.getItem('danillanos_user') || 'null'),
+    direcciones: JSON.parse(sessionStorage.getItem('danillanos_dirs') || '[]'),
+    selectedAddressId: Number(sessionStorage.getItem('danillanos_selected_addr_id') || '0') || null,
+    cartQuickAddrOpen: false,
+    slides: [...CONFIG.carouselSlides],
+    products: [...CONFIG.products],
+    filteredCategory: 'mas_vendidos',
+    visibleProductsLimit: 24,
+    searchQuery: '',
+    cart: JSON.parse(localStorage.getItem('danillanos_cart') || '[]'),
+    selectedPayMethod: 'pse',
+    staffOrders: [],
+    staffTickets: [],
+    activeStaffTab: 'empleado',
+    driverPhotosDraft: {},
+    driverExpandedOrderIds: null, // Set de IDs de paradas abiertas; por defecto solo la parada #1 actual
+    customerExpandedOrderIds: null, // Set de IDs de pedidos del cliente desplegados
+    activeProfileTab: 'pedidos',
+    customerTickets: [],
+    staffDrivers: [],
+    staffUsers: [],
+    adminCatalogQuery: '',
+    serverApiV3: false,
+    staffHistoryExpandedIds: new Set(),
+    custCancelOpenId: null,
+    checkoutWizardStep: 1,
+    invoiceRedirectTimer: null,
+    supportCustomerImageDraft: null,
+    carousel: {
+      currentIndex: 0,
+      durationMs: CONFIG.api.carouselIntervalMs || 6000,
+      elapsedMs: 0,
+      lastFrameTime: null,
+      rafId: null
+    },
+    maps: {
+      addressMap: null,
+      addressMarker: null,
+      driverMap: null,
+      driverLayerGroup: null
+    }
+  };
+
+  // ==========================================================================
+  // UTILIDADES GENERALES Y GEOMETRÍA HAVERSINE
+  // ==========================================================================
+  function formatCurrency(amount) {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      maximumFractionDigits: 0
+    }).format(Number(amount) || 0);
+  }
+
+  function showToast() {
+    // Notificaciones laterales flotantes desactivadas para no superponerse a la interfaz
+  }
+
+  function haversineKm(lat1, lng1, lat2, lng2) {
+    const toRad = (d) => (d * Math.PI) / 180;
+    const R = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  function isInsideVillavicencio(lat, lng) {
+    const center = CONFIG.map.villavicencioCenter;
+    const radiusKm = (CONFIG.map.villavicencioRadiusMeters || 9500) / 1000;
+    return haversineKm(center.lat, center.lng, Number(lat), Number(lng)) <= radiusKm;
+  }
+
+  function getAuthHeaders() {
+    const headers = { 'Content-Type': 'application/json' };
+    if (state.token) headers.Authorization = `Bearer ${state.token}`;
+    return headers;
+  }
+
+  function isStaffUser(user = state.user) {
+    return Boolean(user && ['empleado', 'entregador', 'soporte', 'admin'].includes(user.rol));
+  }
+
+  function syncSelectedAddressDefault() {
+    if (!state.direcciones || state.direcciones.length === 0) {
+      state.selectedAddressId = null;
+      sessionStorage.removeItem('danillanos_selected_addr_id');
+      return;
+    }
+    const exists = state.direcciones.some((d) => Number(d.id) === Number(state.selectedAddressId));
+    if (!exists) {
+      state.selectedAddressId = state.direcciones[0].id;
+      sessionStorage.setItem('danillanos_selected_addr_id', String(state.selectedAddressId));
+    }
+  }
+
+  function setSession(token, user, direcciones = []) {
+    state.token = token;
+    state.user = user;
+    state.direcciones = direcciones || [];
+    syncSelectedAddressDefault();
+
+    if (token && user) {
+      sessionStorage.setItem('danillanos_token', token);
+      sessionStorage.setItem('danillanos_user', JSON.stringify(user));
+      sessionStorage.setItem('danillanos_dirs', JSON.stringify(state.direcciones));
+    } else {
+      sessionStorage.removeItem('danillanos_token');
+      sessionStorage.removeItem('danillanos_user');
+      sessionStorage.removeItem('danillanos_dirs');
+      sessionStorage.removeItem('danillanos_selected_addr_id');
+    }
+    renderSharedHeaderAuthUI();
+    renderMobileHamburgerMenuContent();
+    renderCartLiveAddressManager();
+  }
+
+  // ==========================================================================
+  // 1. HEADER COMPARTIDO, MENÚ HAMBURGER MÓVIL, TEMA B&N Y BUSCADOR DOBLE
+  // ==========================================================================
+  function initSharedHeaderAndTheme() {
+    syncSelectedAddressDefault();
+
+    const htmlEl = document.documentElement;
+    htmlEl.setAttribute('data-theme', state.theme);
+
+    const brandLink = document.getElementById('brandLink');
+    if (brandLink && CONFIG.brand.logoUrl) {
+      brandLink.innerHTML = `<img src="${CONFIG.brand.logoUrl}" alt="${CONFIG.brand.name}" class="brand-logo-img" />`;
+    }
+
+    const themeBtn = document.getElementById('themeToggleBtn');
+    if (themeBtn) {
+      themeBtn.addEventListener('click', () => {
+        state.theme = state.theme === 'dark' ? 'light' : 'dark';
+        htmlEl.setAttribute('data-theme', state.theme);
+        localStorage.setItem('danillanos_theme', state.theme);
+        showToast(
+          state.theme === 'dark' ? 'Modo oscuro activado' : 'Modo claro activado',
+          state.theme === 'dark' ? 'dark_mode' : 'light_mode'
+        );
+      });
+    }
+
+    renderSharedHeaderAuthUI();
+    initMobileHamburgerDrawer();
+    initAutocompleteSearchBar();
+    initSharedCartDrawer();
+  }
+
+  function initMobileHamburgerDrawer() {
+    const openBtn = document.getElementById('mobileMenuBtn');
+    const closeBtn = document.getElementById('mobileMenuCloseBtn');
+    const drawer = document.getElementById('mobileNavDrawer');
+    const backdrop = document.getElementById('mobileNavBackdrop');
+
+    function closeMobileMenu() {
+      drawer?.classList.remove('is-open');
+      backdrop?.classList.remove('is-open');
+    }
+
+    openBtn?.addEventListener('click', () => {
+      renderMobileHamburgerMenuContent();
+      drawer?.classList.add('is-open');
+      backdrop?.classList.add('is-open');
+    });
+
+    closeBtn?.addEventListener('click', closeMobileMenu);
+    backdrop?.addEventListener('click', closeMobileMenu);
+
+    document.getElementById('mobileNavBody')?.addEventListener('click', (e) => {
+      const catLink = e.target.closest('[data-mobile-cat]');
+      if (catLink && CURRENT_PAGE === 'store') {
+        e.preventDefault();
+        const slug = catLink.getAttribute('data-mobile-cat');
+        setStoreCategoryFilter(slug);
+        closeMobileMenu();
+        document.getElementById('catalogo-tienda')?.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+
+      const logoutBtn = e.target.closest('#mobileDrawerLogoutBtn');
+      if (logoutBtn) {
+        setSession(null, null, []);
+        closeMobileMenu();
+        showToast('Sesión cerrada correctamente', 'logout');
+        if (CURRENT_PAGE === 'panel' || CURRENT_PAGE === 'pagos') {
+          window.location.href = 'index.html';
+        } else if (CURRENT_PAGE === 'perfil') {
+          renderPerfilPageAuthState();
+        }
+        return;
+      }
+
+      if (e.target.closest('a')) {
+        closeMobileMenu();
+      }
+    });
+
+    renderMobileHamburgerMenuContent();
+  }
+
+  function renderMobileHamburgerMenuContent() {
+    const navBody = document.getElementById('mobileNavBody');
+    if (!navBody) return;
+
+    const authLinks = !state.user
+      ? `
+        <div class="mobile-nav-section-title">Cuenta de Cliente</div>
+        <a href="perfil.html#cuenta-section" class="mobile-nav-link">
+          <span class="material-symbols-rounded">login</span>
+          <span>Iniciar Sesión / Crear Cuenta</span>
+        </a>
+      `
+      : `
+        <div class="mobile-nav-section-title">Hola, ${state.user.nombre_completo}</div>
+        ${
+          isStaffUser()
+            ? `<a href="panel.html" class="mobile-nav-link">
+                 <span class="material-symbols-rounded">dashboard_customize</span>
+                 <span>Panel Operativo (${state.user.rol.toUpperCase()})</span>
+               </a>`
+            : ''
+        }
+        <a href="perfil.html#cuenta-section" class="mobile-nav-link">
+          <span class="material-symbols-rounded">badge</span>
+          <span>Mi Perfil Encriptado</span>
+        </a>
+        <a href="perfil.html#direcciones-mapa-section" class="mobile-nav-link">
+          <span class="material-symbols-rounded">pin_drop</span>
+          <span>Mis Direcciones (${state.direcciones.length}/5)</span>
+        </a>
+        <a href="perfil.html#mis-pedidos-section" class="mobile-nav-link">
+          <span class="material-symbols-rounded">local_shipping</span>
+          <span>Mis Pedidos en Progreso e Historial</span>
+        </a>
+        <a href="pagos.html" class="mobile-nav-link">
+          <span class="material-symbols-rounded">shopping_cart_checkout</span>
+          <span>Ir a la Pasarela de Pagos</span>
+        </a>
+        <button type="button" class="mobile-nav-link" id="mobileDrawerLogoutBtn">
+          <span class="material-symbols-rounded">logout</span>
+          <span>Cerrar Sesión</span>
+        </button>
+      `;
+
+    navBody.innerHTML = `
+      ${authLinks}
+      <div class="mobile-nav-section-title">Navegación Principal</div>
+      <a href="index.html" class="mobile-nav-link">
+        <span class="material-symbols-rounded">storefront</span>
+        <span>Inicio y Promociones</span>
+      </a>
+      <a href="perfil.html#soporte-cliente" class="mobile-nav-link">
+        <span class="material-symbols-rounded">support_agent</span>
+        <span>Soporte (Enviar Solicitud / Fotos)</span>
+      </a>
+      <div class="mobile-nav-section-title">Catálogo por Línea (235 Productos)</div>
+      <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="todos">
+        <span class="material-symbols-rounded">apps</span>
+        <span>Todo el Catálogo (235)</span>
+      </a>
+      <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="embutidos">
+        <span class="material-symbols-rounded">kebab_dining</span>
+        <span>Cárnicos y Embutidos</span>
+      </a>
+      <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="congelados">
+        <span class="material-symbols-rounded">ac_unit</span>
+        <span>Papas Francesas y Congelados</span>
+      </a>
+      <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="pulpas">
+        <span class="material-symbols-rounded">local_drink</span>
+        <span>Pulpas de Fruta y Limonadas</span>
+      </a>
+      <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="salsas">
+        <span class="material-symbols-rounded">soup_kitchen</span>
+        <span>Salsas Río Grande, Salsabor y Alimentek</span>
+      </a>
+      <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="pan">
+        <span class="material-symbols-rounded">bakery_dining</span>
+        <span>Línea de Panes</span>
+      </a>
+      <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="adobos">
+        <span class="material-symbols-rounded">nutrition</span>
+        <span>Adobos, Ají y Sazonadores</span>
+      </a>
+      <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="desechables">
+        <span class="material-symbols-rounded">takeout_dining</span>
+        <span>Desechables e Icopores</span>
+      </a>
+      <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="secos">
+        <span class="material-symbols-rounded">eco</span>
+        <span>Don Maní y Dulcería</span>
+      </a>
+    `;
+  }
+
+  function renderSharedHeaderAuthUI() {
+    const avatarBtn = document.getElementById('userAvatarBtn');
+    const avatarImg = document.getElementById('userAvatarImg');
+    const guestIcon = document.getElementById('guestAvatarIcon');
+    const avatarInitial = document.getElementById('userAvatarInitial');
+    const statusDot = document.getElementById('userStatusDot');
+    const profileMenu = document.getElementById('profileDropdownMenu');
+
+    if (avatarBtn) {
+      if (!state.user) {
+        avatarBtn.classList.add('is-guest');
+        avatarBtn.setAttribute('href', 'perfil.html#cuenta-section');
+        avatarBtn.title = 'Modo visitante sin sesión (Ir a Iniciar Sesión)';
+        if (guestIcon) guestIcon.classList.remove('hidden');
+        if (avatarInitial) avatarInitial.classList.add('hidden');
+        if (avatarImg) avatarImg.classList.add('hidden');
+        if (statusDot) statusDot.classList.add('hidden');
+      } else {
+        const displayName = (state.user.nombre_completo || state.user.username || 'U').trim();
+        const initial = displayName.charAt(0).toUpperCase();
+        avatarBtn.classList.remove('is-guest');
+        avatarBtn.setAttribute('href', isStaffUser() ? 'panel.html' : 'perfil.html');
+        avatarBtn.title = `Cuenta activa: ${state.user.nombre_completo}`;
+        if (guestIcon) guestIcon.classList.add('hidden');
+        if (statusDot) statusDot.classList.remove('hidden');
+
+        if (state.user.avatar_url && avatarImg) {
+          avatarImg.src = state.user.avatar_url;
+          avatarImg.classList.remove('hidden');
+          if (avatarInitial) avatarInitial.classList.add('hidden');
+        } else if (avatarInitial) {
+          if (avatarImg) avatarImg.classList.add('hidden');
+          avatarInitial.textContent = initial;
+          avatarInitial.classList.remove('hidden');
+        }
+      }
+    }
+
+    if (profileMenu) {
+      // Si NO ha iniciado sesión, el usuario NO puede hacer pedido ni ver direcciones ni pedidos en progreso
+      if (!state.user) {
+        profileMenu.innerHTML = `
+          <div class="dropdown-header-label">Modo Visitante (Sin Sesión)</div>
+          <a href="perfil.html#cuenta-section" class="dropdown-item">
+            <span class="material-symbols-rounded dropdown-item-icon">login</span>
+            <div class="dropdown-item-content">
+              <span class="dropdown-item-title">Iniciar Sesión / Crear Cuenta</span>
+              <span class="dropdown-item-desc">Requerido para hacer pedidos y ver direcciones</span>
+            </div>
+          </a>
+          <a href="perfil.html#soporte-cliente" class="dropdown-item">
+            <span class="material-symbols-rounded dropdown-item-icon">support_agent</span>
+            <div class="dropdown-item-content">
+              <span class="dropdown-item-title">Centro de Soporte</span>
+              <span class="dropdown-item-desc">Consultas y envío de fotos de evidencia</span>
+            </div>
+          </a>
+        `;
+      } else {
+        const staffLink = isStaffUser()
+          ? `
+            <a href="panel.html" class="dropdown-item">
+              <span class="material-symbols-rounded dropdown-item-icon">dashboard_customize</span>
+              <div class="dropdown-item-content">
+                <span class="dropdown-item-title">Panel de Control (${state.user.rol.toUpperCase()})</span>
+                <span class="dropdown-item-desc">Abrir página de operaciones</span>
+              </div>
+            </a>
+          `
+          : '';
+
+        profileMenu.innerHTML = `
+          <div class="dropdown-header-label">${state.user.nombre_completo}</div>
+          ${staffLink}
+          <a href="perfil.html#cuenta-section" class="dropdown-item">
+            <span class="material-symbols-rounded dropdown-item-icon">badge</span>
+            <div class="dropdown-item-content">
+              <span class="dropdown-item-title">Mi Perfil y Cuenta</span>
+              <span class="dropdown-item-desc">Datos encriptados con AES-256</span>
+            </div>
+          </a>
+          <a href="perfil.html#direcciones-mapa-section" class="dropdown-item">
+            <span class="material-symbols-rounded dropdown-item-icon">add_location_alt</span>
+            <div class="dropdown-item-content">
+              <span class="dropdown-item-title">Mis Direcciones (${state.direcciones.length}/5)</span>
+              <span class="dropdown-item-desc">Mapa interactivo con autorelleno</span>
+            </div>
+          </a>
+          <a href="perfil.html#mis-pedidos-section" class="dropdown-item">
+            <span class="material-symbols-rounded dropdown-item-icon">local_shipping</span>
+            <div class="dropdown-item-content">
+              <span class="dropdown-item-title">Mis Pedidos en Progreso</span>
+              <span class="dropdown-item-desc">Línea de progreso de 4 etapas</span>
+            </div>
+          </a>
+          <button type="button" class="dropdown-item" id="headerLogoutBtn">
+            <span class="material-symbols-rounded dropdown-item-icon">logout</span>
+            <div class="dropdown-item-content">
+              <span class="dropdown-item-title">Cerrar Sesión</span>
+              <span class="dropdown-item-desc">Volver a modo visitante</span>
+            </div>
+          </button>
+        `;
+
+        const logoutBtn = document.getElementById('headerLogoutBtn');
+        if (logoutBtn) {
+          logoutBtn.addEventListener('click', () => {
+            setSession(null, null, []);
+            showToast('Sesión cerrada correctamente', 'logout');
+            if (CURRENT_PAGE === 'panel' || CURRENT_PAGE === 'pagos') {
+              window.location.href = 'index.html';
+            } else if (CURRENT_PAGE === 'perfil') {
+              renderPerfilPageAuthState();
+            }
+          });
+        }
+      }
+    }
+  }
+
+  /**
+   * Conecta tanto la barra de búsqueda de escritorio (#searchInput) como la barra
+   * de celular siempre abierta (#mobileSearchInput) con autocompletado desde 1 letra.
+   */
+  function initAutocompleteSearchBar() {
+    function wireSearchInputPair(inputId, dropdownId, containerId, clearBtnId, submitBtnId) {
+      const searchInput = document.getElementById(inputId);
+      const dropdown = document.getElementById(dropdownId);
+      const searchContainer = containerId ? document.getElementById(containerId) : null;
+      const clearBtn = clearBtnId ? document.getElementById(clearBtnId) : null;
+      const submitBtn = submitBtnId ? document.getElementById(submitBtnId) : null;
+
+      if (!searchInput || !dropdown) return;
+
+      function renderSuggestions(rawQuery) {
+        const q = rawQuery.trim().toLowerCase();
+        if (q.length < 1) {
+          dropdown.classList.add('hidden');
+          dropdown.innerHTML = '';
+          return;
+        }
+
+        const startsWith = [];
+        const contains = [];
+        state.products.forEach((p) => {
+          const nameLower = p.nombre.toLowerCase();
+          const catLower = (p.categoria_nombre || '').toLowerCase();
+          if (nameLower.startsWith(q)) startsWith.push(p);
+          else if (nameLower.includes(q) || catLower.includes(q)) contains.push(p);
+        });
+
+        const matches = [...startsWith, ...contains].slice(0, 7);
+
+        if (matches.length === 0) {
+          dropdown.innerHTML = `
+            <div class="autocomplete-header">
+              <span>Sin coincidencias para "${rawQuery}"</span>
+            </div>
+          `;
+          dropdown.classList.remove('hidden');
+          return;
+        }
+
+        dropdown.innerHTML = `
+          <div class="autocomplete-header">
+            <span>Sugerencias (${startsWith.length + contains.length} encontrados)</span>
+            <span>Cant. Manual</span>
+          </div>
+          ${matches
+            .map(
+              (item) => `
+            <div class="autocomplete-item" role="option">
+              <div class="autocomplete-item-left" data-autocomplete-select="${item.nombre}">
+                <img src="${item.imagen_url}" alt="${item.nombre}" class="autocomplete-thumb" />
+                <div class="autocomplete-info">
+                  <div class="autocomplete-title">${item.nombre}</div>
+                  <div class="autocomplete-meta">${item.categoria_nombre} • <strong>${formatCurrency(item.precio)}</strong></div>
+                </div>
+              </div>
+              <div class="autocomplete-actions">
+                <input
+                  type="number"
+                  min="1"
+                  max="99999"
+                  value="1"
+                  class="autocomplete-qty-input"
+                  data-auto-qty-for="${item.id}"
+                  title="Escribe cualquier cantidad (ej: 100, 700)"
+                />
+                <button type="button" class="autocomplete-add-btn" data-autocomplete-add="${item.id}">
+                  + Añadir
+                </button>
+              </div>
+            </div>
+          `
+            )
+            .join('')}
+        `;
+        dropdown.classList.remove('hidden');
+      }
+
+      searchInput.addEventListener('input', (e) => {
+        const val = e.target.value;
+        state.searchQuery = val;
+        if (searchContainer) searchContainer.classList.toggle('has-value', val.trim().length > 0);
+        // Sincronizar ambos inputs si existen
+        const otherId = inputId === 'searchInput' ? 'mobileSearchInput' : 'searchInput';
+        const otherEl = document.getElementById(otherId);
+        if (otherEl && otherEl.value !== val) otherEl.value = val;
+
+        renderSuggestions(val);
+        if (CURRENT_PAGE === 'store') renderStoreProducts();
+      });
+
+      searchInput.addEventListener('focus', () => {
+        if (searchInput.value.trim().length >= 1) {
+          renderSuggestions(searchInput.value);
+        }
+      });
+
+      clearBtn?.addEventListener('click', () => {
+        state.searchQuery = '';
+        searchInput.value = '';
+        searchContainer?.classList.remove('has-value');
+        dropdown.classList.add('hidden');
+        if (CURRENT_PAGE === 'store') renderStoreProducts();
+      });
+
+      submitBtn?.addEventListener('click', () => {
+        const val = searchInput.value.trim();
+        dropdown.classList.add('hidden');
+        if (CURRENT_PAGE === 'store') {
+          state.searchQuery = val;
+          renderStoreProducts();
+          document.getElementById('catalogo-tienda')?.scrollIntoView({ behavior: 'smooth' });
+        } else if (val) {
+          window.location.href = `index.html?q=${encodeURIComponent(val)}#catalogo-tienda`;
+        }
+      });
+
+      dropdown.addEventListener('click', (e) => {
+        const addBtn = e.target.closest('[data-autocomplete-add]');
+        if (addBtn) {
+          const prodId = Number(addBtn.getAttribute('data-autocomplete-add'));
+          const row = addBtn.closest('.autocomplete-item');
+          const qtyInput = row ? row.querySelector(`[data-auto-qty-for="${prodId}"]`) : null;
+          const qty = Math.max(1, parseInt(qtyInput ? qtyInput.value : '1', 10) || 1);
+          const product = state.products.find((p) => Number(p.id) === prodId);
+          if (product) addToCart(product, qty);
+          return;
+        }
+
+        const selectLeft = e.target.closest('[data-autocomplete-select]');
+        if (selectLeft) {
+          const name = selectLeft.getAttribute('data-autocomplete-select');
+          searchInput.value = name;
+          state.searchQuery = name;
+          dropdown.classList.add('hidden');
+          if (CURRENT_PAGE === 'store') {
+            renderStoreProducts();
+            document.getElementById('catalogo-tienda')?.scrollIntoView({ behavior: 'smooth' });
+          } else {
+            window.location.href = `index.html?q=${encodeURIComponent(name)}#catalogo-tienda`;
+          }
+        }
+      });
+    }
+
+    // Conectar buscador Desktop y buscador Móvil siempre abierto
+    wireSearchInputPair('searchInput', 'searchAutocompleteDropdown', 'searchContainer', 'searchClearBtn', null);
+    wireSearchInputPair('mobileSearchInput', 'mobileSearchAutocompleteDropdown', null, null, 'mobileSearchSubmitBtn');
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#searchWrapper') && !e.target.closest('#mobileSearchRow')) {
+        document.getElementById('searchAutocompleteDropdown')?.classList.add('hidden');
+        document.getElementById('mobileSearchAutocompleteDropdown')?.classList.add('hidden');
+      }
+    });
+  }
+
+  // ==========================================================================
+  // 2. CARRITO DE COMPRAS + GESTIÓN Y CAMBIO DE DIRECCIONES EN VIVO DESDE EL CARRITO
+  // ==========================================================================
+  function triggerCartHeaderAnimation() {
+    const cartBtn = document.getElementById('cartToggleBtn');
+    if (!cartBtn) return;
+    cartBtn.classList.remove('is-animating');
+    void cartBtn.offsetWidth;
+    cartBtn.classList.add('is-animating');
+  }
+
+  function addToCart(product, quantityToAdd = 1) {
+    const cleanQty = Math.max(1, parseInt(quantityToAdd, 10) || 1);
+    const existing = state.cart.find((item) => Number(item.id) === Number(product.id));
+    if (existing) {
+      existing.cantidad += cleanQty;
+    } else {
+      state.cart.push({
+        id: product.id,
+        nombre: product.nombre,
+        precio: Number(product.precio),
+        presentacion: product.presentacion,
+        imagen_url: product.imagen_url,
+        cantidad: cleanQty
+      });
+    }
+
+    saveAndRenderCart();
+    triggerCartHeaderAnimation();
+    showToast(`Añadido: ${cleanQty} und. de ${product.nombre}`, 'shopping_cart_checkout');
+  }
+
+  function setCartItemExactQuantity(productId, newQuantity) {
+    const idx = state.cart.findIndex((item) => Number(item.id) === Number(productId));
+    if (idx === -1) return;
+    const parsed = parseInt(newQuantity, 10);
+    if (isNaN(parsed) || parsed <= 0) {
+      state.cart.splice(idx, 1);
+    } else {
+      state.cart[idx].cantidad = Math.min(99999, parsed);
+    }
+    saveAndRenderCart();
+    if (CURRENT_PAGE === 'pagos') renderCheckoutPageItems();
+  }
+
+  function getCartTotal() {
+    return state.cart.reduce((sum, item) => sum + item.precio * item.cantidad, 0);
+  }
+
+  function getCartTotalUnits() {
+    return state.cart.reduce((sum, item) => sum + item.cantidad, 0);
+  }
+
+  /**
+   * Renderiza el selector y gestor de direcciones EN VIVO directamente dentro del Carrito.
+   * Nota: Las direcciones aquí NO muestran fecha de entrega; el estimado solo se calcula al pagar.
+   */
+  function renderCartLiveAddressManager() {
+    const box = document.getElementById('cartLiveAddressBox');
+    const checkoutBtn = document.getElementById('btnGoToCheckoutPage');
+    const checkoutText = document.getElementById('btnCheckoutText');
+    if (!box) return;
+
+    if (!state.user) {
+      box.innerHTML = `
+        <div class="cart-addr-header">
+          <span><span class="material-symbols-rounded" style="font-size:0.95rem; vertical-align:middle;">lock</span> Sesión requerida para pedir</span>
+        </div>
+        <div style="font-size:0.77rem; color:var(--text-secondary);">
+          Inicia sesión o crea tu cuenta para gestionar tus direcciones y realizar pedidos.
+        </div>
+      `;
+      if (checkoutBtn) checkoutBtn.setAttribute('href', 'perfil.html#cuenta-section');
+      if (checkoutText) checkoutText.textContent = 'Iniciar Sesión para Hacer Pedido';
+      return;
+    }
+
+    if (checkoutBtn) checkoutBtn.setAttribute('href', 'pagos.html');
+    if (checkoutText) checkoutText.textContent = 'Continuar a la Página de Pagos';
+
+    syncSelectedAddressDefault();
+    const dirs = state.direcciones || [];
+
+    const optionsHtml =
+      dirs.length === 0
+        ? `<option value="">Sin direcciones guardadas (Añade una aquí)</option>`
+        : dirs
+            .map(
+              (d) =>
+                `<option value="${d.id}" ${Number(d.id) === Number(state.selectedAddressId) ? 'selected' : ''}>
+                  ${d.etiqueta} (${d.municipio}) — ${d.direccion}
+                </option>`
+            )
+            .join('');
+
+    box.innerHTML = `
+      <div class="cart-addr-header">
+        <span>📍 Dirección de entrega (${dirs.length}/5)</span>
+        <a href="perfil.html#direcciones-mapa-section" style="color:var(--brand-red); font-size:0.73rem;">Abrir Mapa</a>
+      </div>
+      <div class="cart-addr-actions-row">
+        <select class="cart-addr-select" id="cartLiveAddressSelect" aria-label="Cambiar dirección desde el carrito">
+          ${optionsHtml}
+        </select>
+        <button type="button" class="cart-addr-mini-btn" id="btnCartToggleQuickAddr" title="Añadir nueva dirección desde el carrito">
+          <span class="material-symbols-rounded" style="font-size:0.95rem;">add_location_alt</span>
+          <span>+ Nueva</span>
+        </button>
+        ${
+          dirs.length > 0
+            ? `<button type="button" class="cart-addr-mini-btn" id="btnCartDeleteSelectedAddr" title="Eliminar dirección seleccionada">
+                 <span class="material-symbols-rounded" style="font-size:0.95rem;">delete</span>
+               </button>`
+            : ''
+        }
+      </div>
+      ${
+        state.cartQuickAddrOpen
+          ? `<div class="cart-quick-addr-form" id="cartQuickAddrForm">
+               <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.4rem;">
+                 <input type="text" id="cartQuickLabel" class="cart-quick-input" placeholder="Etiqueta (Casa, Sede)" value="Sede" />
+                 <input type="text" id="cartQuickMuni" class="cart-quick-input" placeholder="Municipio" value="Villavicencio" />
+               </div>
+               <input type="text" id="cartQuickStreet" class="cart-quick-input" placeholder="Dirección exacta (Ej: Calle 15 # 12-91)" />
+               <div style="display:flex; justify-content:flex-end; gap:0.4rem;">
+                 <button type="button" class="cart-addr-mini-btn" id="btnCartCancelQuickAddr">Cancelar</button>
+                 <button type="button" class="cart-addr-mini-btn" id="btnCartSaveQuickAddr" style="background:var(--brand-red); color:#fff; border-color:var(--brand-red);">Guardar</button>
+               </div>
+             </div>`
+          : ''
+      }
+    `;
+  }
+
+  function saveAndRenderCart() {
+    localStorage.setItem('danillanos_cart', JSON.stringify(state.cart));
+    const totalUnits = getCartTotalUnits();
+    const subtotal = getCartTotal();
+
+    const badge = document.getElementById('cartBadge');
+    const subtotalEl = document.getElementById('cartSubtotalValue');
+    const container = document.getElementById('cartItemsContainer');
+
+    if (badge) badge.textContent = String(totalUnits);
+    if (subtotalEl) subtotalEl.textContent = formatCurrency(subtotal);
+    renderCartLiveAddressManager();
+    if (!container) return;
+
+    if (state.cart.length === 0) {
+      container.innerHTML = `
+        <div class="cart-empty-msg" style="text-align:center; padding:2rem 1rem; color:var(--text-secondary);">
+          <span class="material-symbols-rounded" style="font-size: 3rem;">shopping_cart</span>
+          <p style="margin-top:0.5rem;">Tu carrito está vacío. Añade productos desde el catálogo.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = state.cart
+      .map(
+        (item) => `
+        <div class="cart-item">
+          <img src="${item.imagen_url}" alt="${item.nombre}" class="cart-item-img" />
+          <div class="cart-item-info">
+            <div class="cart-item-name">${item.nombre}</div>
+            <div class="cart-item-price">${formatCurrency(item.precio)} c/u • Subtotal: ${formatCurrency(item.precio * item.cantidad)}</div>
+            <div class="cart-item-qty">
+              <button type="button" class="qty-btn" data-cart-step-id="${item.id}" data-cart-delta="-1">-</button>
+              <input
+                type="number"
+                min="1"
+                max="99999"
+                value="${item.cantidad}"
+                class="cart-direct-qty-input"
+                data-cart-direct-id="${item.id}"
+                aria-label="Cantidad manual"
+              />
+              <button type="button" class="qty-btn" data-cart-step-id="${item.id}" data-cart-delta="1">+</button>
+            </div>
+          </div>
+        </div>
+      `
+      )
+      .join('');
+  }
+
+  function initSharedCartDrawer() {
+    saveAndRenderCart();
+    const toggleBtn = document.getElementById('cartToggleBtn');
+    const closeBtn = document.getElementById('cartCloseBtn');
+    const backdrop = document.getElementById('cartBackdrop');
+    const drawer = document.getElementById('cartDrawer');
+    const container = document.getElementById('cartItemsContainer');
+    const liveAddrBox = document.getElementById('cartLiveAddressBox');
+    const checkoutBtn = document.getElementById('btnGoToCheckoutPage');
+
+    if (toggleBtn && drawer && backdrop) {
+      toggleBtn.addEventListener('click', () => {
+        renderCartLiveAddressManager();
+        drawer.classList.add('is-open');
+        backdrop.classList.add('is-open');
+      });
+    }
+    if (closeBtn && drawer && backdrop) {
+      closeBtn.addEventListener('click', () => {
+        drawer.classList.remove('is-open');
+        backdrop.classList.remove('is-open');
+      });
+      backdrop.addEventListener('click', () => {
+        drawer.classList.remove('is-open');
+        backdrop.classList.remove('is-open');
+      });
+    }
+
+    checkoutBtn?.addEventListener('click', (e) => {
+      if (!state.user) {
+        e.preventDefault();
+        showToast('Debes iniciar sesión o crear tu cuenta para realizar un pedido', 'lock');
+        window.location.href = 'perfil.html#cuenta-section';
+      }
+    });
+
+    if (liveAddrBox) {
+      liveAddrBox.addEventListener('change', (e) => {
+        if (e.target.id === 'cartLiveAddressSelect') {
+          state.selectedAddressId = Number(e.target.value);
+          sessionStorage.setItem('danillanos_selected_addr_id', String(state.selectedAddressId));
+          const chosen = state.direcciones.find((d) => Number(d.id) === Number(state.selectedAddressId));
+          if (chosen) {
+            showToast(`Dirección activa cambiada a: ${chosen.etiqueta}`, 'pin_drop');
+            if (CURRENT_PAGE === 'pagos') {
+              const idx = state.direcciones.findIndex((d) => Number(d.id) === Number(chosen.id));
+              if (idx !== -1) applySavedAddressToCheckout(idx);
+            }
+          }
+        }
+      });
+
+      liveAddrBox.addEventListener('click', async (e) => {
+        if (e.target.closest('#btnCartToggleQuickAddr')) {
+          if (state.direcciones.length >= 5) {
+            showToast('Máximo 5 direcciones por cuenta alcanzado', 'warning');
+            return;
+          }
+          state.cartQuickAddrOpen = !state.cartQuickAddrOpen;
+          renderCartLiveAddressManager();
+          return;
+        }
+
+        if (e.target.closest('#btnCartCancelQuickAddr')) {
+          state.cartQuickAddrOpen = false;
+          renderCartLiveAddressManager();
+          return;
+        }
+
+        if (e.target.closest('#btnCartSaveQuickAddr')) {
+          const etiqueta = document.getElementById('cartQuickLabel')?.value.trim() || 'Principal';
+          const municipio = document.getElementById('cartQuickMuni')?.value.trim() || 'Villavicencio';
+          const direccion = document.getElementById('cartQuickStreet')?.value.trim();
+          if (!direccion) {
+            showToast('Escribe la dirección para guardarla', 'warning');
+            return;
+          }
+          const muniMatch = CONFIG.map.municipiosMeta.find(
+            (m) => m.nombre.toLowerCase() === municipio.toLowerCase()
+          );
+          const lat = muniMatch ? muniMatch.lat : CONFIG.map.villavicencioCenter.lat;
+          const lng = muniMatch ? muniMatch.lng : CONFIG.map.villavicencioCenter.lng;
+
+          const res = await fetch(`${CONFIG.api.baseUrl}/direcciones`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ etiqueta, municipio, direccion, barrio_referencia: '', lat, lng })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            state.direcciones = data.direcciones;
+            const newest = state.direcciones[state.direcciones.length - 1];
+            if (newest) {
+              state.selectedAddressId = newest.id;
+              sessionStorage.setItem('danillanos_selected_addr_id', String(newest.id));
+            }
+            sessionStorage.setItem('danillanos_dirs', JSON.stringify(state.direcciones));
+            state.cartQuickAddrOpen = false;
+            renderCartLiveAddressManager();
+            renderSharedHeaderAuthUI();
+            if (CURRENT_PAGE === 'perfil') renderSavedAddressesList();
+            if (CURRENT_PAGE === 'pagos') populateCheckoutSavedAddressesDropdown();
+            showToast('Dirección añadida y seleccionada en tu carrito', 'check_circle');
+          } else {
+            showToast(data.message || 'No se pudo guardar la dirección', 'error');
+          }
+          return;
+        }
+
+        if (e.target.closest('#btnCartDeleteSelectedAddr')) {
+          if (!state.selectedAddressId) return;
+          const res = await fetch(`${CONFIG.api.baseUrl}/direcciones/${state.selectedAddressId}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+          });
+          const data = await res.json();
+          if (data.ok) {
+            state.direcciones = data.direcciones;
+            sessionStorage.setItem('danillanos_dirs', JSON.stringify(state.direcciones));
+            syncSelectedAddressDefault();
+            renderCartLiveAddressManager();
+            renderSharedHeaderAuthUI();
+            if (CURRENT_PAGE === 'perfil') renderSavedAddressesList();
+            if (CURRENT_PAGE === 'pagos') populateCheckoutSavedAddressesDropdown();
+            showToast('Dirección eliminada desde el carrito', 'delete');
+          }
+        }
+      });
+    }
+
+    if (container) {
+      container.addEventListener('click', (e) => {
+        const stepBtn = e.target.closest('[data-cart-step-id]');
+        if (!stepBtn) return;
+        const id = Number(stepBtn.getAttribute('data-cart-step-id'));
+        const delta = Number(stepBtn.getAttribute('data-cart-delta'));
+        const current = state.cart.find((c) => Number(c.id) === id);
+        if (current) setCartItemExactQuantity(id, current.cantidad + delta);
+      });
+
+      container.addEventListener('change', (e) => {
+        const directInput = e.target.closest('[data-cart-direct-id]');
+        if (!directInput) return;
+        const id = Number(directInput.getAttribute('data-cart-direct-id'));
+        setCartItemExactQuantity(id, directInput.value);
+      });
+    }
+  }
+
+  // ==========================================================================
+  // 3. GEOCODIFICACIÓN INVERSA AUTOMÁTICA EN EL MAPA
+  //    (Las direcciones en Perfil NO muestran estimado; el estimado se muestra SOLO al pagar en pagos.html)
+  // ==========================================================================
+  const VILLAVICENCIO_BARRIOS = [
+    { nombre: 'Barrio Siete de Agosto', lat: 4.1392, lng: -73.6351, via: 'Av. 40 # 26C' },
+    { nombre: 'Avenida Los Maracos', lat: 4.1365, lng: -73.6215, via: 'Calle 15 # 12' },
+    { nombre: 'Barrio Barzal Alto', lat: 4.1468, lng: -73.6412, via: 'Calle 35 # 41' },
+    { nombre: 'Barrio La Grama', lat: 4.1562, lng: -73.6385, via: 'Calle 44 # 30' },
+    { nombre: 'Barrio Caudal', lat: 4.1605, lng: -73.6430, via: 'Carrera 33 # 48' },
+    { nombre: 'Ciudad Porfía', lat: 4.0985, lng: -73.6682, via: 'Calle 51 Sur # 43' },
+    { nombre: 'Barrio Esperanza', lat: 4.1310, lng: -73.6390, via: 'Carrera 38 # 15' },
+    { nombre: 'Barrio Montecarlo', lat: 4.1155, lng: -73.6520, via: 'Calle 25 Sur # 40' },
+    { nombre: 'Vía Catama', lat: 4.1290, lng: -73.5980, via: 'Troncal del Llano Km 2' }
+  ];
+
+  function updateZoneBannerUI(lat, lng, resolvedMuni) {
+    const insideVcio = isInsideVillavicencio(lat, lng);
+    const zoneIndicator = document.getElementById('zoneLiveIndicator');
+    const zoneIcon = document.getElementById('zoneLiveIcon');
+    const zoneTitle = document.getElementById('zoneLiveTitle');
+    const zoneSubtitle = document.getElementById('zoneLiveSubtitle');
+    const etaSummary = document.getElementById('checkoutEtaSummaryText');
+
+    if (!zoneIndicator) return;
+
+    if (CURRENT_PAGE === 'pagos') {
+      // AL MOMENTO DE PAGAR: aquí sí se calcula y presenta el Estimado de Entrega
+      if (insideVcio) {
+        zoneIndicator.className = 'zone-live-indicator is-villavicencio';
+        if (zoneIcon) zoneIcon.textContent = 'bolt';
+        if (zoneTitle) zoneTitle.textContent = 'Estimado de Entrega al Pagar: Envío el mismo día (Villavicencio)';
+        if (zoneSubtitle) zoneSubtitle.textContent = 'Dirección dentro del radio urbano de Villavicencio';
+        if (etaSummary) etaSummary.textContent = 'Envío el mismo día (Villavicencio)';
+      } else {
+        zoneIndicator.className = 'zone-live-indicator is-meta-outside';
+        if (zoneIcon) zoneIcon.textContent = 'event_available';
+        if (zoneTitle) zoneTitle.textContent = 'Estimado de Entrega al Pagar: Llega el 00 de octubre';
+        if (zoneSubtitle) zoneSubtitle.textContent = `Ruta departamental del Meta (${resolvedMuni || 'Fuera de Villavicencio'})`;
+        if (etaSummary) etaSummary.textContent = 'Llega el 00 de octubre';
+      }
+    } else {
+      // EN PERFIL / GESTIÓN DE DIRECCIONES: las direcciones de por sí NO dicen cuándo se entregan
+      if (insideVcio) {
+        zoneIndicator.className = 'zone-live-indicator is-villavicencio';
+        if (zoneIcon) zoneIcon.textContent = 'location_on';
+        if (zoneTitle) zoneTitle.textContent = 'Ubicación dentro del Radio Urbano de Villavicencio';
+        if (zoneSubtitle) zoneSubtitle.textContent = 'El estimado de entrega se calculará al momento de pagar tu pedido.';
+      } else {
+        zoneIndicator.className = 'zone-live-indicator is-meta-outside';
+        if (zoneIcon) zoneIcon.textContent = 'map';
+        if (zoneTitle) zoneTitle.textContent = `Ubicación en ${resolvedMuni || 'Municipio del Meta'} (Departamento del Meta)`;
+        if (zoneSubtitle) zoneSubtitle.textContent = 'El estimado de entrega se calculará al momento de pagar tu pedido.';
+      }
+    }
+  }
+
+  async function reverseGeocodeAndAutofill(lat, lng, municipioOverride = null) {
+    const latInput = document.getElementById('addrLat');
+    const lngInput = document.getElementById('addrLng');
+    const streetInput = document.getElementById('addrStreet');
+    const refInput = document.getElementById('addrRef');
+    const muniInput = document.getElementById('addrMunicipio');
+    const coordsDisplay = document.getElementById('coordsDisplayText');
+
+    const cleanLat = Number(lat).toFixed(6);
+    const cleanLng = Number(lng).toFixed(6);
+
+    if (latInput) latInput.value = cleanLat;
+    if (lngInput) lngInput.value = cleanLng;
+    if (coordsDisplay) coordsDisplay.textContent = `${cleanLat}, ${cleanLng}`;
+
+    const insideVcio = isInsideVillavicencio(lat, lng);
+
+    let nearestBarrio = VILLAVICENCIO_BARRIOS[0];
+    let minBarrioDist = Infinity;
+    VILLAVICENCIO_BARRIOS.forEach((b) => {
+      const d = haversineKm(lat, lng, b.lat, b.lng);
+      if (d < minBarrioDist) {
+        minBarrioDist = d;
+        nearestBarrio = b;
+      }
+    });
+
+    const houseNum = Math.max(1, Math.round((Math.abs(lat * 10000) % 85) + 10));
+    let resolvedMuni = insideVcio ? 'Villavicencio' : municipioOverride || 'Acacías';
+    if (!insideVcio && !municipioOverride) {
+      let minMuniDist = Infinity;
+      CONFIG.map.municipiosMeta.forEach((m) => {
+        const d = haversineKm(lat, lng, m.lat, m.lng);
+        if (d < minMuniDist) {
+          minMuniDist = d;
+          resolvedMuni = m.nombre;
+        }
+      });
+    }
+
+    updateZoneBannerUI(lat, lng, resolvedMuni);
+
+    if (muniInput) muniInput.value = resolvedMuni;
+    if (streetInput) {
+      streetInput.value = insideVcio
+        ? `${nearestBarrio.via} - ${houseNum} (${nearestBarrio.nombre})`
+        : `Calle Principal # ${houseNum} - 15 Centro (${resolvedMuni})`;
+    }
+    if (refInput && !refInput.value) {
+      refInput.value = insideVcio
+        ? `${nearestBarrio.nombre} (Pin exacto en mapa)`
+        : `Zona urbana ${resolvedMuni}, Meta`;
+    }
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${cleanLat}&lon=${cleanLng}&accept-language=es`
+      );
+      if (response.ok) {
+        const geo = await response.json();
+        if (geo && geo.address) {
+          const road = geo.address.road || geo.address.pedestrian || geo.address.residential;
+          const suburb = geo.address.suburb || geo.address.neighbourhood || geo.address.quarter;
+          const city = geo.address.city || geo.address.town || geo.address.village || geo.address.county;
+          const number = geo.address.house_number ? ` # ${geo.address.house_number}` : ` - ${houseNum}`;
+
+          if (road && streetInput) {
+            streetInput.value = `${road}${number}${suburb ? `, ${suburb}` : ''}`;
+          }
+          if (suburb && refInput) {
+            refInput.value = `${suburb} (Pin puesto en el mapa)`;
+          }
+          if (city && muniInput && !insideVcio) {
+            muniInput.value = city;
+            updateZoneBannerUI(lat, lng, city);
+          }
+        }
+      }
+    } catch (_) {
+      // Ya autorellenado con nomenclatura local instantánea
+    }
+  }
+
+
+  function createBrandRedPinIcon(labelText = '★') {
+    if (typeof L === 'undefined') return undefined;
+    return L.divIcon({
+      className: 'danillanos-red-pin-icon',
+      html: `
+        <div class="danillanos-red-pin-marker">
+          <span class="danillanos-red-pin-pulse"></span>
+          <span class="danillanos-red-pin-inner">${labelText}</span>
+        </div>
+      `,
+      iconSize: [38, 38],
+      iconAnchor: [19, 38],
+      popupAnchor: [0, -36]
+    });
+  }
+
+  function createHqPinIcon() {
+    if (typeof L === 'undefined') return undefined;
+    return L.divIcon({
+      className: 'danillanos-red-pin-icon',
+      html: `<div class="danillanos-hq-pin-marker" title="Sede Principal Danillanos">🥩</div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+      popupAnchor: [0, -18]
+    });
+  }
+
+  function setupInteractiveCoverageMap(containerId) {
+    const mapEl = document.getElementById(containerId);
+    if (!mapEl || typeof L === 'undefined') return;
+    if (state.maps.addressMap) {
+      setTimeout(() => state.maps.addressMap.invalidateSize(), 150);
+      return;
+    }
+
+    const center = CONFIG.map.villavicencioCenter;
+    const map = L.map(containerId).setView([center.lat, center.lng], 13);
+
+    L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: '&copy; Google Maps • Danillanos Meta'
+    }).addTo(map);
+
+    L.circle([center.lat, center.lng], {
+      color: '#e01a2c',
+      fillColor: '#e01a2c',
+      fillOpacity: 0.11,
+      weight: 2,
+      radius: CONFIG.map.villavicencioRadiusMeters || 9500
+    })
+      .addTo(map)
+      .bindPopup('<strong>Radio Urbano Villavicencio</strong>');
+
+    const hq = CONFIG.map.sedeDanillanos;
+    L.marker([hq.lat, hq.lng], { icon: createHqPinIcon() })
+      .addTo(map)
+      .bindPopup(`<strong>🥩 ${hq.nombre}</strong><br>Centro de Despacho`);
+
+    const userPin = L.marker([center.lat, center.lng], {
+      draggable: true,
+      icon: createBrandRedPinIcon('★')
+    })
+      .addTo(map)
+      .bindPopup('<strong>📍 Tu Pin Rojo Danillanos</strong><br>Así mismo lo verá el entregador')
+      .openPopup();
+
+    userPin.on('dragend', () => {
+      const pos = userPin.getLatLng();
+      reverseGeocodeAndAutofill(pos.lat, pos.lng);
+      showToast('Pin actualizado y dirección autorellenada', 'pin_drop');
+    });
+
+    map.on('click', (e) => {
+      userPin.setLatLng(e.latlng).openPopup();
+      reverseGeocodeAndAutofill(e.latlng.lat, e.latlng.lng);
+      showToast('Pin colocado en tu ubicación y dirección autorellenada', 'pin_drop');
+    });
+
+    state.maps.addressMap = map;
+    state.maps.addressMarker = userPin;
+
+    const muniBar = document.getElementById('metaMunicipalitiesBar');
+    if (muniBar) {
+      muniBar.innerHTML = '';
+      CONFIG.map.municipiosMeta.forEach((muni) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `muni-btn ${muni.nombre === 'Villavicencio' ? 'active' : ''}`;
+        btn.textContent = muni.nombre;
+        btn.addEventListener('click', () => {
+          muniBar.querySelectorAll('.muni-btn').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          map.setView([muni.lat, muni.lng], muni.es_villavicencio ? 13 : 12);
+          userPin.setLatLng([muni.lat, muni.lng]).openPopup();
+          reverseGeocodeAndAutofill(muni.lat, muni.lng, muni.nombre);
+        });
+        muniBar.appendChild(btn);
+      });
+    }
+
+    reverseGeocodeAndAutofill(center.lat, center.lng, 'Villavicencio');
+    setTimeout(() => map.invalidateSize(), 240);
+  }
+
+  // ==========================================================================
+  // 4. PÁGINA TIENDA PRINCIPAL (index.html)
+  // ==========================================================================
+  function initStorePage() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('q')) {
+      state.searchQuery = params.get('q');
+      const searchInput = document.getElementById('searchInput');
+      const mobileInput = document.getElementById('mobileSearchInput');
+      const searchContainer = document.getElementById('searchContainer');
+      if (searchInput) searchInput.value = state.searchQuery;
+      if (mobileInput) mobileInput.value = state.searchQuery;
+      if (searchContainer) searchContainer.classList.add('has-value');
+    }
+
+    initHeroCarousel();
+    renderStoreProducts();
+
+    const categoryPills = document.getElementById('categoryPills');
+    if (categoryPills) {
+      categoryPills.addEventListener('click', (e) => {
+        const pill = e.target.closest('.category-pill');
+        if (!pill) return;
+        setStoreCategoryFilter(pill.getAttribute('data-category'));
+      });
+    }
+
+    document.querySelectorAll('[data-filter-category]').forEach((link) => {
+      link.addEventListener('click', () => {
+        const cat = link.getAttribute('data-filter-category');
+        if (CURRENT_PAGE === 'store') setStoreCategoryFilter(cat);
+      });
+    });
+
+    const btnLoadMore = document.getElementById('btnLoadMore');
+    if (btnLoadMore) {
+      btnLoadMore.addEventListener('click', () => {
+        state.visibleProductsLimit += 48;
+        renderStoreProducts();
+      });
+    }
+
+    const btnResetSearch = document.getElementById('btnResetSearch');
+    if (btnResetSearch) {
+      btnResetSearch.addEventListener('click', () => {
+        state.searchQuery = '';
+        const searchInput = document.getElementById('searchInput');
+        const mobileInput = document.getElementById('mobileSearchInput');
+        if (searchInput) searchInput.value = '';
+        if (mobileInput) mobileInput.value = '';
+        document.getElementById('searchContainer')?.classList.remove('has-value');
+        setStoreCategoryFilter('todos');
+      });
+    }
+
+    const productsGrid = document.getElementById('productsGrid');
+    if (productsGrid) {
+      productsGrid.addEventListener('click', (e) => {
+        const stepBtn = e.target.closest('[data-card-qty-step]');
+        if (stepBtn) {
+          const prodId = stepBtn.getAttribute('data-card-qty-step');
+          const delta = Number(stepBtn.getAttribute('data-delta'));
+          const input = document.getElementById(`cardQtyInput_${prodId}`);
+          if (input) {
+            const currentVal = parseInt(input.value, 10) || 1;
+            input.value = String(Math.max(1, currentVal + delta));
+          }
+          return;
+        }
+
+        const addBtn = e.target.closest('[data-add-product-id]');
+        if (addBtn) {
+          const prodId = Number(addBtn.getAttribute('data-add-product-id'));
+          const input = document.getElementById(`cardQtyInput_${prodId}`);
+          const qty = Math.max(1, parseInt(input ? input.value : '1', 10) || 1);
+          const product = state.products.find((p) => Number(p.id) === prodId);
+          if (product) addToCart(product, qty);
+        }
+      });
+    }
+  }
+
+  function initHeroCarousel() {
+    const track = document.getElementById('carouselTrack');
+    const dots = document.getElementById('carouselDots');
+    const progressBar = document.getElementById('carouselProgressBar');
+    const prevBtn = document.getElementById('carouselPrevBtn');
+    const nextBtn = document.getElementById('carouselNextBtn');
+    if (!track || !dots || !progressBar) return;
+
+    function renderSlides() {
+      track.innerHTML = '';
+      dots.innerHTML = '';
+
+      state.slides.forEach((slide, index) => {
+        const slideEl = document.createElement('article');
+        slideEl.className = `carousel-slide ${index === state.carousel.currentIndex ? 'is-active' : ''}`;
+        const buttonIcon = slide.tipo_accion === 'buy_now' ? 'local_mall' : 'add_shopping_cart';
+
+        slideEl.innerHTML = `
+          <img src="${slide.imagen_url}" alt="${slide.titulo}" class="carousel-slide-img" />
+          <div class="carousel-slide-overlay">
+            <div class="slide-caption-left">
+              <span class="slide-badge">
+                <span class="material-symbols-rounded" style="font-size: 0.95rem;">verified</span>
+                ${slide.subtitulo}
+              </span>
+              <h2 class="slide-title">${slide.titulo}</h2>
+              <p class="slide-description">${slide.descripcion}</p>
+              ${
+                slide.precio_destacado
+                  ? `<div class="slide-price-tag">
+                       <span class="slide-price-label">Desde</span>
+                       <span class="slide-price-value">${formatCurrency(slide.precio_destacado)}</span>
+                     </div>`
+                  : ''
+              }
+            </div>
+            <div class="slide-action-right">
+              <button
+                type="button"
+                class="slide-cta-btn"
+                data-slide-product-id="${slide.producto_id || 1}"
+                data-slide-action="${slide.tipo_accion || 'add_to_cart'}"
+              >
+                <span>${slide.texto_boton || 'Añadir al carrito'}</span>
+                <span class="material-symbols-rounded">${buttonIcon}</span>
+              </button>
+            </div>
+          </div>
+        `;
+        track.appendChild(slideEl);
+
+        const dotBtn = document.createElement('button');
+        dotBtn.type = 'button';
+        dotBtn.className = `carousel-dot ${index === state.carousel.currentIndex ? 'is-active' : ''}`;
+        dotBtn.addEventListener('click', () => goToSlide(index));
+        dots.appendChild(dotBtn);
+      });
+    }
+
+    function updateTransform() {
+      track.style.transform = `translate3d(-${state.carousel.currentIndex * 100}%, 0, 0)`;
+      track.querySelectorAll('.carousel-slide').forEach((n, i) =>
+        n.classList.toggle('is-active', i === state.carousel.currentIndex)
+      );
+      dots.querySelectorAll('.carousel-dot').forEach((d, i) =>
+        d.classList.toggle('is-active', i === state.carousel.currentIndex)
+      );
+    }
+
+    function goToSlide(idx) {
+      const total = state.slides.length;
+      if (!total) return;
+      state.carousel.currentIndex = (idx + total) % total;
+      state.carousel.elapsedMs = 0;
+      progressBar.style.width = '0%';
+      updateTransform();
+    }
+
+    function tick(ts) {
+      if (!state.carousel.lastFrameTime) state.carousel.lastFrameTime = ts;
+      const delta = ts - state.carousel.lastFrameTime;
+      state.carousel.lastFrameTime = ts;
+
+      state.carousel.elapsedMs += delta;
+      const pct = Math.min((state.carousel.elapsedMs / state.carousel.durationMs) * 100, 100);
+      progressBar.style.width = `${pct}%`;
+
+      if (state.carousel.elapsedMs >= state.carousel.durationMs) {
+        goToSlide(state.carousel.currentIndex + 1);
+      }
+      state.carousel.rafId = requestAnimationFrame(tick);
+    }
+
+    renderSlides();
+    prevBtn?.addEventListener('click', () => goToSlide(state.carousel.currentIndex - 1));
+    nextBtn?.addEventListener('click', () => goToSlide(state.carousel.currentIndex + 1));
+
+    track.addEventListener('click', (e) => {
+      const btn = e.target.closest('.slide-cta-btn');
+      if (!btn) return;
+      const prodId = Number(btn.getAttribute('data-slide-product-id'));
+      const action = btn.getAttribute('data-slide-action');
+      const product = state.products.find((p) => Number(p.id) === prodId) || state.products[0];
+      if (product) {
+        addToCart(product, 1);
+        if (action === 'buy_now') {
+          window.location.href = state.user ? 'pagos.html' : 'perfil.html#cuenta-section';
+        }
+      }
+    });
+
+    state.carousel.rafId = requestAnimationFrame(tick);
+  }
+
+  function setStoreCategoryFilter(catSlug) {
+    state.filteredCategory = catSlug;
+    state.visibleProductsLimit = catSlug === 'todos' ? 36 : 40;
+    document.querySelectorAll('#categoryPills .category-pill').forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-category') === catSlug);
+    });
+    renderStoreProducts();
+  }
+
+  function renderStoreProducts() {
+    const grid = document.getElementById('productsGrid');
+    const banner = document.getElementById('searchStatusBanner');
+    const statusText = document.getElementById('searchStatusText');
+    const loadMoreBox = document.getElementById('loadMoreContainer');
+    const btnLoadMore = document.getElementById('btnLoadMore');
+    if (!grid) return;
+
+    const q = state.searchQuery.trim().toLowerCase();
+    const filtered = state.products.filter((product) => {
+      let matchesCat = true;
+      if (q === '') {
+        if (state.filteredCategory === 'mas_vendidos') matchesCat = Boolean(product.es_mas_vendido);
+        else if (state.filteredCategory !== 'todos') matchesCat = product.categoria_slug === state.filteredCategory;
+      } else if (state.filteredCategory !== 'todos' && state.filteredCategory !== 'mas_vendidos') {
+        matchesCat = product.categoria_slug === state.filteredCategory;
+      }
+
+      const matchesSearch =
+        q === '' ||
+        product.nombre.toLowerCase().includes(q) ||
+        (product.categoria_nombre && product.categoria_nombre.toLowerCase().includes(q)) ||
+        (product.codigo_sku && product.codigo_sku.toLowerCase().includes(q));
+
+      return matchesCat && matchesSearch;
+    });
+
+    if (banner && statusText) {
+      if (q !== '') {
+        banner.classList.remove('hidden');
+        statusText.textContent = `Mostrando resultados para "${state.searchQuery}" (${filtered.length} encontrados)`;
+      } else {
+        banner.classList.add('hidden');
+      }
+    }
+
+    const visible = filtered.slice(0, state.visibleProductsLimit);
+    grid.innerHTML = visible
+      .map(
+        (product) => `
+        <article class="product-card">
+          <div class="product-image-wrap">
+            <img src="${product.imagen_url}" alt="${product.nombre}" class="product-image" loading="lazy" />
+            ${product.etiqueta ? `<span class="product-tag-badge">${product.etiqueta}</span>` : ''}
+            <span class="product-temp-badge">
+              <span class="material-symbols-rounded">ac_unit</span>
+              <span>${product.temperatura_conservacion || 'Fresco'}</span>
+            </span>
+          </div>
+          <div class="product-body">
+            <div class="product-meta-top">
+              <span>${product.categoria_nombre || 'Danillanos'}</span>
+              <span>${product.codigo_sku || ''}</span>
+            </div>
+            <h3 class="product-title">${product.nombre}</h3>
+            <p class="product-desc">${product.presentacion} — ${product.descripcion}</p>
+            <div class="product-footer">
+              <div class="product-footer-top">
+                <span style="font-size:0.75rem; color:var(--text-muted);">Precio unitario</span>
+                <div>
+                  ${
+                    product.precio_anterior
+                      ? `<span class="product-price-old">${formatCurrency(product.precio_anterior)}</span>`
+                      : ''
+                  }
+                  <span class="product-price-current">${formatCurrency(product.precio)}</span>
+                </div>
+              </div>
+              <div class="product-bulk-row">
+                <div class="bulk-qty-box" title="Ingresa cualquier cantidad manualmente (ej. 100, 700)">
+                  <button type="button" class="bulk-step-btn" data-card-qty-step="${product.id}" data-delta="-1">-</button>
+                  <input
+                    type="number"
+                    min="1"
+                    max="99999"
+                    value="1"
+                    class="bulk-qty-input"
+                    id="cardQtyInput_${product.id}"
+                    aria-label="Cantidad de unidades"
+                  />
+                  <button type="button" class="bulk-step-btn" data-card-qty-step="${product.id}" data-delta="1">+</button>
+                </div>
+                <button type="button" class="btn-add-product" data-add-product-id="${product.id}">
+                  <span class="material-symbols-rounded">add_shopping_cart</span>
+                  <span>Añadir</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>
+      `
+      )
+      .join('');
+
+    if (loadMoreBox && btnLoadMore) {
+      if (filtered.length > state.visibleProductsLimit) {
+        loadMoreBox.classList.remove('hidden');
+        btnLoadMore.querySelector('span').textContent = `Mostrar más productos (${visible.length} de ${filtered.length})`;
+      } else {
+        loadMoreBox.classList.add('hidden');
+      }
+    }
+  }
+
+  // ==========================================================================
+  // 5. PÁGINA AMPLIA DE PERFIL, MAPA, LÍNEA DE 4 ETAPAS, CANCELACIÓN ANTES DE ENVÍO, HISTORIAL Y SOPORTE CON FILTROS (perfil.html)
+  // ==========================================================================
+
+  // Almacenamiento local sincronizado para garantizar CERO errores 404 incluso si el servidor Node no se ha reiniciado
+  const DEFAULT_STAFF_USERS = [
+    {
+      id: 1,
+      username: 'Carlos Andrés Méndez',
+      nombre_completo: 'Carlos Andrés Méndez (Cliente)',
+      empresa: 'Restaurante El Corral Llanero',
+      tipo_documento: 'NIT',
+      numero_documento: '900412890-1',
+      email: 'cliente@danillanos.com',
+      telefono: '3114567890',
+      rol: 'cliente',
+      activo: true
+    },
+    {
+      id: 2,
+      username: 'Laura Valentina Gómez',
+      nombre_completo: 'Laura Valentina Gómez (Empleado General)',
+      empresa: 'Danillanos Sede Principal',
+      tipo_documento: 'CC',
+      numero_documento: '1121884512',
+      email: 'empleado@danillanos.com',
+      telefono: '3129876543',
+      rol: 'empleado',
+      activo: true
+    },
+    {
+      id: 3,
+      username: 'Diego Alejandro Vargas',
+      nombre_completo: 'Diego Alejandro Vargas (Entregador)',
+      empresa: 'Logística Danillanos',
+      tipo_documento: 'CC',
+      numero_documento: '1121902341',
+      email: 'entregador@danillanos.com',
+      telefono: '3142223344',
+      rol: 'entregador',
+      activo: true
+    },
+    {
+      id: 4,
+      username: 'Camila Andrea Pardo',
+      nombre_completo: 'Camila Andrea Pardo (Soporte)',
+      empresa: 'Centro de Soporte Danillanos',
+      tipo_documento: 'CC',
+      numero_documento: '1121776120',
+      email: 'soporte@danillanos.com',
+      telefono: '3156667788',
+      rol: 'soporte',
+      activo: true
+    },
+    {
+      id: 5,
+      username: 'Juan Fernando Galindo',
+      nombre_completo: 'Juan Fernando Galindo (Administrador)',
+      empresa: 'Gerencia Danillanos',
+      tipo_documento: 'CC',
+      numero_documento: '1121550987',
+      email: 'admin@danillanos.com',
+      telefono: '3109998877',
+      rol: 'admin',
+      activo: true
+    },
+    {
+      id: 6,
+      username: 'Andrés Felipe Castro',
+      nombre_completo: 'Andrés Felipe Castro (Entregador Ruta Norte)',
+      empresa: 'Logística Danillanos',
+      tipo_documento: 'CC',
+      numero_documento: '1121945610',
+      email: 'entregador2@danillanos.com',
+      telefono: '3164455667',
+      rol: 'entregador',
+      activo: true
+    }
+  ];
+
+  function getLocalUsersStore() {
+    try {
+      const raw = localStorage.getItem('danillanos_users_store');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_) {}
+    localStorage.setItem('danillanos_users_store', JSON.stringify(DEFAULT_STAFF_USERS));
+    return [...DEFAULT_STAFF_USERS];
+  }
+
+  function saveLocalUsersStore(list) {
+    localStorage.setItem('danillanos_users_store', JSON.stringify(list));
+  }
+
+  function getOrderOverridesMap() {
+    try {
+      return JSON.parse(localStorage.getItem('danillanos_orders_overrides') || '{}');
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function saveOrderOverride(orderId, patch) {
+    const map = getOrderOverridesMap();
+    map[orderId] = { ...(map[orderId] || {}), ...patch };
+    localStorage.setItem('danillanos_orders_overrides', JSON.stringify(map));
+  }
+
+  function applyOrderOverrides(orders = []) {
+    const map = getOrderOverridesMap();
+    return orders.map((ord) => {
+      const ov = map[ord.id];
+      if (!ov) return ord;
+      return { ...ord, ...ov };
+    });
+  }
+
+  function getLocalTicketsStore() {
+    try {
+      const raw = localStorage.getItem('danillanos_tickets_store');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (_) {}
+    return [
+      {
+        id: 1,
+        pedido_id: 2,
+        usuario_id: 1,
+        tipo: 'entrega',
+        asunto: 'Confirmación de hora de llegada a Acacías',
+        descripcion: 'Quisiera confirmar a qué hora pasa el camión refrigerado por nuestro restaurante.',
+        imagen_cliente_url: null,
+        estado: 'en_revision',
+        respuesta_soporte: 'Hola Carlos, la ruta del Meta sale a las 8:00 AM y estima llegar a Acacías a las 9:30 AM.',
+        mensajes: [
+          {
+            id: 101,
+            autor: 'Carlos Andrés Méndez',
+            rol: 'cliente',
+            texto: 'Quisiera confirmar a qué hora pasa el camión refrigerado por nuestro restaurante.',
+            fecha: '2026-10-25T14:20:00.000Z'
+          },
+          {
+            id: 102,
+            autor: 'Camila Andrea Pardo (Soporte)',
+            rol: 'soporte',
+            texto: 'Hola Carlos, la ruta del Meta sale a las 8:00 AM y estima llegar a Acacías a las 9:30 AM.',
+            fecha: '2026-10-25T14:26:00.000Z'
+          }
+        ],
+        creado_en: '2026-10-25T14:20:00.000Z'
+      }
+    ];
+  }
+
+  function saveLocalTicketsStore(list) {
+    localStorage.setItem('danillanos_tickets_store', JSON.stringify(list));
+  }
+
+  function mergeTicketsWithLocal(serverTickets = []) {
+    const localList = getLocalTicketsStore();
+    const map = new Map();
+    serverTickets.forEach((t) => {
+      const msgs = Array.isArray(t.mensajes) && t.mensajes.length > 0
+        ? t.mensajes
+        : [
+            {
+              id: 1,
+              autor: 'Cliente',
+              rol: 'cliente',
+              texto: t.descripcion || t.asunto,
+              fecha: t.creado_en || new Date().toISOString()
+            },
+            ...(t.respuesta_soporte
+              ? [
+                  {
+                    id: 2,
+                    autor: 'Soporte Danillanos',
+                    rol: 'soporte',
+                    texto: t.respuesta_soporte,
+                    fecha: new Date().toISOString()
+                  }
+                ]
+              : [])
+          ];
+      map.set(Number(t.id), { ...t, mensajes: msgs });
+    });
+    localList.forEach((lt) => {
+      const existing = map.get(Number(lt.id));
+      if (!existing) {
+        map.set(Number(lt.id), lt);
+      } else {
+        const useMsgs = (lt.mensajes || []).length >= (existing.mensajes || []).length ? lt.mensajes : existing.mensajes;
+        map.set(Number(lt.id), {
+          ...existing,
+          ...lt,
+          estado: lt.estado || existing.estado,
+          mensajes: useMsgs
+        });
+      }
+    });
+    const merged = Array.from(map.values()).sort((a, b) => Number(b.id) - Number(a.id));
+    saveLocalTicketsStore(merged);
+    return merged;
+  }
+
+  function getInvoiceCode(orderId) {
+    return `FAC-DN-${String(orderId || 1).padStart(5, '0')}`;
+  }
+
+  function buildInvoiceHtmlForOrder(ord) {
+    const invoiceNum = getInvoiceCode(ord.id || ord.pedido_id);
+    const dateStr = ord.creado_en
+      ? new Date(ord.creado_en).toLocaleString('es-CO')
+      : new Date().toLocaleString('es-CO');
+    const items = ord.items || [];
+    const statusLabelMap = {
+      pendiente: '1. RECIBIDO EN TIENDA',
+      en_proceso: '2. ACEPTADO EN BODEGA',
+      en_camino: '3. EN RUTA DE REPARTO',
+      entregado: '4. ENTREGADO Y VERIFICADO',
+      cancelado: ord.reembolso_estado === 'reembolsado' ? 'CANCELADO (REEMBOLSADO)' : 'CANCELADO'
+    };
+
+    return `
+      <div class="danillanos-visual-invoice">
+        <div class="invoice-top-ribbon">
+          <div>
+            <div class="invoice-brand-title">DANILLANOS</div>
+            <div class="invoice-brand-sub">CÁRNICOS & CONGELADOS • NIT 901.452.889-1</div>
+            <div class="invoice-brand-sub">Sede Principal: Clle 15 # 12-91 Av. Los Maracos, Villavicencio - Meta</div>
+          </div>
+          <div class="invoice-number-box">
+            <span class="invoice-number-label">Factura Electrónica de Venta</span>
+            <span class="invoice-number-val">${invoiceNum}</span>
+            <div style="font-size:0.72rem; color:#cbd5e1; margin-top:2px;">Pedido #${ord.id || ord.pedido_id} • ${dateStr}</div>
+          </div>
+        </div>
+
+        <div class="invoice-body-pad">
+          <div class="invoice-meta-grid">
+            <div class="invoice-meta-box">
+              <span class="invoice-meta-heading">Datos del Destinatario</span>
+              <div><strong>Recibe:</strong> ${ord.nombre_recibe || 'Cliente Danillanos'}</div>
+              <div><strong>Teléfono:</strong> ${ord.telefono_cliente || 'Registrado'}</div>
+              ${ord.entregador_nombre ? `<div><strong>Entregador Asignado:</strong> ${ord.entregador_nombre}</div>` : ''}
+            </div>
+            <div class="invoice-meta-box">
+              <span class="invoice-meta-heading">Ubicación y Despacho</span>
+              <div><strong>Dirección:</strong> ${ord.direccion_entrega} (${ord.municipio || 'Villavicencio'})</div>
+              <div><strong>Estimado:</strong> <strong style="color:#16a34a;">${ord.tiempo_entrega_estimado || 'Envío programado'}</strong></div>
+              <div><strong>Medio de Pago:</strong> ${(ord.metodo_pago || 'efectivo').toUpperCase()}</div>
+            </div>
+          </div>
+
+          <table class="invoice-items-table">
+            <thead>
+              <tr>
+                <th>Cant.</th>
+                <th>Descripción del Producto</th>
+                <th>V. Unitario</th>
+                <th style="text-align:right;">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items
+                .map((item) => {
+                  const name = item.nombre_producto || item.nombre || 'Producto Danillanos';
+                  const price = Number(item.precio_unitario ?? item.precio ?? 0);
+                  const qty = Number(item.cantidad || 1);
+                  const sub = Number(item.subtotal ?? price * qty);
+                  return `
+                    <tr>
+                      <td><strong>${qty}</strong></td>
+                      <td>${name}</td>
+                      <td>${formatCurrency(price)}</td>
+                      <td style="text-align:right;"><strong>${formatCurrency(sub)}</strong></td>
+                    </tr>
+                  `;
+                })
+                .join('')}
+            </tbody>
+          </table>
+
+          <div class="invoice-totals-row">
+            <div>
+              <span style="font-size:0.76rem; color:#64748b; text-transform:uppercase; font-weight:800;">Estado Actual</span>
+              <div style="font-weight:800; color:${ord.estado === 'cancelado' ? '#ef4444' : '#16a34a'};">
+                ${statusLabelMap[ord.estado] || 'REGISTRADO'}
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <span style="font-size:0.78rem; color:#64748b; display:block;">Total Facturado (IVA Incluido)</span>
+              <span class="invoice-total-big">${formatCurrency(ord.total)}</span>
+            </div>
+          </div>
+
+          <div class="invoice-barcode-footer">
+            <div class="invoice-barcode-code" style="font-family:monospace; letter-spacing:0.28em; font-size:1.05rem; margin-bottom:4px;">
+              ||| |||| || ||||| ||| |||| ||| |||| ||
+            </div>
+            <span>Comprobante Electrónico ${invoiceNum} • Danillanos Cárnicos y Congelados</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function openInvoiceModalByOrder(ord) {
+    if (!ord) return;
+    const backdrop = document.getElementById('invoiceModalBackdrop');
+    const content = document.getElementById('invoiceModalContent');
+    if (!backdrop || !content) return;
+    content.innerHTML = buildInvoiceHtmlForOrder(ord);
+    backdrop.classList.remove('hidden');
+  }
+
+  function initSharedInvoiceModalEvents() {
+    const backdrop = document.getElementById('invoiceModalBackdrop');
+    const closeBtn = document.getElementById('btnCloseInvoiceModal');
+    if (!backdrop) return;
+    closeBtn?.addEventListener('click', () => backdrop.classList.add('hidden'));
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) backdrop.classList.add('hidden');
+    });
+  }
+
+  function switchCustomerProfileTab(tabName) {
+    state.activeProfileTab = tabName || 'pedidos';
+
+    document.querySelectorAll('[data-profile-tab]').forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-profile-tab') === state.activeProfileTab);
+    });
+
+    document.querySelectorAll('[data-profile-window]').forEach((sec) => {
+      const isMatch = sec.getAttribute('data-profile-window') === state.activeProfileTab;
+      sec.classList.toggle('hidden', !state.user || !isMatch);
+    });
+
+    if (state.activeProfileTab === 'direcciones' && state.user) {
+      setupInteractiveCoverageMap('addressMapCanvas');
+      setTimeout(() => state.maps.addressMap?.invalidateSize(), 200);
+    }
+  }
+
+  function syncProfileTabFromHash() {
+    const h = window.location.hash;
+    if (h === '#direcciones-mapa-section') switchCustomerProfileTab('direcciones');
+    else if (h === '#historial-compras-section') switchCustomerProfileTab('historial');
+    else if (h === '#soporte-cliente') switchCustomerProfileTab('soporte');
+    else if (h === '#mis-pedidos-section') switchCustomerProfileTab('pedidos');
+  }
+
+  function initPerfilPage() {
+    initSharedInvoiceModalEvents();
+    renderPerfilPageAuthState();
+    window.addEventListener('hashchange', syncProfileTabFromHash);
+
+    document.getElementById('customerProfileTabsBar')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-profile-tab]');
+      if (!btn) return;
+      switchCustomerProfileTab(btn.getAttribute('data-profile-tab'));
+    });
+
+    document.querySelectorAll('[data-open-profile-tab]').forEach((link) => {
+      link.addEventListener('click', (e) => {
+        if (!state.user) return;
+        e.preventDefault();
+        switchCustomerProfileTab(link.getAttribute('data-open-profile-tab'));
+      });
+    });
+
+    const tabLoginBtn = document.getElementById('tabLoginBtn');
+    const tabRegisterBtn = document.getElementById('tabRegisterBtn');
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+
+    tabLoginBtn?.addEventListener('click', () => {
+      tabLoginBtn.classList.add('active');
+      tabRegisterBtn?.classList.remove('active');
+      loginForm?.classList.remove('hidden');
+      registerForm?.classList.add('hidden');
+    });
+
+    tabRegisterBtn?.addEventListener('click', () => {
+      tabRegisterBtn.classList.add('active');
+      tabLoginBtn?.classList.remove('active');
+      registerForm?.classList.remove('hidden');
+      loginForm?.classList.add('hidden');
+    });
+
+    loginForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+
+      // Verificar si la cuenta fue desactivada o cambió de rol por el Administrador
+      const localUsers = getLocalUsersStore();
+      const localMatch = localUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
+      if (localMatch && localMatch.activo === false) {
+        alert('Esta cuenta se encuentra desactivada por el Administrador.');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${CONFIG.api.baseUrl}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          alert(data.message || 'Credenciales incorrectas.');
+          return;
+        }
+        const finalUser = localMatch ? { ...data.user, rol: localMatch.rol } : data.user;
+        setSession(data.token, finalUser, data.direcciones);
+        if (isStaffUser(finalUser)) {
+          window.location.href = 'panel.html';
+          return;
+        }
+        renderPerfilPageAuthState();
+      } catch (err) {
+        alert('No se pudo iniciar sesión.');
+      }
+    });
+
+    registerForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nombres = document.getElementById('regNombres')?.value.trim() || '';
+      const apellidos = document.getElementById('regApellidos')?.value.trim() || '';
+      const empresa = document.getElementById('regEmpresa')?.value.trim() || '';
+      const tipo_documento = document.getElementById('regTipoDoc')?.value || 'CC';
+      const numero_documento = document.getElementById('regNumDoc')?.value.trim() || '';
+      const telefono = document.getElementById('regPhone')?.value.trim() || '';
+      const email = document.getElementById('regEmail')?.value.trim() || '';
+      const password = document.getElementById('regPassword')?.value || '';
+
+      try {
+        const res = await fetch(`${CONFIG.api.baseUrl}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nombres,
+            apellidos,
+            empresa,
+            tipo_documento,
+            numero_documento,
+            nombre_completo: `${nombres} ${apellidos}`.trim(),
+            username: empresa || `${nombres} ${apellidos}`.trim(),
+            email,
+            telefono,
+            password
+          })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          alert(data.message || 'Error al registrar usuario');
+          return;
+        }
+        const usersList = getLocalUsersStore();
+        if (!usersList.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
+          usersList.push({ ...data.user, activo: true });
+          saveLocalUsersStore(usersList);
+        }
+        setSession(data.token, data.user, data.direcciones);
+        renderPerfilPageAuthState();
+      } catch (err) {
+        alert('Error al crear la cuenta.');
+      }
+    });
+
+    document.getElementById('btnGoogleAuth')?.addEventListener('click', async () => {
+      const googleEmail = prompt(
+        'Acceso con Google:\nIngresa tu correo electrónico:',
+        'cliente.villavicencio@gmail.com'
+      );
+      if (!googleEmail) return;
+      const cleanName = googleEmail.split('@')[0].replace(/[._]/g, ' ');
+      const res = await fetch(`${CONFIG.api.baseUrl}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: googleEmail,
+          nombre_completo: cleanName.charAt(0).toUpperCase() + cleanName.slice(1),
+          google_id: `google_${Date.now()}`
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setSession(data.token, data.user, data.direcciones);
+        renderPerfilPageAuthState();
+      }
+    });
+
+    document.querySelectorAll('[data-demo-email]').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const email = chip.getAttribute('data-demo-email');
+        tabLoginBtn?.click();
+        document.getElementById('loginEmail').value = email;
+        document.getElementById('loginPassword').value = 'Danillanos2026*';
+        loginForm?.requestSubmit();
+      });
+    });
+
+    document.getElementById('btnLogoutProfile')?.addEventListener('click', () => {
+      setSession(null, null, []);
+      renderPerfilPageAuthState();
+    });
+
+    const addAddressForm = document.getElementById('addAddressForm');
+    addAddressForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!state.user) return;
+      if (state.direcciones.length >= 5) return;
+
+      const payload = {
+        etiqueta: document.getElementById('addrLabel').value.trim(),
+        municipio: document.getElementById('addrMunicipio').value.trim(),
+        direccion: document.getElementById('addrStreet').value.trim(),
+        barrio_referencia: document.getElementById('addrRef').value.trim(),
+        lat: Number(document.getElementById('addrLat').value),
+        lng: Number(document.getElementById('addrLng').value)
+      };
+
+      const res = await fetch(`${CONFIG.api.baseUrl}/direcciones`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.ok) {
+        state.direcciones = data.direcciones;
+        sessionStorage.setItem('danillanos_dirs', JSON.stringify(state.direcciones));
+        syncSelectedAddressDefault();
+        renderSavedAddressesList();
+        renderCartLiveAddressManager();
+        renderSharedHeaderAuthUI();
+      }
+    });
+
+    document.getElementById('savedAddressesList')?.addEventListener('click', async (e) => {
+      const selectBtn = e.target.closest('[data-select-addr-id]');
+      if (selectBtn) {
+        state.selectedAddressId = Number(selectBtn.getAttribute('data-select-addr-id'));
+        sessionStorage.setItem('danillanos_selected_addr_id', String(state.selectedAddressId));
+        renderSavedAddressesList();
+        renderCartLiveAddressManager();
+        return;
+      }
+
+      const delBtn = e.target.closest('[data-delete-addr-id]');
+      if (!delBtn) return;
+      const id = Number(delBtn.getAttribute('data-delete-addr-id'));
+      const res = await fetch(`${CONFIG.api.baseUrl}/direcciones/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      const data = await res.json();
+      if (data.ok) {
+        state.direcciones = data.direcciones;
+        sessionStorage.setItem('danillanos_dirs', JSON.stringify(state.direcciones));
+        syncSelectedAddressDefault();
+        renderSavedAddressesList();
+        renderCartLiveAddressManager();
+        renderSharedHeaderAuthUI();
+      }
+    });
+
+    // Eventos de filtrado en Historial de Compras del Cliente
+    ['custHistorySearchInput', 'custHistoryStatusFilter', 'custHistoryZoneFilter', 'custHistoryPayFilter'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener(el.tagName === 'INPUT' ? 'input' : 'change', () => {
+        renderCustomerOrdersViews();
+      });
+    });
+
+    // Eventos de filtrado de pedidos/facturas en formulario de Soporte y filtro de tickets
+    document.getElementById('supOrderFilterInput')?.addEventListener('input', (e) => {
+      populateCustomerSupportOrderSelect(e.target.value);
+    });
+
+    ['custTicketSearchInput', 'custTicketStatusFilter'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener(el.tagName === 'INPUT' ? 'input' : 'change', () => {
+        renderCustomerSupportTicketsList();
+      });
+    });
+
+    // Adjuntar Imagen en Soporte
+    const supImageInput = document.getElementById('supImageInput');
+    const supPreviewWrap = document.getElementById('supImagePreviewWrap');
+    const supPreviewImg = document.getElementById('supImagePreview');
+    const btnSimulateSupImage = document.getElementById('btnSimulateSupImage');
+    const btnClearSupImage = document.getElementById('btnClearSupImage');
+
+    function setSupportCustomerPhoto(dataUrl) {
+      state.supportCustomerImageDraft = dataUrl;
+      if (dataUrl && supPreviewImg && supPreviewWrap) {
+        supPreviewImg.src = dataUrl;
+        supPreviewWrap.classList.remove('hidden');
+        btnClearSupImage?.classList.remove('hidden');
+      } else {
+        if (supPreviewImg) supPreviewImg.src = '';
+        supPreviewWrap?.classList.add('hidden');
+        btnClearSupImage?.classList.add('hidden');
+        if (supImageInput) supImageInput.value = '';
+      }
+    }
+
+    supImageInput?.addEventListener('change', () => {
+      if (!supImageInput.files || !supImageInput.files[0]) return;
+      const reader = new FileReader();
+      reader.onload = () => setSupportCustomerPhoto(reader.result);
+      reader.readAsDataURL(supImageInput.files[0]);
+    });
+
+    btnSimulateSupImage?.addEventListener('click', () => {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="300" viewBox="0 0 480 300"><rect width="480" height="300" fill="#141821"/><rect x="20" y="20" width="440" height="260" rx="16" fill="#1f2533" stroke="#f59e0b" stroke-width="3"/><text x="240" y="105" fill="#ffffff" font-family="sans-serif" font-size="19" font-weight="bold" text-anchor="middle">EVIDENCIA DEL CLIENTE</text><text x="240" y="145" fill="#fbbf24" font-family="sans-serif" font-size="15" font-weight="bold" text-anchor="middle">Consulta de Lote / Producto</text><text x="240" y="185" fill="#cbd5e1" font-family="sans-serif" font-size="13" text-anchor="middle">${new Date().toLocaleString('es-CO')}</text></svg>`;
+      setSupportCustomerPhoto('data:image/svg+xml;utf8,' + encodeURIComponent(svg));
+    });
+
+    btnClearSupImage?.addEventListener('click', () => setSupportCustomerPhoto(null));
+
+    document.getElementById('customerSupportForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const pedido_id = document.getElementById('supOrderId').value || null;
+      const asunto = document.getElementById('supSubject').value.trim();
+      const descripcion = document.getElementById('supDesc').value.trim();
+
+      const res = await fetch(`${CONFIG.api.baseUrl}/soporte/crear`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          pedido_id,
+          asunto,
+          descripcion,
+          imagen_cliente_url: state.supportCustomerImageDraft || null
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        const localTickets = getLocalTicketsStore();
+        const newTkId = data.ticket_id || localTickets.length + 10;
+        const createdTicket = data.ticket || {
+          id: newTkId,
+          pedido_id: pedido_id ? Number(pedido_id) : null,
+          usuario_id: state.user?.id || 1,
+          asunto,
+          descripcion,
+          imagen_cliente_url: state.supportCustomerImageDraft || null,
+          estado: 'abierto',
+          mensajes: [
+            {
+              id: Date.now(),
+              autor: state.user?.nombre_completo || 'Cliente',
+              rol: 'cliente',
+              texto: descripcion,
+              fecha: new Date().toISOString()
+            }
+          ],
+          creado_en: new Date().toISOString()
+        };
+        localTickets.unshift(createdTicket);
+        saveLocalTicketsStore(localTickets);
+        e.target.reset();
+        setSupportCustomerPhoto(null);
+        populateCustomerSupportOrderSelect('');
+        loadCustomerSupportTickets();
+      }
+    });
+  }
+
+  function renderPerfilPageAuthState() {
+    const guestBox = document.getElementById('guestAuthContainer');
+    const loggedBanner = document.getElementById('loggedProfileBanner');
+    const tabsBar = document.getElementById('customerProfileTabsBar');
+    const navDirs = document.getElementById('navMisDirecciones');
+    const navOrds = document.getElementById('navMisPedidos');
+    const navSoporte = document.getElementById('navSoporteTab');
+
+    if (!guestBox || !loggedBanner) return;
+
+    if (!state.user) {
+      guestBox.classList.remove('hidden');
+      loggedBanner.classList.add('hidden');
+      tabsBar?.classList.add('hidden');
+      navDirs?.classList.add('hidden');
+      navOrds?.classList.add('hidden');
+      navSoporte?.classList.add('hidden');
+      document.querySelectorAll('[data-profile-window]').forEach((sec) => sec.classList.add('hidden'));
+    } else {
+      guestBox.classList.add('hidden');
+      loggedBanner.classList.remove('hidden');
+      tabsBar?.classList.remove('hidden');
+      navDirs?.classList.remove('hidden');
+      navOrds?.classList.remove('hidden');
+      navSoporte?.classList.remove('hidden');
+
+      document.getElementById('loggedAvatarLarge').textContent = (
+        state.user.nombre_completo || 'U'
+      )
+        .charAt(0)
+        .toUpperCase();
+      document.getElementById('loggedUserName').textContent = state.user.nombre_completo;
+      document.getElementById('loggedUserEmail').textContent = `${state.user.email} • ${state.user.telefono || 'Sin teléfono'}`;
+
+      const extraEl = document.getElementById('loggedUserExtra');
+      if (extraEl) {
+        const docPart = state.user.numero_documento
+          ? `${state.user.tipo_documento || 'CC'}: ${state.user.numero_documento}`
+          : '';
+        const empPart = state.user.empresa ? ` • Empresa: ${state.user.empresa}` : '';
+        extraEl.textContent = `${docPart}${empPart}`;
+      }
+
+      const companyCard = document.getElementById('companySummaryCard');
+      if (companyCard) {
+        companyCard.innerHTML = `
+          <div>
+            <span class="detail-box-label">Titular de la Cuenta</span>
+            <strong>${state.user.nombre_completo}</strong>
+          </div>
+          <div>
+            <span class="detail-box-label">Empresa / Negocio</span>
+            <strong>${state.user.empresa || 'Cuenta Personal / Hogar'}</strong>
+          </div>
+          <div>
+            <span class="detail-box-label">Identificación</span>
+            <strong>${state.user.tipo_documento || 'CC'} ${state.user.numero_documento || 'Registrado'}</strong>
+          </div>
+          <div>
+            <span class="detail-box-label">Contacto Principal</span>
+            <strong>${state.user.telefono || 'Registrado'}</strong>
+          </div>
+        `;
+      }
+
+      const staffBtn = document.getElementById('btnGoToStaffPanel');
+      if (staffBtn) {
+        staffBtn.classList.toggle('hidden', !isStaffUser());
+      }
+
+      syncProfileTabFromHash();
+      switchCustomerProfileTab(state.activeProfileTab || 'pedidos');
+      renderSavedAddressesList();
+      loadCustomerOrdersList();
+      loadCustomerSupportTickets();
+    }
+  }
+
+  function renderSavedAddressesList() {
+    const listEl = document.getElementById('savedAddressesList');
+    const badge = document.getElementById('addressCountBadge');
+    const countText = document.getElementById('savedAddressesCountText');
+    const dirs = state.direcciones || [];
+
+    if (badge) badge.textContent = `${dirs.length}/5`;
+    if (countText) countText.textContent = `${dirs.length} de 5`;
+    if (!listEl || !state.user) return;
+
+    if (dirs.length === 0) {
+      listEl.innerHTML = `<div class="detail-box"><p>Aún no has registrado direcciones. Selecciona tu ubicación en el mapa para guardar la primera.</p></div>`;
+      return;
+    }
+
+    listEl.innerHTML = dirs
+      .map((d) => {
+        const isSelected = Number(d.id) === Number(state.selectedAddressId);
+        return `
+          <div class="saved-addr-item" style="${isSelected ? 'border-color:var(--brand-red);' : ''}">
+            <div>
+              <strong>${d.etiqueta} — ${d.municipio}, ${d.departamento || 'Meta'}</strong>
+              ${isSelected ? `<span style="margin-left:0.4rem; font-size:0.7rem; color:var(--brand-red); font-weight:800;">(PREDETERMINADA)</span>` : ''}
+              <div class="saved-addr-meta">${d.direccion} ${d.barrio_referencia ? `(${d.barrio_referencia})` : ''}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:0.4rem;">
+              ${
+                !isSelected
+                  ? `<button type="button" class="cart-addr-mini-btn" data-select-addr-id="${d.id}">Elegir</button>`
+                  : ''
+              }
+              <button type="button" class="icon-close-btn" data-delete-addr-id="${d.id}" title="Eliminar dirección">
+                <span class="material-symbols-rounded">delete</span>
+              </button>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  function populateCustomerSupportOrderSelect(filterText = '', preselectOrderId = null) {
+    const selectEl = document.getElementById('supOrderId');
+    if (!selectEl) return;
+
+    const currentVal = preselectOrderId !== null ? String(preselectOrderId) : selectEl.value;
+    const orders = state.customerOrders || [];
+    const q = (filterText || '').trim().toLowerCase();
+
+    const filtered = orders.filter((ord) => {
+      if (!q) return true;
+      const inv = getInvoiceCode(ord.id).toLowerCase();
+      const itemsText = (ord.items || []).map((i) => i.nombre_producto || '').join(' ').toLowerCase();
+      return (
+        String(ord.id).includes(q) ||
+        inv.includes(q) ||
+        (ord.municipio || '').toLowerCase().includes(q) ||
+        (ord.direccion_entrega || '').toLowerCase().includes(q) ||
+        String(ord.total).includes(q) ||
+        itemsText.includes(q)
+      );
+    });
+
+    selectEl.innerHTML =
+      `<option value="">Consulta general (Sin pedido específico)</option>` +
+      filtered
+        .map(
+          (ord) =>
+            `<option value="${ord.id}" ${String(ord.id) === currentVal ? 'selected' : ''}>
+              Pedido #${ord.id} • ${getInvoiceCode(ord.id)} — ${formatCurrency(ord.total)} (${ord.municipio} • ${ord.estado.toUpperCase()})
+            </option>`
+        )
+        .join('');
+  }
+
+  async function loadCustomerOrdersList() {
+    const activeContainer = document.getElementById('myOrdersListContainer');
+    if (!activeContainer || !state.user) return;
+
+    try {
+      const res = await fetch(`${CONFIG.api.baseUrl}/mis-pedidos`, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (data.apiVersion >= 3) state.serverApiV3 = true;
+
+      const rawOrders = data.data || [];
+      state.customerOrders = applyOrderOverrides(rawOrders);
+
+      if (Array.isArray(data.tickets)) {
+        state.customerTickets = mergeTicketsWithLocal(data.tickets);
+      }
+
+      populateCustomerSupportOrderSelect(
+        document.getElementById('supOrderFilterInput')?.value || ''
+      );
+      renderCustomerOrdersViews();
+    } catch (err) {
+      activeContainer.innerHTML = `<div class="surface-card"><p>No se pudieron cargar los pedidos.</p></div>`;
+    }
+  }
+
+  function matchesOrderFilters(ord, { query = '', status = 'todos', zone = 'todas', pay = 'todos' }) {
+    const q = (query || '').trim().toLowerCase();
+    if (q) {
+      const inv = getInvoiceCode(ord.id).toLowerCase();
+      const itemsStr = (ord.items || []).map((i) => i.nombre_producto || '').join(' ').toLowerCase();
+      const hay = [
+        `#${ord.id}`,
+        String(ord.id),
+        inv,
+        ord.nombre_recibe || '',
+        ord.telefono_cliente || '',
+        ord.direccion_entrega || '',
+        ord.municipio || '',
+        ord.metodo_pago || '',
+        ord.entregador_nombre || '',
+        ord.razon_cancelacion || '',
+        itemsStr
+      ]
+        .join(' ')
+        .toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+
+    if (status && status !== 'todos') {
+      if (status === 'activos') {
+        if (!['pendiente', 'en_proceso', 'en_camino'].includes(ord.estado)) return false;
+      } else if (ord.estado !== status) {
+        return false;
+      }
+    }
+
+    if (zone && zone !== 'todas') {
+      const isVcio = Boolean(ord.es_villavicencio) || (ord.municipio || '').toLowerCase() === 'villavicencio';
+      if (zone === 'villavicencio' && !isVcio) return false;
+      if (zone === 'meta' && isVcio) return false;
+    }
+
+    if (pay && pay !== 'todos') {
+      if (pay === 'electronico') {
+        if (!['pse', 'nequi', 'bancolombia', 'tarjeta'].includes(ord.metodo_pago)) return false;
+      } else if (pay === 'reembolsado') {
+        if (ord.reembolso_estado !== 'reembolsado') return false;
+      } else if (ord.metodo_pago !== pay) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  function renderCustomerOrdersViews() {
+    const activeContainer = document.getElementById('myOrdersListContainer');
+    const historyContainer = document.getElementById('myOrderHistoryContainer');
+    if (!activeContainer || !state.user) return;
+
+    const orders = state.customerOrders || [];
+    const activeOrders = orders.filter((o) => ['pendiente', 'en_proceso', 'en_camino'].includes(o.estado));
+    const historyOrdersAll = orders.filter((o) => ['entregado', 'cancelado'].includes(o.estado));
+
+    const activeTabCount = document.getElementById('tabActiveOrdersCount');
+    const historyTabCount = document.getElementById('tabHistoryOrdersCount');
+    if (activeTabCount) activeTabCount.textContent = String(activeOrders.length);
+    if (historyTabCount) historyTabCount.textContent = String(historyOrdersAll.length);
+
+    if (state.customerExpandedOrderIds === null) {
+      state.customerExpandedOrderIds = new Set();
+      if (activeOrders.length > 0) state.customerExpandedOrderIds.add(activeOrders[0].id);
+      if (historyOrdersAll.length > 0) state.customerExpandedOrderIds.add(historyOrdersAll[0].id);
+    }
+
+    const histQuery = document.getElementById('custHistorySearchInput')?.value || '';
+    const histStatus = document.getElementById('custHistoryStatusFilter')?.value || 'todos';
+    const histZone = document.getElementById('custHistoryZoneFilter')?.value || 'todas';
+    const histPay = document.getElementById('custHistoryPayFilter')?.value || 'todos';
+
+    const filteredHistory = historyOrdersAll.filter((ord) =>
+      matchesOrderFilters(ord, { query: histQuery, status: histStatus, zone: histZone, pay: histPay })
+    );
+
+    const histMetaEl = document.getElementById('custHistoryResultsMeta');
+    if (histMetaEl) {
+      const sumFiltered = filteredHistory
+        .filter((o) => o.estado !== 'cancelado')
+        .reduce((acc, o) => acc + Number(o.total || 0), 0);
+      histMetaEl.textContent = `Mostrando ${filteredHistory.length} de ${historyOrdersAll.length} registros • Total compras entregadas en filtro: ${formatCurrency(sumFiltered)}`;
+    }
+
+    const stageMeta = {
+      pendiente: { step: 1, pct: 25, linePct: 0, icon: 'storefront', badge: 'Etapa 1/4 • Recibido en Tienda' },
+      en_proceso: { step: 2, pct: 50, linePct: 33.3, icon: 'warehouse', badge: 'Etapa 2/4 • En Bodega' },
+      en_camino: { step: 3, pct: 75, linePct: 66.6, icon: 'local_shipping', badge: 'Etapa 3/4 • En Reparto' },
+      entregado: { step: 4, pct: 100, linePct: 100, icon: 'check_circle', badge: 'Etapa 4/4 • Entregado' },
+      cancelado: { step: 0, pct: 0, linePct: 0, icon: 'cancel', badge: 'Cancelado' }
+    };
+
+    const buildOrderAccordionList = (list, emptyMessage, isActiveSection = false) => {
+      if (list.length === 0) {
+        return `<div class="surface-card"><p>${emptyMessage}</p></div>`;
+      }
+      return `
+        <div class="customer-orders-accordion-list">
+          ${list
+            .map((ord) => {
+              const isCancelled = ord.estado === 'cancelado';
+              const canCustomerCancel = ord.estado === 'pendiente' || ord.estado === 'en_proceso';
+              const meta = stageMeta[ord.estado] || stageMeta.pendiente;
+              const isExpanded = state.customerExpandedOrderIds.has(ord.id);
+              const isCancelBoxOpen = Number(state.custCancelOpenId) === Number(ord.id);
+              const invCode = getInvoiceCode(ord.id);
+
+              const getStepClass = (stepNum) => {
+                if (ord.estado === 'entregado') return 'is-done';
+                if (stepNum < meta.step) return 'is-done';
+                if (stepNum === meta.step) return 'is-current';
+                return '';
+              };
+
+              return `
+                <article class="customer-order-accordion ${isExpanded ? 'is-expanded' : ''}" data-order-card-id="${ord.id}">
+                  <button
+                    type="button"
+                    class="customer-order-header"
+                    data-toggle-cust-order="${ord.id}"
+                    aria-expanded="${isExpanded ? 'true' : 'false'}"
+                  >
+                    <div class="customer-order-header-left">
+                      <div class="customer-order-title-row">
+                        <span class="order-id-badge">Pedido #${ord.id} — ${formatCurrency(ord.total)}</span>
+                        <span class="invoice-number-badge-inline">
+                          <span class="material-symbols-rounded" style="font-size:0.9rem;">receipt_long</span>
+                          ${invCode}
+                        </span>
+                        <span style="font-size:0.76rem; color:var(--text-muted);">
+                          ${(ord.items || []).length} productos • ${ord.municipio}
+                        </span>
+                      </div>
+                      <div class="customer-order-meta-line">
+                        Recibe: <strong>${ord.nombre_recibe}</strong> • ${ord.direccion_entrega} • <strong>${ord.tiempo_entrega_estimado}</strong>
+                      </div>
+                    </div>
+
+                    <div class="customer-order-direct-stage">
+                      <div class="direct-stage-info-box">
+                        <span class="direct-stage-badge ${isCancelled ? 'is-cancelled' : ''}">
+                          <span class="material-symbols-rounded" style="font-size:1.05rem;">${meta.icon}</span>
+                          <span>${meta.badge}</span>
+                        </span>
+                        ${
+                          !isCancelled
+                            ? `<div class="direct-stage-mini-bar-bg">
+                                 <div class="direct-stage-mini-bar-fill" style="width:${meta.pct}%;"></div>
+                               </div>`
+                            : ''
+                        }
+                      </div>
+                      <span class="customer-order-chevron">
+                        <span class="material-symbols-rounded">expand_more</span>
+                      </span>
+                    </div>
+                  </button>
+
+                  <div class="customer-order-body">
+                    ${
+                      isCancelled
+                        ? `<div class="detail-box" style="margin-top:0.85rem; border:1px solid rgba(239,68,68,0.4); color:#fca5a5;">
+                             <strong>Motivo de cancelación:</strong> ${ord.razon_cancelacion || 'Cancelado'}
+                             ${
+                               ord.reembolso_estado === 'reembolsado'
+                                 ? `<div style="margin-top:4px; color:#4ade80; font-weight:700;">
+                                      ✔ Reembolso electrónico aplicado (${ord.metodo_pago.toUpperCase()})
+                                    </div>`
+                                 : ''
+                             }
+                           </div>`
+                        : `<div class="order-timeline-4steps" aria-label="Progreso del pedido">
+                             <div class="order-timeline-line-bg">
+                               <div class="order-timeline-line-fill" style="width:${meta.linePct}%;"></div>
+                             </div>
+
+                             <div class="timeline-point ${getStepClass(1)}">
+                               <div class="timeline-icon-circle">
+                                 <span class="material-symbols-rounded">storefront</span>
+                               </div>
+                               <span class="timeline-label-title">1. Recibido</span>
+                               <span class="timeline-label-sub">En tienda</span>
+                             </div>
+
+                             <div class="timeline-point ${getStepClass(2)}">
+                               <div class="timeline-icon-circle">
+                                 <span class="material-symbols-rounded">warehouse</span>
+                               </div>
+                               <span class="timeline-label-title">2. En Proceso</span>
+                               <span class="timeline-label-sub">En bodega</span>
+                             </div>
+
+                             <div class="timeline-point ${getStepClass(3)}">
+                               <div class="timeline-icon-circle">
+                                 <span class="material-symbols-rounded">local_shipping</span>
+                               </div>
+                               <span class="timeline-label-title">3. En Reparto</span>
+                               <span class="timeline-label-sub">En camino</span>
+                             </div>
+
+                             <div class="timeline-point ${getStepClass(4)}">
+                               <div class="timeline-icon-circle">
+                                 <span class="material-symbols-rounded">check_circle</span>
+                               </div>
+                               <span class="timeline-label-title">4. Entregado</span>
+                               <span class="timeline-label-sub">Finalizado</span>
+                             </div>
+                           </div>`
+                    }
+
+                    <div class="order-items-chips" style="margin-top: 0.75rem;">
+                      ${(ord.items || [])
+                        .map((i) => `<span class="order-item-chip">${i.cantidad}x ${i.nombre_producto}</span>`)
+                        .join('')}
+                    </div>
+
+                    <!-- Barra de acciones del pedido: Ver Factura, Contactar a Soporte y Cancelar (si aún no está en envío) -->
+                    <div class="customer-order-actions-bar">
+                      <div style="font-size:0.79rem; color:var(--text-secondary);">
+                        ${
+                          isActiveSection
+                            ? canCustomerCancel
+                              ? '✔ Aún no ha salido a reparto: puedes cancelar el pedido sin costo.'
+                              : '🚚 El pedido ya se encuentra en ruta de envío con nuestro entregador.'
+                            : `Comprobante electrónico: <strong>${invCode}</strong> • Pago: ${(ord.metodo_pago || 'efectivo').toUpperCase()}`
+                        }
+                      </div>
+                      <div class="customer-order-actions-btns">
+                        <button type="button" class="btn-secondary" data-view-cust-invoice="${ord.id}">
+                          <span class="material-symbols-rounded">receipt_long</span>
+                          <span>Ver Factura</span>
+                        </button>
+                        <button type="button" class="btn-secondary" data-cust-contact-support="${ord.id}">
+                          <span class="material-symbols-rounded">support_agent</span>
+                          <span>Contactar a Soporte</span>
+                        </button>
+                        ${
+                          isActiveSection && canCustomerCancel
+                            ? `<button type="button" class="btn-cancel-order" data-cust-toggle-cancel="${ord.id}">
+                                 <span class="material-symbols-rounded">cancel</span>
+                                 <span>Cancelar Pedido</span>
+                               </button>`
+                            : ''
+                        }
+                      </div>
+                    </div>
+
+                    ${
+                      isActiveSection && canCustomerCancel && isCancelBoxOpen
+                        ? `<div class="cust-inline-cancel-box">
+                             <strong>¿Confirmas cancelar el Pedido #${ord.id}?</strong>
+                             <span style="font-size:0.8rem; color:var(--text-secondary);">
+                               Indica brevemente el motivo de cancelación (se aplicará reembolso automático si pagaste por medio electrónico):
+                             </span>
+                             <input
+                               type="text"
+                               id="custCancelReasonInput_${ord.id}"
+                               class="modal-input"
+                               value="Cancelado por el cliente antes de salir a envío"
+                             />
+                             <div style="display:flex; justify-content:flex-end; gap:0.6rem;">
+                               <button type="button" class="btn-secondary" data-cust-abort-cancel="${ord.id}">Volver</button>
+                               <button type="button" class="btn-cancel-order" style="background:#dc2626; color:#fff;" data-cust-confirm-cancel="${ord.id}">
+                                 <span class="material-symbols-rounded">check</span>
+                                 <span>Confirmar Cancelación</span>
+                               </button>
+                             </div>
+                           </div>`
+                        : ''
+                    }
+                  </div>
+                </article>
+              `;
+            })
+            .join('')}
+        </div>
+      `;
+    };
+
+    activeContainer.innerHTML = buildOrderAccordionList(
+      activeOrders,
+      'No tienes pedidos activos en curso en este momento.',
+      true
+    );
+    if (historyContainer) {
+      historyContainer.innerHTML = buildOrderAccordionList(
+        filteredHistory,
+        'No se encontraron compras ni facturas con los filtros seleccionados.',
+        false
+      );
+    }
+
+    const handleOrderContainerClick = async (e) => {
+      const viewInvBtn = e.target.closest('[data-view-cust-invoice]');
+      if (viewInvBtn) {
+        const id = Number(viewInvBtn.getAttribute('data-view-cust-invoice'));
+        const ord = (state.customerOrders || []).find((o) => Number(o.id) === id);
+        if (ord) openInvoiceModalByOrder(ord);
+        return;
+      }
+
+      const supportBtn = e.target.closest('[data-cust-contact-support]');
+      if (supportBtn) {
+        const id = Number(supportBtn.getAttribute('data-cust-contact-support'));
+        switchCustomerProfileTab('soporte');
+        populateCustomerSupportOrderSelect('', id);
+        const subj = document.getElementById('supSubject');
+        if (subj) subj.value = `Consulta sobre Pedido #${id} (${getInvoiceCode(id)})`;
+        document.getElementById('supDesc')?.focus();
+        return;
+      }
+
+      const toggleCancelBtn = e.target.closest('[data-cust-toggle-cancel]');
+      if (toggleCancelBtn) {
+        const id = Number(toggleCancelBtn.getAttribute('data-cust-toggle-cancel'));
+        state.custCancelOpenId = state.custCancelOpenId === id ? null : id;
+        renderCustomerOrdersViews();
+        return;
+      }
+
+      const abortCancelBtn = e.target.closest('[data-cust-abort-cancel]');
+      if (abortCancelBtn) {
+        state.custCancelOpenId = null;
+        renderCustomerOrdersViews();
+        return;
+      }
+
+      const confirmCancelBtn = e.target.closest('[data-cust-confirm-cancel]');
+      if (confirmCancelBtn) {
+        const id = Number(confirmCancelBtn.getAttribute('data-cust-confirm-cancel'));
+        const ord = (state.customerOrders || []).find((o) => Number(o.id) === id);
+        if (!ord || !['pendiente', 'en_proceso'].includes(ord.estado)) return;
+
+        const reasonInput = document.getElementById(`custCancelReasonInput_${id}`);
+        const reason = (reasonInput?.value || 'Cancelado por el cliente antes del envío').trim();
+        const requiresRefund = ['tarjeta', 'pse', 'nequi', 'bancolombia'].includes(ord.metodo_pago);
+        const reembolso_estado = requiresRefund ? 'reembolsado' : 'no_aplica';
+
+        saveOrderOverride(id, {
+          estado: 'cancelado',
+          razon_cancelacion: reason,
+          reembolso_estado
+        });
+
+        if (state.serverApiV3) {
+          try {
+            await fetch(`${CONFIG.api.baseUrl}/pedidos/${id}/cancelar`, {
+              method: 'PATCH',
+              headers: getAuthHeaders(),
+              body: JSON.stringify({ razon_cancelacion: reason })
+            });
+          } catch (_) {}
+        }
+
+        state.custCancelOpenId = null;
+        state.customerOrders = applyOrderOverrides(state.customerOrders);
+        populateCustomerSupportOrderSelect(document.getElementById('supOrderFilterInput')?.value || '');
+        renderCustomerOrdersViews();
+        return;
+      }
+
+      const headerBtn = e.target.closest('[data-toggle-cust-order]');
+      if (headerBtn) {
+        const ordId = Number(headerBtn.getAttribute('data-toggle-cust-order'));
+        if (state.customerExpandedOrderIds.has(ordId)) {
+          state.customerExpandedOrderIds.delete(ordId);
+        } else {
+          state.customerExpandedOrderIds.add(ordId);
+        }
+        renderCustomerOrdersViews();
+      }
+    };
+
+    activeContainer.onclick = handleOrderContainerClick;
+    if (historyContainer) historyContainer.onclick = handleOrderContainerClick;
+  }
+
+  /**
+   * Ventana 4 del Cliente: Mis Tickets Abiertos y MiniChat con Soporte (Cero 404s)
+   */
+  async function loadCustomerSupportTickets() {
+    const container = document.getElementById('customerTicketsListContainer');
+    const badge = document.getElementById('tabTicketsCount');
+    if (!container || !state.user) return;
+
+    if (state.serverApiV3) {
+      try {
+        const res = await fetch(`${CONFIG.api.baseUrl}/mis-tickets`, { headers: getAuthHeaders() });
+        if (res.ok) {
+          const data = await res.json();
+          state.customerTickets = mergeTicketsWithLocal(data.data || []);
+        }
+      } catch (_) {}
+    } else {
+      state.customerTickets = getLocalTicketsStore().filter(
+        (t) => !t.usuario_id || Number(t.usuario_id) === Number(state.user.id) || Number(state.user.id) === 1
+      );
+    }
+
+    if (badge) badge.textContent = String(state.customerTickets.length);
+    renderCustomerSupportTicketsList();
+  }
+
+  function renderCustomerSupportTicketsList() {
+    const container = document.getElementById('customerTicketsListContainer');
+    const badge = document.getElementById('tabTicketsCount');
+    if (!container || !state.user) return;
+
+    const allTickets = state.customerTickets || [];
+    if (badge) badge.textContent = String(allTickets.length);
+
+    const q = (document.getElementById('custTicketSearchInput')?.value || '').trim().toLowerCase();
+    const statusFilter = document.getElementById('custTicketStatusFilter')?.value || 'todos';
+
+    const filtered = allTickets.filter((tk) => {
+      if (statusFilter === 'activos' && tk.estado === 'resuelto') return false;
+      if (statusFilter === 'resuelto' && tk.estado !== 'resuelto') return false;
+      if (!q) return true;
+      const msgsText = (tk.mensajes || []).map((m) => m.texto).join(' ').toLowerCase();
+      return (
+        String(tk.id).includes(q) ||
+        String(tk.pedido_id || '').includes(q) ||
+        (tk.asunto || '').toLowerCase().includes(q) ||
+        msgsText.includes(q)
+      );
+    });
+
+    if (filtered.length === 0) {
+      container.innerHTML = `<div class="detail-box"><p>No hay tickets que coincidan con el filtro actual.</p></div>`;
+      return;
+    }
+
+    container.innerHTML = filtered
+      .map((tk) => {
+        const msgs = tk.mensajes || [];
+        return `
+          <article class="ticket-minichat-card">
+            <div class="ticket-minichat-header">
+              <div>
+                <strong>Ticket #${tk.id}: ${tk.asunto}</strong>
+                ${
+                  tk.pedido_id
+                    ? `<span class="invoice-number-badge-inline" style="margin-left:0.4rem;">Pedido #${tk.pedido_id} • ${getInvoiceCode(tk.pedido_id)}</span>`
+                    : ''
+                }
+              </div>
+              <span class="order-status-pill status-${tk.estado === 'resuelto' ? 'entregado' : 'en_proceso'}">${tk.estado.toUpperCase()}</span>
+            </div>
+
+            ${
+              tk.imagen_cliente_url
+                ? `<div>
+                     <img src="${tk.imagen_cliente_url}" alt="Adjunto ticket #${tk.id}" class="delivery-photo-preview" style="max-height:120px;" />
+                   </div>`
+                : ''
+            }
+
+            <div class="minichat-messages-box" id="custChatBox_${tk.id}">
+              ${msgs
+                .map(
+                  (m) => `
+                <div class="minichat-bubble is-${m.rol === 'soporte' ? 'soporte' : 'cliente'}">
+                  <div class="minichat-bubble-meta">${m.autor}</div>
+                  <div>${m.texto}</div>
+                </div>
+              `
+                )
+                .join('')}
+            </div>
+
+            <div class="minichat-input-row">
+              <input
+                type="text"
+                class="modal-input"
+                id="custChatInput_${tk.id}"
+                placeholder="Escribe un mensaje para Soporte..."
+              />
+              <button type="button" class="btn-primary" data-send-cust-chat="${tk.id}" style="padding:0.62rem 1rem;">
+                <span class="material-symbols-rounded">send</span>
+              </button>
+            </div>
+          </article>
+        `;
+      })
+      .join('');
+
+    container.onclick = async (e) => {
+      const sendBtn = e.target.closest('[data-send-cust-chat]');
+      if (!sendBtn) return;
+      const tkId = Number(sendBtn.getAttribute('data-send-cust-chat'));
+      const inp = document.getElementById(`custChatInput_${tkId}`);
+      if (!inp || !inp.value.trim()) return;
+      const textMsg = inp.value.trim();
+
+      const localList = getLocalTicketsStore();
+      const targetTk = localList.find((t) => Number(t.id) === tkId);
+      if (targetTk) {
+        if (!Array.isArray(targetTk.mensajes)) targetTk.mensajes = [];
+        targetTk.mensajes.push({
+          id: Date.now(),
+          autor: state.user?.nombre_completo || 'Cliente',
+          rol: 'cliente',
+          texto: textMsg,
+          fecha: new Date().toISOString()
+        });
+        saveLocalTicketsStore(localList);
+      }
+
+      if (state.serverApiV3) {
+        try {
+          await fetch(`${CONFIG.api.baseUrl}/soporte/${tkId}/mensaje`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ texto: textMsg })
+          });
+        } catch (_) {}
+      }
+
+      loadCustomerSupportTickets();
+    };
+  }
+
+  // ==========================================================================
+  // 6. PASARELA DE PAGOS EN 3 PASOS ANIMADOS (DERECHA A IZQUIERDA) + FACTURA VISUAL + RETORNO EN 10S (pagos.html)
+  // ==========================================================================
+  function populateCheckoutSavedAddressesDropdown() {
+    const addrSelect = document.getElementById('checkoutAddressSelect');
+    if (!addrSelect) return;
+
+    addrSelect.innerHTML = `<option value="map_pin">Usar el Pin Rojo puesto en el Mapa de abajo (Autorellenado)</option>`;
+    state.direcciones.forEach((d, idx) => {
+      const opt = document.createElement('option');
+      opt.value = String(idx);
+      opt.textContent = `${d.etiqueta} (${d.municipio}) — ${d.direccion}`;
+      addrSelect.appendChild(opt);
+    });
+
+    if (state.direcciones.length > 0) {
+      const selectedIdx = state.direcciones.findIndex(
+        (d) => Number(d.id) === Number(state.selectedAddressId)
+      );
+      const useIdx = selectedIdx !== -1 ? selectedIdx : 0;
+      addrSelect.value = String(useIdx);
+      applySavedAddressToCheckout(useIdx);
+    }
+  }
+
+  function goToCheckoutStep(stepNum) {
+    state.checkoutWizardStep = stepNum;
+    const track = document.getElementById('checkoutWizardTrack');
+    const lineFill = document.getElementById('checkoutWizardLineFill');
+
+    if (track) {
+      const offsetPct = (stepNum - 1) * 25;
+      track.style.transform = `translate3d(-${offsetPct}%, 0, 0)`;
+    }
+
+    if (lineFill) {
+      const fillPct = stepNum === 1 ? 0 : stepNum === 2 ? 50 : 100;
+      lineFill.style.width = `${fillPct}%`;
+    }
+
+    [1, 2, 3].forEach((n) => {
+      const node = document.getElementById(`wizardNode${n}`);
+      if (!node) return;
+      node.classList.remove('is-current', 'is-done');
+      if (stepNum === 4 || n < stepNum) {
+        node.classList.add('is-done');
+      } else if (n === stepNum) {
+        node.classList.add('is-current');
+      }
+    });
+
+    const muni = document.getElementById('addrMunicipio')?.value.trim() || 'Villavicencio';
+    const street = document.getElementById('addrStreet')?.value.trim() || 'Dirección en mapa';
+    const recipient = document.getElementById('checkoutRecipientName')?.value.trim() || state.user?.nombre_completo || 'Cliente';
+    const lat = Number(document.getElementById('addrLat')?.value || 4.142);
+    const lng = Number(document.getElementById('addrLng')?.value || -73.6266);
+    const etaText = isInsideVillavicencio(lat, lng)
+      ? 'Envío el mismo día (Villavicencio)'
+      : 'Llega el 00 de octubre';
+
+    const step2AddrPill = document.getElementById('wizardStep2AddressSummary');
+    if (step2AddrPill) {
+      step2AddrPill.innerHTML = `
+        <div>
+          <strong>📍 Entrega a: ${recipient}</strong> — ${street} (${muni})
+          <div style="font-size:0.76rem; color:var(--text-secondary);">Estimado confirmado: <strong style="color:#22c55e;">${etaText}</strong></div>
+        </div>
+        <button type="button" class="cart-addr-mini-btn" id="btnQuickEditStep1">Cambiar dirección</button>
+      `;
+      document.getElementById('btnQuickEditStep1')?.addEventListener('click', () => goToCheckoutStep(1));
+    }
+
+    const step2Eta = document.getElementById('checkoutStep2EtaText');
+    if (step2Eta) step2Eta.textContent = etaText;
+
+    const step3Addr = document.getElementById('checkoutStep3AddressText');
+    if (step3Addr) step3Addr.textContent = `${street} (${muni})`;
+
+    const step3Eta = document.getElementById('checkoutEtaSummaryText');
+    if (step3Eta) step3Eta.textContent = etaText;
+
+    if (stepNum === 1) {
+      setTimeout(() => state.maps.addressMap?.invalidateSize(), 240);
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function renderVisualInvoiceCard(orderData, payload, itemsList, totalAmount) {
+    const invoiceEl = document.getElementById('danillanosVisualInvoice');
+    if (!invoiceEl) return;
+
+    invoiceEl.innerHTML = buildInvoiceHtmlForOrder({
+      id: orderData.pedido_id || 101,
+      nombre_recibe: payload.nombre_recibe,
+      telefono_cliente: payload.telefono_cliente,
+      direccion_entrega: payload.direccion_entrega,
+      municipio: payload.municipio,
+      tiempo_entrega_estimado: orderData.tiempo_entrega_estimado,
+      metodo_pago: payload.metodo_pago,
+      total: totalAmount,
+      estado: 'pendiente',
+      items: itemsList.map((i) => ({
+        nombre_producto: i.nombre,
+        cantidad: i.cantidad,
+        precio_unitario: i.precio,
+        subtotal: i.precio * i.cantidad
+      }))
+    });
+  }
+
+  function initPagosPage() {
+    const guestBlockCard = document.getElementById('checkoutGuestBlockCard');
+    const checkoutForm = document.getElementById('checkoutGatewayForm');
+
+    if (!state.user) {
+      guestBlockCard?.classList.remove('hidden');
+      checkoutForm?.classList.add('hidden');
+      return;
+    }
+
+    guestBlockCard?.classList.add('hidden');
+    checkoutForm?.classList.remove('hidden');
+
+    setupInteractiveCoverageMap('addressMapCanvas');
+    renderCheckoutPageItems();
+    renderPaymentVisualBox(state.selectedPayMethod);
+
+    const nameInput = document.getElementById('checkoutRecipientName');
+    const phoneInput = document.getElementById('checkoutRecipientPhone');
+    if (nameInput) nameInput.value = state.user.nombre_completo || state.user.username || '';
+    if (phoneInput) phoneInput.value = state.user.telefono || '3114567890';
+
+    populateCheckoutSavedAddressesDropdown();
+    goToCheckoutStep(1);
+
+    document.getElementById('btnWizardToStep2')?.addEventListener('click', () => {
+      const recName = document.getElementById('checkoutRecipientName')?.value.trim();
+      const recPhone = document.getElementById('checkoutRecipientPhone')?.value.trim();
+      const street = document.getElementById('addrStreet')?.value.trim();
+      if (!recName || !recPhone || !street) {
+        alert('Completa el nombre de quien recibe, teléfono y dirección en el mapa.');
+        return;
+      }
+      renderCheckoutPageItems();
+      goToCheckoutStep(2);
+    });
+
+    document.getElementById('btnWizardBackToStep1')?.addEventListener('click', () => {
+      goToCheckoutStep(1);
+    });
+
+    document.getElementById('btnWizardToStep3')?.addEventListener('click', () => {
+      if (state.cart.length === 0) {
+        alert('Tu carrito está vacío. Agrega productos antes de continuar al pago.');
+        return;
+      }
+      goToCheckoutStep(3);
+    });
+
+    document.getElementById('btnWizardBackToStep2')?.addEventListener('click', () => {
+      goToCheckoutStep(2);
+    });
+
+    document.querySelectorAll('[data-wizard-goto]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (state.checkoutWizardStep === 4) return;
+        const target = Number(btn.getAttribute('data-wizard-goto'));
+        if (target < state.checkoutWizardStep) {
+          goToCheckoutStep(target);
+        } else if (target === 2) {
+          document.getElementById('btnWizardToStep2')?.click();
+        } else if (target === 3 && state.checkoutWizardStep === 2) {
+          document.getElementById('btnWizardToStep3')?.click();
+        }
+      });
+    });
+
+    const addrSelect = document.getElementById('checkoutAddressSelect');
+    addrSelect?.addEventListener('change', (e) => {
+      if (e.target.value !== 'map_pin') {
+        const idx = Number(e.target.value);
+        const dir = state.direcciones[idx];
+        if (dir) {
+          state.selectedAddressId = dir.id;
+          sessionStorage.setItem('danillanos_selected_addr_id', String(dir.id));
+          renderCartLiveAddressManager();
+        }
+        applySavedAddressToCheckout(idx);
+      }
+    });
+
+    document.getElementById('paymentMethodsGrid')?.addEventListener('click', (e) => {
+      const card = e.target.closest('[data-pay-method]');
+      if (!card) return;
+      renderPaymentVisualBox(card.getAttribute('data-pay-method'));
+    });
+
+    checkoutForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!state.user) {
+        window.location.href = 'perfil.html#cuenta-section';
+        return;
+      }
+      if (state.cart.length === 0) {
+        return;
+      }
+
+      const itemsSnapshot = state.cart.map((item) => ({ ...item }));
+      const totalSnapshot = getCartTotal();
+
+      const payload = {
+        nombre_recibe: document.getElementById('checkoutRecipientName').value.trim(),
+        telefono_cliente: document.getElementById('checkoutRecipientPhone').value.trim(),
+        direccion_entrega: document.getElementById('addrStreet').value.trim(),
+        municipio: document.getElementById('addrMunicipio').value.trim(),
+        lat: Number(document.getElementById('addrLat').value),
+        lng: Number(document.getElementById('addrLng').value),
+        metodo_pago: state.selectedPayMethod,
+        observaciones_cliente: document.getElementById('checkoutObservations').value.trim(),
+        items: state.cart
+      };
+
+      const res = await fetch(`${CONFIG.api.baseUrl}/pedidos`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.ok) {
+        state.cart = [];
+        saveAndRenderCart();
+
+        renderVisualInvoiceCard(data, payload, itemsSnapshot, totalSnapshot);
+        goToCheckoutStep(4);
+
+        const checkCircle = document.getElementById('animatedCheckmarkCircle');
+        if (checkCircle) {
+          checkCircle.classList.remove('is-animating');
+          void checkCircle.offsetWidth;
+          checkCircle.classList.add('is-animating');
+        }
+
+        let secondsLeft = 10;
+        const secEl = document.getElementById('invoiceCountdownSeconds');
+        const barEl = document.getElementById('invoiceCountdownBar');
+        if (secEl) secEl.textContent = String(secondsLeft);
+        if (barEl) barEl.style.width = '100%';
+
+        if (state.invoiceRedirectTimer) clearInterval(state.invoiceRedirectTimer);
+        state.invoiceRedirectTimer = setInterval(() => {
+          secondsLeft -= 1;
+          if (secEl) secEl.textContent = String(Math.max(0, secondsLeft));
+          if (barEl) barEl.style.width = `${Math.max(0, (secondsLeft / 10) * 100)}%`;
+          if (secondsLeft <= 0) {
+            clearInterval(state.invoiceRedirectTimer);
+            window.location.href = 'perfil.html#mis-pedidos-section';
+          }
+        }, 1000);
+      }
+    });
+  }
+
+  function applySavedAddressToCheckout(idx) {
+    const dir = state.direcciones[idx];
+    if (!dir) return;
+    document.getElementById('addrMunicipio').value = dir.municipio;
+    document.getElementById('addrStreet').value = dir.direccion;
+    document.getElementById('addrRef').value = dir.barrio_referencia || '';
+    document.getElementById('addrLat').value = dir.lat;
+    document.getElementById('addrLng').value = dir.lng;
+
+    updateZoneBannerUI(dir.lat, dir.lng, dir.municipio);
+
+    if (state.maps.addressMap && state.maps.addressMarker) {
+      state.maps.addressMap.setView([dir.lat, dir.lng], 14);
+      state.maps.addressMarker.setLatLng([dir.lat, dir.lng]).openPopup();
+    }
+  }
+
+  function renderCheckoutPageItems() {
+    const listEl = document.getElementById('checkoutItemsListContainer');
+    const countText = document.getElementById('checkoutItemsCountText');
+    const totalEl = document.getElementById('checkoutTotalAmount');
+    const step2TotalEl = document.getElementById('checkoutStep2TotalAmount');
+
+    const totalFormatted = formatCurrency(getCartTotal());
+    if (countText) countText.textContent = `${getCartTotalUnits()} unidades (${state.cart.length} ref.)`;
+    if (totalEl) totalEl.textContent = totalFormatted;
+    if (step2TotalEl) step2TotalEl.textContent = totalFormatted;
+    if (!listEl) return;
+
+    if (state.cart.length === 0) {
+      listEl.innerHTML = `
+        <div class="detail-box" style="text-align:center; padding:2rem;">
+          <p>No tienes productos en el carrito.</p>
+          <a href="index.html" class="btn-primary" style="margin-top:0.85rem;">Ir al Catálogo</a>
+        </div>
+      `;
+      return;
+    }
+
+    listEl.innerHTML = state.cart
+      .map(
+        (item) => `
+        <div class="checkout-item-row">
+          <div class="checkout-item-left">
+            <img src="${item.imagen_url}" alt="${item.nombre}" class="checkout-item-img" />
+            <div>
+              <strong>${item.nombre}</strong>
+              <div style="font-size:0.8rem; color:var(--text-secondary);">
+                Precio unitario: ${formatCurrency(item.precio)} • Subtotal: <strong>${formatCurrency(item.precio * item.cantidad)}</strong>
+              </div>
+            </div>
+          </div>
+          <div class="bulk-qty-box">
+            <button type="button" class="bulk-step-btn" data-chk-step="${item.id}" data-delta="-1">-</button>
+            <input
+              type="number"
+              min="1"
+              max="99999"
+              value="${item.cantidad}"
+              class="bulk-qty-input"
+              data-chk-input="${item.id}"
+            />
+            <button type="button" class="bulk-step-btn" data-chk-step="${item.id}" data-delta="1">+</button>
+          </div>
+        </div>
+      `
+      )
+      .join('');
+
+    listEl.onclick = (e) => {
+      const btn = e.target.closest('[data-chk-step]');
+      if (!btn) return;
+      const id = Number(btn.getAttribute('data-chk-step'));
+      const delta = Number(btn.getAttribute('data-delta'));
+      const item = state.cart.find((c) => Number(c.id) === id);
+      if (item) setCartItemExactQuantity(id, item.cantidad + delta);
+    };
+
+    listEl.onchange = (e) => {
+      const inp = e.target.closest('[data-chk-input]');
+      if (!inp) return;
+      const id = Number(inp.getAttribute('data-chk-input'));
+      setCartItemExactQuantity(id, inp.value);
+    };
+  }
+
+  function renderPaymentVisualBox(method) {
+    state.selectedPayMethod = method;
+    document.querySelectorAll('#paymentMethodsGrid .payment-method-card').forEach((c) => {
+      c.classList.toggle('active', c.getAttribute('data-pay-method') === method);
+    });
+
+    const box = document.getElementById('paymentVisualBox');
+    if (!box) return;
+
+    if (method === 'pse') {
+      box.innerHTML = `
+        <div class="modal-form">
+          <div style="display:flex; align-items:center; gap:0.6rem;">
+            <span class="pay-logo pay-logo-pse">PSE</span>
+            <strong>Pagos Seguros en Línea (ACH Colombia)</strong>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label>Banco</label>
+              <select class="modal-input">
+                <option>Bancolombia</option>
+                <option>Banco de Bogotá</option>
+                <option>Davivienda</option>
+                <option>BBVA Colombia</option>
+                <option>Nequi / DaviPlata</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Tipo de Cliente</label>
+              <select class="modal-input">
+                <option>Persona Natural</option>
+                <option>Persona Jurídica (Restaurante/NIT)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Documento (${state.user?.tipo_documento || 'CC'})</label>
+            <input type="text" class="modal-input" value="${state.user?.numero_documento || '1121890123'}" />
+          </div>
+        </div>
+      `;
+    } else if (method === 'nequi') {
+      box.innerHTML = `
+        <div class="modal-form">
+          <div style="display:flex; align-items:center; gap:0.6rem;">
+            <span class="pay-logo pay-logo-nequi">Nequi</span>
+            <strong>Pago con Notificación Nequi</strong>
+          </div>
+          <div class="form-group">
+            <label>Número de Celular Nequi</label>
+            <input type="tel" class="modal-input" value="${state.user?.telefono || '3114567890'}" />
+          </div>
+        </div>
+      `;
+    } else if (method === 'bancolombia') {
+      box.innerHTML = `
+        <div class="modal-form">
+          <div style="display:flex; align-items:center; gap:0.6rem;">
+            <span class="pay-logo pay-logo-bco">B</span>
+            <strong>Botón Bancolombia / Transferencia QR</strong>
+          </div>
+          <div class="detail-box" style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <span class="detail-box-label">Convenio Recaudo Danillanos</span>
+              <strong>Cuenta Ahorros N° 364-000918-21</strong>
+            </div>
+            <span class="material-symbols-rounded" style="font-size:2.4rem;">qr_code_2</span>
+          </div>
+        </div>
+      `;
+    } else if (method === 'tarjeta') {
+      box.innerHTML = `
+        <div class="modal-form">
+          <strong>Tarjeta Débito / Crédito</strong>
+          <div class="form-group">
+            <label>Número de Tarjeta</label>
+            <input type="text" class="modal-input" value="4532 7100 9921 4410" />
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label>Vencimiento</label>
+              <input type="text" class="modal-input" value="08/29" />
+            </div>
+            <div class="form-group">
+              <label>CVV</label>
+              <input type="password" class="modal-input" value="842" />
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      box.innerHTML = `
+        <div class="modal-form">
+          <div style="display:flex; align-items:center; gap:0.6rem;">
+            <span class="pay-logo pay-logo-cash"><span class="material-symbols-rounded">payments</span></span>
+            <strong>Pago en Efectivo Contraentrega</strong>
+          </div>
+          <div class="form-group">
+            <label>Observación de pago en efectivo</label>
+            <input type="text" class="modal-input" value="Pago exacto al recibir" />
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  // ==========================================================================
+  // 7. PÁGINA DEDICADA DEL PANEL DE CONTROL (panel.html) + HISTORIALES CON FILTROS PARA TODOS LOS ROLES
+  // ==========================================================================
+  function initPanelPage() {
+    if (!isStaffUser()) {
+      window.location.replace('404.html');
+      return;
+    }
+
+    initSharedInvoiceModalEvents();
+
+    const defaultTabByRole = {
+      admin: 'admin',
+      empleado: 'empleado',
+      entregador: 'entregador',
+      soporte: 'soporte'
+    };
+    state.activeStaffTab = defaultTabByRole[state.user.rol] || 'empleado';
+
+    const staffLayout = document.getElementById('staffLayout');
+    const staffSidebar = document.getElementById('staffSidebar');
+    const staffProfileCard = document.getElementById('staffProfileCard');
+    staffProfileCard?.addEventListener('click', () => {
+      if (!staffSidebar) return;
+      if (window.innerWidth <= 1080) {
+        const expanded = staffSidebar.classList.toggle('is-expanded');
+        staffProfileCard.setAttribute('aria-expanded', String(expanded));
+      } else {
+        const collapsedDesktop = staffSidebar.classList.toggle('is-collapsed-desktop');
+        staffLayout?.classList.toggle('is-desktop-expanded', collapsedDesktop);
+        staffSidebar.classList.toggle('is-expanded', !collapsedDesktop);
+        staffProfileCard.setAttribute('aria-expanded', String(!collapsedDesktop));
+        if (state.activeStaffTab === 'entregador') {
+          setTimeout(() => state.maps.driverMap?.invalidateSize(), 310);
+        }
+      }
+    });
+
+    renderStaffSidebar();
+    loadStaffDataAndRender();
+    initAdminCatalogEvents();
+    initStaffFilterEvents();
+
+    document.getElementById('staffNavList')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-staff-tab]');
+      if (!btn) return;
+      state.activeStaffTab = btn.getAttribute('data-staff-tab');
+      if (window.innerWidth <= 1080) {
+        staffSidebar?.classList.remove('is-expanded');
+        staffProfileCard?.setAttribute('aria-expanded', 'false');
+      }
+      renderStaffSidebar();
+      renderActiveStaffTab();
+    });
+
+    document.getElementById('btnStaffLogout')?.addEventListener('click', () => {
+      setSession(null, null, []);
+      window.location.href = 'index.html';
+    });
+
+    ['btnAdminRefresh', 'btnEmpleadoRefresh', 'btnEntregadorRefresh', 'btnSoporteRefresh'].forEach((id) => {
+      document.getElementById(id)?.addEventListener('click', loadStaffDataAndRender);
+    });
+
+    const workspace = document.getElementById('staffWorkspace');
+    workspace?.addEventListener('click', async (e) => {
+      // Abrir factura electrónica desde cualquier tarjeta del panel
+      const viewInvBtn = e.target.closest('[data-staff-view-invoice]');
+      if (viewInvBtn) {
+        const ordId = Number(viewInvBtn.getAttribute('data-staff-view-invoice'));
+        const ord = state.staffOrders.find((o) => Number(o.id) === ordId);
+        if (ord) openInvoiceModalByOrder(ord);
+        return;
+      }
+
+      // Expandir / contraer acordeón de historial en cualquier rol
+      const toggleHistHeader = e.target.closest('[data-toggle-staff-hist]');
+      if (toggleHistHeader && !e.target.closest('[data-staff-view-invoice]') && !e.target.closest('[data-emp-cancel]')) {
+        const ordId = Number(toggleHistHeader.getAttribute('data-toggle-staff-hist'));
+        if (state.staffHistoryExpandedIds.has(ordId)) {
+          state.staffHistoryExpandedIds.delete(ordId);
+        } else {
+          state.staffHistoryExpandedIds.add(ordId);
+        }
+        renderActiveStaffTab();
+        return;
+      }
+
+      // Expandir / colapsar paradas verticales del entregador (estilo Rappi)
+      const toggleStopHeader = e.target.closest('[data-toggle-driver-stop]');
+      if (toggleStopHeader && !e.target.closest('a') && !e.target.closest('button:not([data-toggle-driver-stop])')) {
+        const ordId = Number(toggleStopHeader.getAttribute('data-toggle-driver-stop'));
+        if (!state.driverExpandedOrderIds) state.driverExpandedOrderIds = new Set();
+        if (state.driverExpandedOrderIds.has(ordId)) {
+          state.driverExpandedOrderIds.delete(ordId);
+        } else {
+          state.driverExpandedOrderIds.add(ordId);
+        }
+        renderEntregadorPanel();
+        return;
+      }
+
+      // Confirmar pedido en Bodega (con asignación de entregador)
+      const confirmBtn = e.target.closest('[data-emp-confirm]');
+      if (confirmBtn) {
+        const id = Number(confirmBtn.getAttribute('data-emp-confirm'));
+        const driverSelect = document.getElementById(`assignDriverSelect_${id}`);
+        const entregador_id = driverSelect && driverSelect.value ? Number(driverSelect.value) : null;
+        const driverText = driverSelect?.options[driverSelect.selectedIndex]?.text || 'Diego Alejandro Vargas';
+        saveOrderOverride(id, {
+          estado: 'en_proceso',
+          entregador_id,
+          entregador_nombre: driverText
+        });
+        const res = await fetch(`${CONFIG.api.baseUrl}/staff/pedidos/${id}/confirmar`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ entregador_id })
+        });
+        const data = await res.json();
+        if (data.ok) loadStaffDataAndRender();
+        return;
+      }
+
+      // Despachar a Reparto (con asignación de entregador)
+      const dispatchBtn = e.target.closest('[data-emp-dispatch]');
+      if (dispatchBtn) {
+        const id = Number(dispatchBtn.getAttribute('data-emp-dispatch'));
+        const driverSelect = document.getElementById(`assignDriverSelect_${id}`);
+        const entregador_id = driverSelect && driverSelect.value ? Number(driverSelect.value) : null;
+        const driverText = driverSelect?.options[driverSelect.selectedIndex]?.text || 'Diego Alejandro Vargas';
+        saveOrderOverride(id, {
+          estado: 'en_camino',
+          entregador_id,
+          entregador_nombre: driverText
+        });
+        const res = await fetch(`${CONFIG.api.baseUrl}/staff/pedidos/${id}/en-reparto`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ entregador_id })
+        });
+        const data = await res.json();
+        if (data.ok) loadStaffDataAndRender();
+        return;
+      }
+
+      // Cancelar pedido desde el personal
+      const cancelBtn = e.target.closest('[data-emp-cancel]');
+      if (cancelBtn) {
+        const id = Number(cancelBtn.getAttribute('data-emp-cancel'));
+        const razon = prompt(`Cancelar Pedido #${id}:\nIndica el motivo de la cancelación:`, 'Cancelado en validación operativa');
+        if (!razon || !razon.trim()) return;
+        saveOrderOverride(id, {
+          estado: 'cancelado',
+          razon_cancelacion: razon.trim()
+        });
+        const res = await fetch(`${CONFIG.api.baseUrl}/staff/pedidos/${id}/cancelar`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ razon_cancelacion: razon.trim() })
+        });
+        const data = await res.json();
+        if (data.ok) loadStaffDataAndRender();
+        return;
+      }
+
+      // Simular foto de entrega del repartidor
+      const simPhotoBtn = e.target.closest('[data-driver-simulate-photo]');
+      if (simPhotoBtn) {
+        const id = Number(simPhotoBtn.getAttribute('data-driver-simulate-photo'));
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320" viewBox="0 0 480 320"><rect width="480" height="320" fill="#10131a"/><rect x="20" y="20" width="440" height="280" rx="18" fill="#191e2b" stroke="#22c55e" stroke-width="3"/><text x="240" y="115" fill="#ffffff" font-family="sans-serif" font-size="21" font-weight="bold" text-anchor="middle">ENTREGA PEDIDO #${id}</text><text x="240" y="155" fill="#cbd5e1" font-family="sans-serif" font-size="14" text-anchor="middle">${new Date().toLocaleString('es-CO')}</text><text x="240" y="195" fill="#4ade80" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">✔ Entregado Conforme</text></svg>`;
+        state.driverPhotosDraft[id] = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+        renderEntregadorPanel();
+        return;
+      }
+
+      // Finalizar entrega con foto
+      const completeBtn = e.target.closest('[data-driver-complete]');
+      if (completeBtn) {
+        const id = Number(completeBtn.getAttribute('data-driver-complete'));
+        const photo = state.driverPhotosDraft[id];
+        if (!photo) {
+          alert('Toma o adjunta la fotografía de entrega antes de finalizar.');
+          return;
+        }
+        const noteInput = document.getElementById(`driverNoteInput_${id}`);
+        const noteVal = noteInput ? noteInput.value : 'Entrega verificada.';
+        saveOrderOverride(id, {
+          estado: 'entregado',
+          foto_entrega_url: photo,
+          observaciones_entregador: noteVal,
+          fecha_entrega: new Date().toISOString()
+        });
+        const res = await fetch(`${CONFIG.api.baseUrl}/staff/pedidos/${id}/entregar`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            foto_entrega_url: photo,
+            observaciones_entregador: noteVal
+          })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          delete state.driverPhotosDraft[id];
+          state.driverExpandedOrderIds = null;
+          loadStaffDataAndRender();
+        }
+        return;
+      }
+
+      // Enviar mensaje en el MiniChat de Soporte (Cero 404s)
+      const sendSupportChatBtn = e.target.closest('[data-staff-send-chat]');
+      if (sendSupportChatBtn) {
+        const id = Number(sendSupportChatBtn.getAttribute('data-staff-send-chat'));
+        const chatInput = document.getElementById(`staffTicketChatInput_${id}`);
+        if (!chatInput || !chatInput.value.trim()) return;
+        const msgText = chatInput.value.trim();
+
+        const localList = getLocalTicketsStore();
+        const tk = localList.find((t) => Number(t.id) === id);
+        if (tk) {
+          if (!Array.isArray(tk.mensajes)) tk.mensajes = [];
+          tk.mensajes.push({
+            id: Date.now(),
+            autor: `${state.user?.nombre_completo || 'Soporte'} (Soporte)`,
+            rol: 'soporte',
+            texto: msgText,
+            fecha: new Date().toISOString()
+          });
+          tk.respuesta_soporte = msgText;
+          if (tk.estado === 'abierto') tk.estado = 'en_revision';
+          saveLocalTicketsStore(localList);
+        }
+
+        if (state.serverApiV3) {
+          try {
+            await fetch(`${CONFIG.api.baseUrl}/soporte/${id}/mensaje`, {
+              method: 'POST',
+              headers: getAuthHeaders(),
+              body: JSON.stringify({ texto: msgText })
+            });
+          } catch (_) {}
+        } else {
+          try {
+            await fetch(`${CONFIG.api.baseUrl}/staff/tickets/${id}`, {
+              method: 'PATCH',
+              headers: getAuthHeaders(),
+              body: JSON.stringify({ respuesta_soporte: msgText, estado: 'en_revision' })
+            });
+          } catch (_) {}
+        }
+        loadStaffDataAndRender();
+        return;
+      }
+
+      // Marcar ticket como resuelto
+      const resolveBtn = e.target.closest('[data-resolve-ticket]');
+      if (resolveBtn) {
+        const id = Number(resolveBtn.getAttribute('data-resolve-ticket'));
+        const chatInput = document.getElementById(`staffTicketChatInput_${id}`);
+        const msgText = chatInput && chatInput.value.trim() ? chatInput.value.trim() : null;
+
+        const localList = getLocalTicketsStore();
+        const tk = localList.find((t) => Number(t.id) === id);
+        if (tk) {
+          if (msgText) {
+            if (!Array.isArray(tk.mensajes)) tk.mensajes = [];
+            tk.mensajes.push({
+              id: Date.now(),
+              autor: `${state.user?.nombre_completo || 'Soporte'} (Soporte)`,
+              rol: 'soporte',
+              texto: msgText,
+              fecha: new Date().toISOString()
+            });
+            tk.respuesta_soporte = msgText;
+          }
+          tk.estado = 'resuelto';
+          saveLocalTicketsStore(localList);
+        }
+
+        const res = await fetch(`${CONFIG.api.baseUrl}/staff/tickets/${id}`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            respuesta_soporte: msgText || 'Caso resuelto por Soporte Danillanos.',
+            estado: 'resuelto'
+          })
+        });
+        const data = await res.json();
+        if (data.ok) loadStaffDataAndRender();
+        return;
+      }
+
+      // Admin: Editar producto del catálogo
+      const editProdBtn = e.target.closest('[data-admin-edit-prod]');
+      if (editProdBtn) {
+        const prodId = Number(editProdBtn.getAttribute('data-admin-edit-prod'));
+        const prod = state.products.find((p) => Number(p.id) === prodId);
+        if (prod) openAdminProductForm(prod);
+        return;
+      }
+
+      // Admin: Eliminar producto del catálogo (Cero 404s)
+      const delProdBtn = e.target.closest('[data-admin-del-prod]');
+      if (delProdBtn) {
+        const prodId = Number(delProdBtn.getAttribute('data-admin-del-prod'));
+        const prod = state.products.find((p) => Number(p.id) === prodId);
+        if (!confirm(`¿Eliminar "${prod?.nombre || prodId}" del catálogo?`)) return;
+
+        state.products = state.products.filter((p) => Number(p.id) !== prodId);
+        if (state.serverApiV3) {
+          try {
+            await fetch(`${CONFIG.api.baseUrl}/staff/catalogo/${prodId}`, {
+              method: 'DELETE',
+              headers: getAuthHeaders()
+            });
+          } catch (_) {}
+        }
+        renderAdminCatalogoPanel();
+        return;
+      }
+
+      // Admin: Activar / Desactivar cuenta de empleado o usuario (Cero 404s)
+      const toggleUserBtn = e.target.closest('[data-admin-toggle-user]');
+      if (toggleUserBtn) {
+        const userId = Number(toggleUserBtn.getAttribute('data-admin-toggle-user'));
+        const nextActive = toggleUserBtn.getAttribute('data-next-active') === '1';
+
+        const usersList = getLocalUsersStore();
+        const targetUser = usersList.find((u) => Number(u.id) === userId);
+        if (targetUser) {
+          targetUser.activo = nextActive;
+          saveLocalUsersStore(usersList);
+        }
+
+        if (state.serverApiV3) {
+          try {
+            await fetch(`${CONFIG.api.baseUrl}/staff/usuarios/${userId}`, {
+              method: 'PATCH',
+              headers: getAuthHeaders(),
+              body: JSON.stringify({ activo: nextActive })
+            });
+          } catch (_) {}
+        }
+        loadAdminUsersAndRender();
+        return;
+      }
+    });
+
+    workspace?.addEventListener('change', async (e) => {
+      const fileInput = e.target.closest('[data-driver-photo-input]');
+      if (fileInput && fileInput.files && fileInput.files[0]) {
+        const orderId = Number(fileInput.getAttribute('data-driver-photo-input'));
+        const reader = new FileReader();
+        reader.onload = () => {
+          state.driverPhotosDraft[orderId] = reader.result;
+          renderEntregadorPanel();
+        };
+        reader.readAsDataURL(fileInput.files[0]);
+        return;
+      }
+
+      // Admin: Cambiar rol de empleado / usuario (Cero 404s)
+      const roleSelect = e.target.closest('[data-admin-role-select]');
+      if (roleSelect) {
+        const userId = Number(roleSelect.getAttribute('data-admin-role-select'));
+        const newRole = roleSelect.value;
+
+        const usersList = getLocalUsersStore();
+        const targetUser = usersList.find((u) => Number(u.id) === userId);
+        if (targetUser) {
+          targetUser.rol = newRole;
+          saveLocalUsersStore(usersList);
+        }
+
+        if (state.serverApiV3) {
+          try {
+            await fetch(`${CONFIG.api.baseUrl}/staff/usuarios/${userId}`, {
+              method: 'PATCH',
+              headers: getAuthHeaders(),
+              body: JSON.stringify({ rol: newRole })
+            });
+          } catch (_) {}
+        }
+        loadAdminUsersAndRender();
+      }
+    });
+  }
+
+  function initStaffFilterEvents() {
+    const bindFilters = (ids, renderFn) => {
+      ids.forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener(el.tagName === 'INPUT' ? 'input' : 'change', renderFn);
+      });
+    };
+
+    bindFilters(
+      ['adminOrderSearchInput', 'adminOrderStatusFilter', 'adminOrderZoneFilter', 'adminOrderPayFilter'],
+      renderAdminDashboard
+    );
+    bindFilters(
+      [
+        'empActiveSearchInput',
+        'empActiveZoneFilter',
+        'empHistorySearchInput',
+        'empHistoryStatusFilter',
+        'empHistoryZoneFilter',
+        'empHistoryPayFilter'
+      ],
+      renderEmpleadoPanel
+    );
+    bindFilters(
+      ['driverHistorySearchInput', 'driverHistoryZoneFilter', 'driverHistoryPayFilter'],
+      renderEntregadorHistorySection
+    );
+    bindFilters(
+      [
+        'soporteTicketSearchInput',
+        'soporteTicketStatusFilter',
+        'soporteOrderSearchInput',
+        'soporteOrderStatusFilter',
+        'soporteOrderZoneFilter',
+        'soporteOrderPayFilter'
+      ],
+      renderSoportePanel
+    );
+  }
+
+  function renderStaffSidebar() {
+    if (!state.user) return;
+    const roleNames = {
+      empleado: 'EMPLEADO GENERAL',
+      entregador: 'ENTREGADOR',
+      soporte: 'SOPORTE',
+      admin: 'ADMINISTRADOR'
+    };
+
+    document.getElementById('staffAvatarInitial').textContent = (
+      state.user.nombre_completo || 'D'
+    )
+      .charAt(0)
+      .toUpperCase();
+    document.getElementById('staffRoleBadge').textContent =
+      roleNames[state.user.rol] || state.user.rol.toUpperCase();
+    document.getElementById('staffFullName').textContent = state.user.nombre_completo;
+    document.getElementById('staffEmailText').textContent = state.user.email;
+
+    const options = [];
+    if (state.user.rol === 'admin') {
+      options.push(
+        { id: 'admin', icon: 'monitoring', label: 'Resumen e Historial' },
+        { id: 'catalogo', icon: 'inventory_2', label: 'Gestionar Catálogo' },
+        { id: 'usuarios', icon: 'manage_accounts', label: 'Empleados y Roles' },
+        { id: 'empleado', icon: 'fact_check', label: 'Bodega e Historial' },
+        { id: 'entregador', icon: 'route', label: 'Ruta e Historial Entregas' },
+        { id: 'soporte', icon: 'support_agent', label: 'Soporte y Facturas' }
+      );
+    } else if (state.user.rol === 'empleado') {
+      options.push({ id: 'empleado', icon: 'fact_check', label: 'Bodega e Historial' });
+    } else if (state.user.rol === 'entregador') {
+      options.push({ id: 'entregador', icon: 'route', label: 'Ruta e Historial Entregas' });
+    } else if (state.user.rol === 'soporte') {
+      options.push({ id: 'soporte', icon: 'support_agent', label: 'Tickets y Facturas' });
+    }
+
+    document.getElementById('staffNavList').innerHTML = options
+      .map(
+        (opt) => `
+        <button
+          type="button"
+          class="staff-nav-option ${state.activeStaffTab === opt.id ? 'active' : ''}"
+          data-staff-tab="${opt.id}"
+        >
+          <span class="material-symbols-rounded">${opt.icon}</span>
+          <span>${opt.label}</span>
+        </button>
+      `
+      )
+      .join('');
+  }
+
+  async function loadStaffDataAndRender() {
+    try {
+      const res = await fetch(`${CONFIG.api.baseUrl}/staff/pedidos`, {
+        headers: getAuthHeaders()
+      });
+      if (res.status === 404) {
+        window.location.replace('404.html');
+        return;
+      }
+      const data = await res.json();
+      if (data.apiVersion >= 3) state.serverApiV3 = true;
+
+      state.staffOrders = applyOrderOverrides(data.pedidos || []);
+      state.staffTickets = mergeTicketsWithLocal(data.tickets || []);
+
+      const activeLocalDrivers = getLocalUsersStore().filter(
+        (u) => u.rol === 'entregador' && u.activo !== false
+      );
+      state.staffDrivers =
+        Array.isArray(data.entregadores) && data.entregadores.length > 0
+          ? data.entregadores
+          : activeLocalDrivers;
+
+      if (Array.isArray(data.usuarios) && data.usuarios.length > 0) {
+        const localUsers = getLocalUsersStore();
+        const mergedUsers = data.usuarios.map((su) => {
+          const lu = localUsers.find((u) => Number(u.id) === Number(su.id));
+          return lu ? { ...su, rol: lu.rol, activo: lu.activo } : su;
+        });
+        saveLocalUsersStore(mergedUsers);
+      }
+
+      renderActiveStaffTab();
+    } catch (_) {}
+  }
+
+  function renderActiveStaffTab() {
+    document.getElementById('panelViewAdmin')?.classList.toggle('hidden', state.activeStaffTab !== 'admin');
+    document.getElementById('panelViewCatalogo')?.classList.toggle('hidden', state.activeStaffTab !== 'catalogo');
+    document.getElementById('panelViewUsuarios')?.classList.toggle('hidden', state.activeStaffTab !== 'usuarios');
+    document.getElementById('panelViewEmpleado')?.classList.toggle('hidden', state.activeStaffTab !== 'empleado');
+    document.getElementById('panelViewEntregador')?.classList.toggle('hidden', state.activeStaffTab !== 'entregador');
+    document.getElementById('panelViewSoporte')?.classList.toggle('hidden', state.activeStaffTab !== 'soporte');
+
+    if (state.activeStaffTab === 'admin') renderAdminDashboard();
+    else if (state.activeStaffTab === 'catalogo') renderAdminCatalogoPanel();
+    else if (state.activeStaffTab === 'usuarios') loadAdminUsersAndRender();
+    else if (state.activeStaffTab === 'empleado') renderEmpleadoPanel();
+    else if (state.activeStaffTab === 'entregador') renderEntregadorPanel();
+    else if (state.activeStaffTab === 'soporte') renderSoportePanel();
+  }
+
+  /**
+   * Renderizador compartido de Historial de Pedidos y Facturas Colapsable para Admin, Empleado, Entregador y Soporte
+   */
+  function renderCollapsibleStaffOrdersList(list, containerId, emptyMessage) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (list.length === 0) {
+      container.innerHTML = `<div class="detail-box"><p>${emptyMessage}</p></div>`;
+      return;
+    }
+
+    const stageLabels = {
+      pendiente: { icon: 'pending_actions', text: '1. Por Confirmar', pill: 'status-pendiente' },
+      en_proceso: { icon: 'warehouse', text: '2. Aceptado en Bodega', pill: 'status-en_proceso' },
+      en_camino: { icon: 'local_shipping', text: '3. En Ruta de Reparto', pill: 'status-en_camino' },
+      entregado: { icon: 'verified', text: '4. Entregado', pill: 'status-entregado' },
+      cancelado: { icon: 'cancel', text: 'Cancelado', pill: 'status-cancelado' }
+    };
+
+    container.innerHTML = list
+      .map((ord) => {
+        const isExpanded = state.staffHistoryExpandedIds.has(ord.id);
+        const st = stageLabels[ord.estado] || stageLabels.pendiente;
+        const invCode = getInvoiceCode(ord.id);
+
+        return `
+          <article class="customer-order-accordion ${isExpanded ? 'is-expanded' : ''}">
+            <button
+              type="button"
+              class="customer-order-header"
+              data-toggle-staff-hist="${ord.id}"
+              aria-expanded="${isExpanded ? 'true' : 'false'}"
+            >
+              <div class="customer-order-header-left">
+                <div class="customer-order-title-row">
+                  <span class="order-id-badge">Pedido #${ord.id} — ${formatCurrency(ord.total)}</span>
+                  <span class="invoice-number-badge-inline">
+                    <span class="material-symbols-rounded" style="font-size:0.9rem;">receipt_long</span>
+                    ${invCode}
+                  </span>
+                  <span class="order-status-pill ${st.pill}">${st.text}</span>
+                </div>
+                <div class="customer-order-meta-line">
+                  Cliente: <strong>${ord.nombre_recibe}</strong> (${ord.telefono_cliente}) • ${ord.direccion_entrega} (${ord.municipio}) • Pago: <strong>${(ord.metodo_pago || 'efectivo').toUpperCase()}</strong>
+                  ${ord.entregador_nombre ? ` • Enviador: <strong>${ord.entregador_nombre}</strong>` : ''}
+                </div>
+              </div>
+
+              <div class="customer-order-direct-stage">
+                <span class="customer-order-chevron">
+                  <span class="material-symbols-rounded">expand_more</span>
+                </span>
+              </div>
+            </button>
+
+            <div class="customer-order-body">
+              <div class="staff-order-details-grid" style="margin-top:0.75rem;">
+                <div class="detail-box">
+                  <span class="detail-box-label">Destinatario y Contacto</span>
+                  <strong>${ord.nombre_recibe}</strong> • ${ord.telefono_cliente}
+                </div>
+                <div class="detail-box">
+                  <span class="detail-box-label">Dirección y Municipio</span>
+                  <strong>${ord.direccion_entrega}</strong> (${ord.municipio})
+                </div>
+                <div class="detail-box">
+                  <span class="detail-box-label">Facturación y Medio de Pago</span>
+                  <strong>${invCode}</strong> • ${(ord.metodo_pago || 'efectivo').toUpperCase()}
+                  ${
+                    ord.reembolso_estado === 'reembolsado'
+                      ? `<span style="color:#4ade80; font-weight:800; margin-left:0.35rem;">(Reembolsado)</span>`
+                      : ''
+                  }
+                </div>
+              </div>
+
+              ${
+                ord.razon_cancelacion
+                  ? `<div class="detail-box" style="margin-top:0.75rem; border:1px solid rgba(239,68,68,0.4);">
+                       <span class="detail-box-label">Motivo de Cancelación</span>
+                       <strong>${ord.razon_cancelacion}</strong>
+                     </div>`
+                  : ''
+              }
+
+              ${
+                ord.foto_entrega_url
+                  ? `<div class="detail-box" style="margin-top:0.75rem;">
+                       <span class="detail-box-label">Evidencia Fotográfica de Entrega (${ord.observaciones_entregador || 'Verificado'})</span>
+                       <img src="${ord.foto_entrega_url}" alt="Entrega #${ord.id}" class="delivery-photo-preview" style="margin-top:0.45rem;" />
+                     </div>`
+                  : ''
+              }
+
+              <div class="order-items-chips" style="margin-top:0.75rem;">
+                ${(ord.items || [])
+                  .map((i) => `<span class="order-item-chip">${i.cantidad}x ${i.nombre_producto}</span>`)
+                  .join('')}
+              </div>
+
+              <div class="customer-order-actions-bar">
+                <span style="font-size:0.78rem; color:var(--text-secondary);">
+                  Estimado registrado: <strong>${ord.tiempo_entrega_estimado || 'Ruta programada'}</strong>
+                </span>
+                <div class="customer-order-actions-btns">
+                  <button type="button" class="btn-secondary" data-staff-view-invoice="${ord.id}">
+                    <span class="material-symbols-rounded">receipt_long</span>
+                    <span>Ver Factura Gráfica</span>
+                  </button>
+                  ${
+                    ord.estado !== 'entregado' && ord.estado !== 'cancelado'
+                      ? `<button type="button" class="btn-cancel-order" data-emp-cancel="${ord.id}">
+                           <span class="material-symbols-rounded">cancel</span>
+                           <span>Cancelar Pedido</span>
+                         </button>`
+                      : ''
+                  }
+                </div>
+              </div>
+            </div>
+          </article>
+        `;
+      })
+      .join('');
+  }
+
+  // ==========================================================================
+  // SUB-PANELES EXCLUSIVOS DE ADMINISTRADOR: CATÁLOGO (CRUD) Y EMPLEADOS/ROLES
+  // ==========================================================================
+  function initAdminCatalogEvents() {
+    const catSelect = document.getElementById('admProdCategoria');
+    if (catSelect && CONFIG.categories) {
+      catSelect.innerHTML = CONFIG.categories
+        .map((c) => `<option value="${c.id}">${c.nombre}</option>`)
+        .join('');
+    }
+
+    document.getElementById('btnOpenNewProductForm')?.addEventListener('click', () => {
+      openAdminProductForm(null);
+    });
+    document.getElementById('btnCloseCatalogForm')?.addEventListener('click', () => {
+      document.getElementById('adminCatalogFormCard')?.classList.add('hidden');
+    });
+    document.getElementById('btnCancelCatalogForm')?.addEventListener('click', () => {
+      document.getElementById('adminCatalogFormCard')?.classList.add('hidden');
+    });
+
+    document.getElementById('adminCatalogSearchInput')?.addEventListener('input', (e) => {
+      state.adminCatalogQuery = e.target.value;
+      renderAdminCatalogoPanel();
+    });
+
+    document.getElementById('adminProductForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const prodId = document.getElementById('admProdId').value;
+      const catId = Number(document.getElementById('admProdCategoria').value) || 1;
+      const catObj = (CONFIG.categories || []).find((c) => Number(c.id) === catId) || {
+        id: 1,
+        slug: 'embutidos',
+        nombre: 'Cárnicos y Embutidos'
+      };
+
+      const payload = {
+        nombre: document.getElementById('admProdNombre').value.trim().toUpperCase(),
+        categoria_id: catObj.id,
+        categoria_slug: catObj.slug,
+        categoria_nombre: catObj.nombre,
+        precio: Number(document.getElementById('admProdPrecio').value) || 0,
+        presentacion: document.getElementById('admProdPresentacion').value.trim() || 'Unidad',
+        temperatura_conservacion: document.getElementById('admProdTemp').value,
+        etiqueta: document.getElementById('admProdEtiqueta').value.trim() || null,
+        imagen_url:
+          document.getElementById('admProdImagen').value.trim() ||
+          'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=900&q=80',
+        descripcion: document.getElementById('admProdDesc').value.trim() || 'Calidad garantizada Danillanos.'
+      };
+
+      const isEdit = Boolean(prodId);
+      if (isEdit) {
+        const idx = state.products.findIndex((p) => Number(p.id) === Number(prodId));
+        if (idx !== -1) state.products[idx] = { ...state.products[idx], ...payload };
+      } else {
+        const nextId = state.products.reduce((max, p) => Math.max(max, Number(p.id) || 0), 0) + 1;
+        state.products.unshift({
+          id: nextId,
+          codigo_sku: `DAN-ADM-${Date.now().toString().slice(-4)}`,
+          ...payload
+        });
+      }
+
+      if (state.serverApiV3) {
+        const url = isEdit
+          ? `${CONFIG.api.baseUrl}/staff/catalogo/${prodId}`
+          : `${CONFIG.api.baseUrl}/staff/catalogo`;
+        try {
+          await fetch(url, {
+            method: isEdit ? 'PUT' : 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(payload)
+          });
+        } catch (_) {}
+      }
+
+      document.getElementById('adminCatalogFormCard')?.classList.add('hidden');
+      renderAdminCatalogoPanel();
+    });
+  }
+
+  function openAdminProductForm(prod = null) {
+    const card = document.getElementById('adminCatalogFormCard');
+    const title = document.getElementById('adminCatalogFormTitle');
+    const submitText = document.getElementById('admProdSubmitText');
+    if (!card) return;
+
+    card.classList.remove('hidden');
+    if (prod) {
+      title.textContent = `Editar Producto #${prod.id}`;
+      submitText.textContent = 'Guardar Cambios';
+      document.getElementById('admProdId').value = prod.id;
+      document.getElementById('admProdNombre').value = prod.nombre || '';
+      document.getElementById('admProdCategoria').value = prod.categoria_id || 1;
+      document.getElementById('admProdPrecio').value = prod.precio || 0;
+      document.getElementById('admProdPresentacion').value = prod.presentacion || 'Unidad';
+      document.getElementById('admProdTemp').value = prod.temperatura_conservacion || 'Congelado -18°C';
+      document.getElementById('admProdEtiqueta').value = prod.etiqueta || '';
+      document.getElementById('admProdImagen').value = prod.imagen_url || '';
+      document.getElementById('admProdDesc').value = prod.descripcion || '';
+    } else {
+      title.textContent = 'Crear Nuevo Producto';
+      submitText.textContent = 'Crear Producto';
+      document.getElementById('adminProductForm')?.reset();
+      document.getElementById('admProdId').value = '';
+    }
+  }
+
+  function renderAdminCatalogoPanel() {
+    const listEl = document.getElementById('adminCatalogListContainer');
+    const badge = document.getElementById('adminCatalogTotalBadge');
+    if (badge) badge.textContent = String(state.products.length);
+    if (!listEl) return;
+
+    const q = (state.adminCatalogQuery || '').trim().toLowerCase();
+    const filtered = state.products.filter(
+      (p) =>
+        !q ||
+        p.nombre.toLowerCase().includes(q) ||
+        (p.categoria_nombre && p.categoria_nombre.toLowerCase().includes(q)) ||
+        (p.codigo_sku && p.codigo_sku.toLowerCase().includes(q))
+    );
+
+    listEl.innerHTML = filtered
+      .slice(0, 60)
+      .map(
+        (p) => `
+        <div class="admin-catalog-row">
+          <div class="admin-catalog-row-left">
+            <img src="${p.imagen_url}" alt="${p.nombre}" class="admin-catalog-thumb" loading="lazy" />
+            <div>
+              <strong>${p.nombre}</strong>
+              <div style="font-size:0.78rem; color:var(--text-secondary);">
+                ${p.categoria_nombre || 'Danillanos'} • ${p.presentacion} • <strong>${formatCurrency(p.precio)}</strong>
+              </div>
+            </div>
+          </div>
+          <div class="admin-catalog-actions">
+            <button type="button" class="btn-secondary" data-admin-edit-prod="${p.id}" style="padding:0.45rem 0.85rem; font-size:0.78rem;">
+              <span class="material-symbols-rounded" style="font-size:1rem;">edit</span>
+              <span>Editar</span>
+            </button>
+            <button type="button" class="btn-cancel-order" data-admin-del-prod="${p.id}" style="padding:0.45rem 0.85rem; font-size:0.78rem;">
+              <span class="material-symbols-rounded" style="font-size:1rem;">delete</span>
+              <span>Eliminar</span>
+            </button>
+          </div>
+        </div>
+      `
+      )
+      .join('');
+  }
+
+  async function loadAdminUsersAndRender() {
+    const container = document.getElementById('adminUsersListContainer');
+    if (!container) return;
+
+    if (state.serverApiV3) {
+      try {
+        const res = await fetch(`${CONFIG.api.baseUrl}/staff/usuarios`, { headers: getAuthHeaders() });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.data) && data.data.length > 0) {
+            saveLocalUsersStore(data.data);
+          }
+        }
+      } catch (_) {}
+    }
+
+    const users = getLocalUsersStore();
+    state.staffUsers = users;
+
+    const rolesList = [
+      { value: 'cliente', label: 'Cliente' },
+      { value: 'empleado', label: 'Empleado General' },
+      { value: 'entregador', label: 'Entregador' },
+      { value: 'soporte', label: 'Soporte' },
+      { value: 'admin', label: 'Administrador' }
+    ];
+
+    container.innerHTML = users
+      .map((u) => {
+        const isActive = u.activo !== false;
+        return `
+          <div class="admin-user-card">
+            <div>
+              <div style="display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap;">
+                <strong>${u.nombre_completo}</strong>
+                <span class="order-status-pill ${isActive ? 'status-entregado' : 'status-cancelado'}">
+                  ${isActive ? 'ACTIVO' : 'DESACTIVADO'}
+                </span>
+              </div>
+              <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:2px;">
+                ${u.email} • Tel: ${u.telefono || 'N/A'} • ${u.empresa || 'Danillanos'}
+              </div>
+            </div>
+
+            <div class="admin-user-controls">
+              <select class="driver-assign-select" data-admin-role-select="${u.id}" aria-label="Rol de usuario">
+                ${rolesList
+                  .map(
+                    (r) =>
+                      `<option value="${r.value}" ${u.rol === r.value ? 'selected' : ''}>${r.label}</option>`
+                  )
+                  .join('')}
+              </select>
+              <button
+                type="button"
+                class="${isActive ? 'btn-cancel-order' : 'btn-confirm-order'}"
+                data-admin-toggle-user="${u.id}"
+                data-next-active="${isActive ? '0' : '1'}"
+                style="padding:0.5rem 0.95rem; font-size:0.78rem;"
+              >
+                <span class="material-symbols-rounded" style="font-size:1rem;">${isActive ? 'person_off' : 'person_check'}</span>
+                <span>${isActive ? 'Desactivar Cuenta' : 'Activar Cuenta'}</span>
+              </button>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  function renderAdminDashboard() {
+    const orders = state.staffOrders;
+    const valid = orders.filter((o) => o.estado !== 'cancelado');
+    const totalVendido = valid.reduce((s, o) => s + Number(o.total), 0);
+    const porAceptar = orders.filter((o) => o.estado === 'pendiente').length;
+    const enProgreso = orders.filter((o) => o.estado === 'en_proceso' || o.estado === 'en_camino').length;
+    const entregados = orders.filter((o) => o.estado === 'entregado').length;
+
+    document.getElementById('adminKpiGrid').innerHTML = `
+      <div class="kpi-card">
+        <div class="kpi-card-top"><span>Total Vendido</span><span class="material-symbols-rounded">payments</span></div>
+        <div class="kpi-value">${formatCurrency(totalVendido)}</div>
+        <div class="kpi-sub">${valid.length} pedidos efectivos</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card-top"><span>Por Aceptar</span><span class="material-symbols-rounded">pending_actions</span></div>
+        <div class="kpi-value">${porAceptar}</div>
+        <div class="kpi-sub">Pendientes</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card-top"><span>En Bodega / Reparto</span><span class="material-symbols-rounded">local_shipping</span></div>
+        <div class="kpi-value">${enProgreso}</div>
+        <div class="kpi-sub">En preparación o ruta</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card-top"><span>Entregados</span><span class="material-symbols-rounded">verified</span></div>
+        <div class="kpi-value">${entregados}</div>
+        <div class="kpi-sub">Verificados</div>
+      </div>
+    `;
+
+    const lineStats = [
+      { label: 'Cárnicos y Costillas', amount: Math.round(totalVendido * 0.44) },
+      { label: 'Papas y Congelados', amount: Math.round(totalVendido * 0.28) },
+      { label: 'Salsas y Adobos', amount: Math.round(totalVendido * 0.18) },
+      { label: 'Icopores y Panes', amount: Math.round(totalVendido * 0.10) }
+    ];
+    const maxLineAmount = Math.max(...lineStats.map((l) => l.amount), 1);
+
+    document.getElementById('adminCategoryChart').innerHTML = lineStats
+      .map((r, idx) => {
+        const heightPx = Math.max(24, Math.round((r.amount / maxLineAmount) * 145));
+        return `
+          <div class="vbar-col ${idx === 0 ? 'is-top-line' : ''}">
+            <span class="vbar-value">${formatCurrency(r.amount)}</span>
+            <div class="vbar-pillar" style="height:${heightPx}px;"></div>
+            <span class="vbar-label">${r.label}</span>
+          </div>
+        `;
+      })
+      .join('');
+
+    const palette = [
+      { key: 'efectivo', label: 'Efectivo', color: '#94a3b8' },
+      { key: 'pse', label: 'PSE', color: '#64748b' },
+      { key: 'tarjeta', label: 'Tarjeta', color: '#e01a2c' },
+      { key: 'nequi', label: 'Nequi', color: '#cbd5e1' },
+      { key: 'bancolombia', label: 'Bancolombia', color: '#475569' }
+    ];
+
+    const paymentSlices = palette.map((m) => {
+      const sum = valid.filter((o) => o.metodo_pago === m.key).reduce((a, o) => a + Number(o.total), 0);
+      const pct = totalVendido > 0 ? Math.round((sum / totalVendido) * 100) : 20;
+      return { ...m, sum, pct };
+    });
+
+    let accDeg = 0;
+    const gradientStops = paymentSlices
+      .map((s) => {
+        const spanDeg = (s.pct / 100) * 360;
+        const start = accDeg;
+        const end = accDeg + spanDeg;
+        accDeg = end;
+        return `${s.color} ${start.toFixed(1)}deg ${end.toFixed(1)}deg`;
+      })
+      .join(', ');
+
+    document.getElementById('adminPaymentChart').innerHTML = `
+      <div class="pie-donut-figure" style="background: conic-gradient(${gradientStops || '#64748b 0deg 360deg'});">
+        <div class="pie-donut-hole">
+          <span>Total</span>
+          <strong>${formatCurrency(totalVendido)}</strong>
+        </div>
+      </div>
+      <div class="pie-legend-list">
+        ${paymentSlices
+          .map(
+            (s) => `
+          <div class="pie-legend-item">
+            <div class="pie-legend-left">
+              <span class="pie-swatch" style="background:${s.color};"></span>
+              <span>${s.label}</span>
+            </div>
+            <div class="pie-legend-right">
+              <span>${s.pct}%</span>
+              <strong>${formatCurrency(s.sum)}</strong>
+            </div>
+          </div>
+        `
+          )
+          .join('')}
+      </div>
+    `;
+
+    // Renderizar Historial General de Pedidos y Facturas del Administrador con Filtros
+    const admQuery = document.getElementById('adminOrderSearchInput')?.value || '';
+    const admStatus = document.getElementById('adminOrderStatusFilter')?.value || 'todos';
+    const admZone = document.getElementById('adminOrderZoneFilter')?.value || 'todas';
+    const admPay = document.getElementById('adminOrderPayFilter')?.value || 'todos';
+
+    const filteredAdminOrders = orders.filter((ord) =>
+      matchesOrderFilters(ord, { query: admQuery, status: admStatus, zone: admZone, pay: admPay })
+    );
+
+    const summaryBadge = document.getElementById('adminOrdersSummaryBadge');
+    if (summaryBadge) {
+      const sumFiltered = filteredAdminOrders
+        .filter((o) => o.estado !== 'cancelado')
+        .reduce((acc, o) => acc + Number(o.total || 0), 0);
+      summaryBadge.textContent = `${filteredAdminOrders.length} de ${orders.length} pedidos • Total efectivo filtrado: ${formatCurrency(sumFiltered)}`;
+    }
+
+    renderCollapsibleStaffOrdersList(
+      filteredAdminOrders,
+      'adminOrdersHistoryContainer',
+      'No hay pedidos ni facturas que coincidan con los filtros seleccionados.'
+    );
+  }
+
+  /**
+   * Panel Empleado General:
+   * 1. Cola activa por confirmar / despachar (con buscador y filtro de zona)
+   * 2. Historial de Pedidos Aceptados y Facturas (con buscador y filtros por estado, zona y medio de pago)
+   */
+  function renderEmpleadoPanel() {
+    const activeQuery = document.getElementById('empActiveSearchInput')?.value || '';
+    const activeZone = document.getElementById('empActiveZoneFilter')?.value || 'todas';
+
+    const activeQueue = state.staffOrders.filter(
+      (o) =>
+        (o.estado === 'pendiente' || o.estado === 'en_proceso') &&
+        matchesOrderFilters(o, { query: activeQuery, status: 'todos', zone: activeZone, pay: 'todos' })
+    );
+
+    const container = document.getElementById('empleadoOrdersContainer');
+    if (container) {
+      if (activeQueue.length === 0) {
+        container.innerHTML = `<div class="detail-box"><p>No hay pedidos pendientes en la cola de bodega con el filtro actual.</p></div>`;
+      } else {
+        const statusBadgeText = {
+          pendiente: '1. POR CONFIRMAR',
+          en_proceso: '2. ACEPTADO EN BODEGA'
+        };
+
+        const drivers =
+          state.staffDrivers.length > 0
+            ? state.staffDrivers
+            : [
+                { id: 3, nombre_completo: 'Diego Alejandro Vargas (Entregador)' },
+                { id: 6, nombre_completo: 'Andrés Felipe Castro (Ruta Norte)' }
+              ];
+
+        container.innerHTML = activeQueue
+          .map(
+            (ord) => `
+            <article class="staff-order-card">
+              <div class="staff-order-top">
+                <div style="display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap;">
+                  <span class="order-id-badge">Pedido #${ord.id} — ${formatCurrency(ord.total)}</span>
+                  <span class="invoice-number-badge-inline">${getInvoiceCode(ord.id)}</span>
+                  <span style="font-size:0.8rem; color:var(--text-secondary);">
+                    ${ord.metodo_pago.toUpperCase()} • ${ord.tiempo_entrega_estimado}
+                  </span>
+                </div>
+                <span class="order-status-pill status-${ord.estado}">
+                  ${statusBadgeText[ord.estado] || ord.estado}
+                </span>
+              </div>
+
+              <div class="staff-order-details-grid">
+                <div class="detail-box">
+                  <span class="detail-box-label">Destinatario</span>
+                  <strong>${ord.nombre_recibe}</strong> • ${ord.telefono_cliente}
+                </div>
+                <div class="detail-box">
+                  <span class="detail-box-label">Dirección de Entrega</span>
+                  <strong>${ord.direccion_entrega}</strong> (${ord.municipio})
+                </div>
+                ${
+                  ord.observaciones_cliente
+                    ? `<div class="detail-box">
+                         <span class="detail-box-label">Nota del Cliente</span>
+                         <span>${ord.observaciones_cliente}</span>
+                       </div>`
+                    : ''
+                }
+              </div>
+
+              <div class="order-items-chips">
+                ${(ord.items || [])
+                  .map((i) => `<span class="order-item-chip">${i.cantidad}x ${i.nombre_producto}</span>`)
+                  .join('')}
+              </div>
+
+              <div class="driver-assign-bar">
+                <span class="material-symbols-rounded" style="color:var(--brand-red);">two_wheeler</span>
+                <label for="assignDriverSelect_${ord.id}" style="font-size:0.82rem; font-weight:700;">Asignar Enviador:</label>
+                <select id="assignDriverSelect_${ord.id}" class="driver-assign-select">
+                  ${drivers
+                    .map(
+                      (d) =>
+                        `<option value="${d.id}" ${Number(ord.entregador_id) === Number(d.id) ? 'selected' : ''}>${d.nombre_completo}</option>`
+                    )
+                    .join('')}
+                </select>
+                ${
+                  ord.entregador_nombre
+                    ? `<span style="font-size:0.78rem; color:var(--text-secondary);">Asignado: <strong>${ord.entregador_nombre}</strong></span>`
+                    : ''
+                }
+              </div>
+
+              <div class="staff-order-actions">
+                <button type="button" class="btn-secondary" data-staff-view-invoice="${ord.id}">
+                  <span class="material-symbols-rounded">receipt_long</span>
+                  <span>Ver Factura</span>
+                </button>
+                ${
+                  ord.estado === 'pendiente'
+                    ? `<button type="button" class="btn-confirm-order" data-emp-confirm="${ord.id}">
+                         <span class="material-symbols-rounded">check_circle</span>
+                         <span>Confirmar y Asignar Enviador</span>
+                       </button>`
+                    : ''
+                }
+                ${
+                  ord.estado === 'en_proceso'
+                    ? `<button type="button" class="btn-confirm-order" style="background:#16a34a;" data-emp-dispatch="${ord.id}">
+                         <span class="material-symbols-rounded">local_shipping</span>
+                         <span>Despachar a Ruta</span>
+                       </button>`
+                    : ''
+                }
+                <button type="button" class="btn-cancel-order" data-emp-cancel="${ord.id}">
+                  <span class="material-symbols-rounded">cancel</span>
+                  <span>Cancelar</span>
+                </button>
+              </div>
+            </article>
+          `
+          )
+          .join('');
+      }
+    }
+
+    // Historial de Pedidos Aceptados y Gestionados por Empleado
+    const empAcceptedAll = state.staffOrders.filter((o) =>
+      ['en_proceso', 'en_camino', 'entregado', 'cancelado'].includes(o.estado)
+    );
+    const empHistQuery = document.getElementById('empHistorySearchInput')?.value || '';
+    const empHistStatus = document.getElementById('empHistoryStatusFilter')?.value || 'todos';
+    const empHistZone = document.getElementById('empHistoryZoneFilter')?.value || 'todas';
+    const empHistPay = document.getElementById('empHistoryPayFilter')?.value || 'todos';
+
+    const filteredEmpHist = empAcceptedAll.filter((ord) =>
+      matchesOrderFilters(ord, {
+        query: empHistQuery,
+        status: empHistStatus,
+        zone: empHistZone,
+        pay: empHistPay
+      })
+    );
+
+    const empHistBadge = document.getElementById('empHistorySummaryBadge');
+    if (empHistBadge) {
+      empHistBadge.textContent = `Mostrando ${filteredEmpHist.length} de ${empAcceptedAll.length} pedidos gestionados`;
+    }
+
+    renderCollapsibleStaffOrdersList(
+      filteredEmpHist,
+      'empleadoHistoryOrdersContainer',
+      'No se encontraron pedidos aceptados con los filtros seleccionados.'
+    );
+  }
+
+  /**
+   * Panel Entregador:
+   * 1. Barra superior: Progreso (X de Y completados)
+   * 2. Mapa limpio + Botón Google Maps
+   * 3. Puntos verticales conectados (o | o | o)
+   * 4. Historial de Pedidos Entregados con filtros y buscador
+   */
+  function renderEntregadorPanel() {
+    const allDriverOrders = state.staffOrders.filter((o) => o.estado !== 'cancelado');
+    const completedCount = allDriverOrders.filter((o) => o.estado === 'entregado').length;
+    const active = state.staffOrders.filter(
+      (o) => o.estado === 'en_camino' || o.estado === 'en_proceso' || o.estado === 'pendiente'
+    );
+    const totalRouteOrders = completedCount + active.length;
+    const progressPct = totalRouteOrders > 0 ? Math.round((completedCount / totalRouteOrders) * 100) : 0;
+
+    const progressCard = document.getElementById('driverRappiProgressCard');
+    if (progressCard) {
+      progressCard.innerHTML = `
+        <div class="driver-rappi-progress-top">
+          <span>Progreso</span>
+          <span>${completedCount} de ${totalRouteOrders} completados</span>
+        </div>
+        <div class="driver-rappi-bar-bg">
+          <div class="driver-rappi-bar-fill" style="width:${progressPct}%;"></div>
+        </div>
+      `;
+    }
+
+    const hq = CONFIG.map.sedeDanillanos;
+    const remaining = [...active];
+    const orderedStops = [];
+    let curr = { lat: hq.lat, lng: hq.lng };
+
+    while (remaining.length > 0) {
+      let bestIdx = 0;
+      let bestDist = Infinity;
+      remaining.forEach((o, i) => {
+        const d = haversineKm(curr.lat, curr.lng, o.lat, o.lng);
+        if (d < bestDist) {
+          bestDist = d;
+          bestIdx = i;
+        }
+      });
+      const next = remaining.splice(bestIdx, 1)[0];
+      orderedStops.push({
+        ...next,
+        legDistanceKm: Number(bestDist.toFixed(2)),
+        stopNumber: orderedStops.length + 1
+      });
+      curr = { lat: next.lat, lng: next.lng };
+    }
+
+    if (state.driverExpandedOrderIds === null) {
+      state.driverExpandedOrderIds = new Set();
+      if (orderedStops.length > 0) {
+        state.driverExpandedOrderIds.add(orderedStops[0].id);
+      }
+    }
+
+    const navToolbar = document.getElementById('driverExternalNavToolbar');
+    if (navToolbar) {
+      if (orderedStops.length === 0) {
+        navToolbar.innerHTML = `<span>Ruta completada. No tienes entregas pendientes en camino.</span>`;
+      } else {
+        const firstStop = orderedStops[0];
+        const lastStop = orderedStops[orderedStops.length - 1];
+        const intermediateStops = orderedStops.slice(0, -1);
+        const waypointsParam =
+          intermediateStops.length > 0
+            ? `&waypoints=${encodeURIComponent(intermediateStops.map((s) => `${s.lat},${s.lng}`).join('|'))}`
+            : '';
+
+        const googleMapsMultiStopUrl = `https://www.google.com/maps/dir/?api=1&origin=${hq.lat},${hq.lng}&destination=${lastStop.lat},${lastStop.lng}${waypointsParam}&travelmode=driving`;
+        const wazeCurrentStopUrl = `https://waze.com/ul?ll=${firstStop.lat},${firstStop.lng}&navigate=yes`;
+
+        navToolbar.innerHTML = `
+          <span style="font-size:0.86rem; font-weight:700;">${orderedStops.length} paradas en ruta</span>
+          <div class="driver-external-btns">
+            <a href="${googleMapsMultiStopUrl}" target="_blank" rel="noopener noreferrer" class="btn-gmaps-official">
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="#EA4335" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                <circle fill="#ffffff" cx="12" cy="9" r="3"/>
+              </svg>
+              <span>Abrir Ruta en Google Maps</span>
+            </a>
+            <a href="${wazeCurrentStopUrl}" target="_blank" rel="noopener noreferrer" class="btn-gmaps-official">
+              <span class="material-symbols-rounded" style="font-size:1.1rem; color:#38bdf8;">navigation</span>
+              <span>Waze</span>
+            </a>
+          </div>
+        `;
+      }
+    }
+
+    if (!state.maps.driverMap) {
+      const dMap = L.map('driverMapContainer').setView([hq.lat, hq.lng], 13);
+      L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        attribution: '&copy; Google Maps'
+      }).addTo(dMap);
+      state.maps.driverMap = dMap;
+      state.maps.driverLayerGroup = L.layerGroup().addTo(dMap);
+    }
+
+    const lg = state.maps.driverLayerGroup;
+    lg.clearLayers();
+
+    L.marker([hq.lat, hq.lng], { icon: createHqPinIcon() })
+      .addTo(lg)
+      .bindPopup(`<strong>🥩 Sede Danillanos</strong>`);
+
+    const polyPoints = [[hq.lat, hq.lng]];
+    orderedStops.forEach((stop) => {
+      polyPoints.push([stop.lat, stop.lng]);
+      L.marker([stop.lat, stop.lng], { icon: createBrandRedPinIcon(stop.stopNumber) })
+        .addTo(lg)
+        .bindPopup(`<strong>Parada #${stop.stopNumber}: ${stop.nombre_recibe}</strong><br>${stop.direccion_entrega}`);
+    });
+
+    if (polyPoints.length > 1) {
+      L.polyline(polyPoints, { color: '#e01a2c', weight: 4, dashArray: '8, 6' }).addTo(lg);
+      state.maps.driverMap.fitBounds(polyPoints, { padding: [30, 30] });
+    }
+    setTimeout(() => state.maps.driverMap.invalidateSize(), 200);
+
+    document.getElementById('entregadorOrdersContainer').innerHTML = orderedStops
+      .map((ord, idx) => {
+        const isCurrentActiveStop = idx === 0;
+        const isOpen = state.driverExpandedOrderIds && state.driverExpandedOrderIds.has(ord.id);
+        const draftPhoto = state.driverPhotosDraft[ord.id] || null;
+        const singleGmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${ord.lat},${ord.lng}&travelmode=driving`;
+
+        return `
+          <div class="driver-vstop-item ${isCurrentActiveStop ? 'is-active-stop' : ''} ${isOpen ? 'is-open' : ''}">
+            <div class="driver-vstop-rail">
+              <span class="driver-vstop-dot"></span>
+              <span class="driver-vstop-line"></span>
+            </div>
+
+            <article class="driver-vstop-card">
+              <button
+                type="button"
+                class="driver-vstop-header"
+                data-toggle-driver-stop="${ord.id}"
+                aria-expanded="${isOpen ? 'true' : 'false'}"
+              >
+                <div>
+                  <div class="driver-vstop-title">
+                    Parada ${ord.stopNumber} • Pedido #${ord.id} (${getInvoiceCode(ord.id)}) — ${ord.nombre_recibe}
+                  </div>
+                  <div class="driver-vstop-sub">
+                    ${ord.direccion_entrega} (${ord.municipio}) • ${ord.telefono_cliente}
+                  </div>
+                </div>
+                <span class="driver-vstop-price">${formatCurrency(ord.total)}</span>
+              </button>
+
+              <div class="driver-vstop-body">
+                ${
+                  ord.observaciones_cliente
+                    ? `<div style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:0.65rem;">
+                         <strong>Nota:</strong> ${ord.observaciones_cliente}
+                       </div>`
+                    : ''
+                }
+
+                <div class="order-items-chips" style="margin-bottom:0.75rem;">
+                  ${(ord.items || [])
+                    .map((i) => `<span class="order-item-chip">${i.cantidad}x ${i.nombre_producto}</span>`)
+                    .join('')}
+                </div>
+
+                <div class="driver-delivery-box">
+                  <div class="photo-upload-controls">
+                    <label class="file-label-btn">
+                      <span class="material-symbols-rounded">photo_camera</span>
+                      <span>Tomar Foto</span>
+                      <input type="file" accept="image/*" capture="environment" class="hidden" data-driver-photo-input="${ord.id}" />
+                    </label>
+                    <button type="button" class="btn-secondary" data-driver-simulate-photo="${ord.id}">
+                      <span class="material-symbols-rounded">add_a_photo</span>
+                      <span>Foto Instantánea</span>
+                    </button>
+                    <a href="${singleGmapsUrl}" target="_blank" rel="noopener noreferrer" class="btn-secondary">
+                      <span class="material-symbols-rounded">location_on</span>
+                      <span>Maps</span>
+                    </a>
+                    <button type="button" class="btn-secondary" data-staff-view-invoice="${ord.id}">
+                      <span class="material-symbols-rounded">receipt_long</span>
+                      <span>Factura</span>
+                    </button>
+                  </div>
+                  ${draftPhoto ? `<img src="${draftPhoto}" alt="Foto de entrega" class="delivery-photo-preview" />` : ''}
+                  <input
+                    type="text"
+                    class="modal-input"
+                    id="driverNoteInput_${ord.id}"
+                    placeholder="Observación de entrega (opcional)..."
+                    value="${ord.observaciones_entregador || ''}"
+                  />
+                </div>
+
+                <div class="staff-order-actions" style="margin-top:0.75rem;">
+                  <button type="button" class="btn-cancel-order" data-emp-cancel="${ord.id}">Cancelar</button>
+                  <button type="button" class="btn-confirm-order" data-driver-complete="${ord.id}">
+                    <span class="material-symbols-rounded">task_alt</span>
+                    <span>Confirmar Entrega</span>
+                  </button>
+                </div>
+              </div>
+            </article>
+          </div>
+        `;
+      })
+      .join('');
+
+    renderEntregadorHistorySection();
+  }
+
+  function renderEntregadorHistorySection() {
+    const deliveredOrders = state.staffOrders.filter((o) => o.estado === 'entregado');
+    const drvQuery = document.getElementById('driverHistorySearchInput')?.value || '';
+    const drvZone = document.getElementById('driverHistoryZoneFilter')?.value || 'todas';
+    const drvPay = document.getElementById('driverHistoryPayFilter')?.value || 'todos';
+
+    const filteredDelivered = deliveredOrders.filter((ord) =>
+      matchesOrderFilters(ord, { query: drvQuery, status: 'entregado', zone: drvZone, pay: drvPay })
+    );
+
+    const badge = document.getElementById('driverHistorySummaryBadge');
+    if (badge) {
+      const sumDelivered = filteredDelivered.reduce((acc, o) => acc + Number(o.total || 0), 0);
+      badge.textContent = `${filteredDelivered.length} de ${deliveredOrders.length} entregas completadas • Total entregado: ${formatCurrency(sumDelivered)}`;
+    }
+
+    renderCollapsibleStaffOrdersList(
+      filteredDelivered,
+      'entregadorHistoryContainer',
+      'No se encontraron pedidos entregados con los filtros seleccionados.'
+    );
+  }
+
+  /**
+   * Panel Soporte:
+   * 1. Tickets de Clientes y MiniChat con Buscador y Filtro de Estado
+   * 2. Historial y Buscador Filtrable de Pedidos, Facturas, Entregas y Reembolsos
+   */
+  function renderSoportePanel() {
+    const tkQuery = (document.getElementById('soporteTicketSearchInput')?.value || '').trim().toLowerCase();
+    const tkStatus = document.getElementById('soporteTicketStatusFilter')?.value || 'todos';
+
+    const filteredTickets = (state.staffTickets || []).filter((tk) => {
+      if (tkStatus === 'activos' && tk.estado === 'resuelto') return false;
+      if (tkStatus === 'resuelto' && tk.estado !== 'resuelto') return false;
+      if (!tkQuery) return true;
+      const msgsStr = (tk.mensajes || []).map((m) => `${m.autor} ${m.texto}`).join(' ').toLowerCase();
+      return (
+        String(tk.id).includes(tkQuery) ||
+        String(tk.pedido_id || '').includes(tkQuery) ||
+        (tk.asunto || '').toLowerCase().includes(tkQuery) ||
+        msgsStr.includes(tkQuery)
+      );
+    });
+
+    const tkBadge = document.getElementById('soporteTicketsSummaryBadge');
+    if (tkBadge) {
+      tkBadge.textContent = `Mostrando ${filteredTickets.length} de ${state.staffTickets.length} tickets`;
+    }
+
+    document.getElementById('soporteTicketsContainer').innerHTML =
+      filteredTickets.length === 0
+        ? `<div class="detail-box"><p>No hay tickets que coincidan con el filtro seleccionado.</p></div>`
+        : filteredTickets
+            .map((tk) => {
+              const msgs = tk.mensajes || [];
+              return `
+                <article class="ticket-minichat-card">
+                  <div class="ticket-minichat-header">
+                    <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                      <strong>Ticket #${tk.id}: ${tk.asunto}</strong>
+                      ${
+                        tk.pedido_id
+                          ? `<button type="button" class="invoice-number-badge-inline" data-staff-view-invoice="${tk.pedido_id}" title="Ver factura del Pedido #${tk.pedido_id}">
+                               <span class="material-symbols-rounded" style="font-size:0.9rem;">receipt_long</span>
+                               Pedido #${tk.pedido_id} • ${getInvoiceCode(tk.pedido_id)}
+                             </button>`
+                          : ''
+                      }
+                    </div>
+                    <span class="order-status-pill status-${tk.estado === 'resuelto' ? 'entregado' : 'pendiente'}">${tk.estado.toUpperCase()}</span>
+                  </div>
+
+                  ${
+                    tk.imagen_cliente_url
+                      ? `<div class="detail-box">
+                           <span class="detail-box-label">Fotografía Adjunta por el Cliente</span>
+                           <img src="${tk.imagen_cliente_url}" alt="Adjunto ticket #${tk.id}" class="delivery-photo-preview" style="margin-top:0.45rem;" />
+                         </div>`
+                      : ''
+                  }
+
+                  <div class="minichat-messages-box">
+                    ${msgs
+                      .map(
+                        (m) => `
+                      <div class="minichat-bubble is-${m.rol === 'soporte' ? 'soporte' : 'cliente'}">
+                        <div class="minichat-bubble-meta">${m.autor}</div>
+                        <div>${m.texto}</div>
+                      </div>
+                    `
+                      )
+                      .join('')}
+                  </div>
+
+                  <div class="minichat-input-row">
+                    <input
+                      type="text"
+                      class="modal-input"
+                      id="staffTicketChatInput_${tk.id}"
+                      placeholder="Escribe una respuesta en el chat para el cliente..."
+                    />
+                    <button type="button" class="btn-primary" data-staff-send-chat="${tk.id}">
+                      <span class="material-symbols-rounded">send</span>
+                      <span>Enviar</span>
+                    </button>
+                    <button type="button" class="btn-confirm-order" data-resolve-ticket="${tk.id}">
+                      <span class="material-symbols-rounded">check_circle</span>
+                      <span>Resolver</span>
+                    </button>
+                  </div>
+                </article>
+              `;
+            })
+            .join('');
+
+    // 2. Historial y Filtro de Pedidos, Facturas, Entregas y Reembolsos para Soporte
+    const supOrdQuery = document.getElementById('soporteOrderSearchInput')?.value || '';
+    const supOrdStatus = document.getElementById('soporteOrderStatusFilter')?.value || 'todos';
+    const supOrdZone = document.getElementById('soporteOrderZoneFilter')?.value || 'todas';
+    const supOrdPay = document.getElementById('soporteOrderPayFilter')?.value || 'todos';
+
+    const filteredSupportOrders = state.staffOrders.filter((ord) =>
+      matchesOrderFilters(ord, {
+        query: supOrdQuery,
+        status: supOrdStatus,
+        zone: supOrdZone,
+        pay: supOrdPay
+      })
+    );
+
+    const supOrdBadge = document.getElementById('soporteOrdersSummaryBadge');
+    if (supOrdBadge) {
+      supOrdBadge.textContent = `Mostrando ${filteredSupportOrders.length} de ${state.staffOrders.length} pedidos y facturas`;
+    }
+
+    renderCollapsibleStaffOrdersList(
+      filteredSupportOrders,
+      'soporteFilteredOrdersContainer',
+      'No hay pedidos ni facturas que coincidan con la búsqueda en Soporte.'
+    );
+  }
+
+  // ==========================================================================
+  // INICIALIZACIÓN SEGÚN LA PÁGINA ACTUAL
+  // ==========================================================================
+  document.addEventListener('DOMContentLoaded', () => {
+    initSharedHeaderAndTheme();
+
+    if (CURRENT_PAGE === 'store') initStorePage();
+    else if (CURRENT_PAGE === 'perfil') initPerfilPage();
+    else if (CURRENT_PAGE === 'pagos') initPagosPage();
+    else if (CURRENT_PAGE === 'panel') initPanelPage();
+  });
+})();

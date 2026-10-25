@@ -1,0 +1,17 @@
+{
+  "name": "danillanos-tienda-carnicos",
+  "version": "1.0.0",
+  "description": "Plataforma web e-commerce para Danillanos - Tienda de Cárnicos y Congelados con backend Node.js y MySQL",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node --watch backend/server.js",
+    "db:init": "node run-schema.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mysql2": "^3.11.0"
+  }
+}

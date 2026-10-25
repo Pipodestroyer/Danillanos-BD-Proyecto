@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Operativo y Administración | Danillanos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,500,0,0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body data-page="panel">
+
+  <!-- HEADER DEL PANEL OPERATIVO -->
+  <header class="site-header" id="siteHeader">
+    <div class="header-container">
+
+      <!-- BOTÓN HAMBURGER (Móvil) -->
+      <div class="header-mobile-left">
+        <button type="button" class="action-icon-btn hamburger-btn" id="mobileMenuBtn" aria-label="Abrir menú">
+          <span class="material-symbols-rounded">menu</span>
+        </button>
+        <a href="index.html" class="action-icon-btn mobile-quick-profile-btn" aria-label="Tienda Pública">
+          <span class="material-symbols-rounded">storefront</span>
+        </a>
+      </div>
+
+      <nav class="header-nav-left" aria-label="Navegación">
+        <a href="index.html" class="nav-btn">
+          <span class="nav-btn-text">Tienda Pública</span>
+          <span class="material-symbols-rounded nav-btn-icon">storefront</span>
+        </a>
+        <a href="perfil.html" class="nav-btn">
+          <span class="nav-btn-text">Mi Cuenta</span>
+          <span class="material-symbols-rounded nav-btn-icon">badge</span>
+        </a>
+      </nav>
+
+      <div class="header-brand-center">
+        <a href="index.html" class="brand-link" id="brandLink">
+          <div class="brand-text-wrapper">
+            <span class="brand-name">DANILLANOS</span>
+            <span class="brand-tagline">PANEL OPERATIVO</span>
+          </div>
+        </a>
+      </div>
+
+      <div class="header-actions-right">
+        <button type="button" class="action-icon-btn theme-toggle-btn monochrome-theme-btn" id="themeToggleBtn" title="Cambiar tema">
+          <span class="theme-icon-stage">
+            <span class="material-symbols-rounded theme-icon-dark">dark_mode</span>
+            <span class="material-symbols-rounded theme-icon-light">light_mode</span>
+          </span>
+        </button>
+
+        <a href="perfil.html" class="user-avatar-btn" id="userAvatarBtn">
+          <img src="" alt="Foto de perfil" class="user-avatar-img hidden" id="userAvatarImg" />
+          <span class="material-symbols-rounded guest-avatar-icon hidden" id="guestAvatarIcon">person</span>
+          <span class="user-avatar-initial" id="userAvatarInitial">D</span>
+          <span class="user-status-dot" id="userStatusDot"></span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- MENÚ LATERAL HAMBURGER PARA MÓVIL -->
+  <div class="mobile-nav-backdrop" id="mobileNavBackdrop" aria-hidden="true"></div>
+  <aside class="mobile-nav-drawer" id="mobileNavDrawer" aria-label="Menú Móvil Danillanos" aria-hidden="true">
+    <div class="mobile-nav-header">
+      <div class="brand-text-wrapper" style="align-items:flex-start;">
+        <span class="brand-name" style="font-size:1.35rem;">DANILLANOS</span>
+        <span class="brand-tagline">MENÚ PRINCIPAL</span>
+      </div>
+      <button type="button" class="icon-close-btn" id="mobileMenuCloseBtn" aria-label="Cerrar menú">
+        <span class="material-symbols-rounded">close</span>
+      </button>
+    </div>
+    <div class="mobile-nav-body" id="mobileNavBody"></div>
+  </aside>
+
+  <!-- CONTENIDO AMPLIO DEL PANEL DE CONTROL -->
+  <section class="staff-workspace" id="staffWorkspace" aria-label="Panel de Control Danillanos">
+    <div class="staff-layout" id="staffLayout">
+
+      <!-- LADO IZQUIERDO / SUPERIOR: Perfil con Flecha Colapsable + Opciones Directas -->
+      <aside class="staff-sidebar" id="staffSidebar">
+
+        <div class="staff-profile-card" id="staffProfileCard" role="button" tabindex="0" aria-expanded="true" title="Mostrar u ocultar Opciones Directas">
+          <div class="staff-avatar-circle" id="staffAvatarCircle">
+            <span id="staffAvatarInitial">E</span>
+          </div>
+          <div class="staff-profile-info">
+            <span class="staff-role-badge" id="staffRoleBadge">CARGANDO...</span>
+            <h3 class="staff-full-name" id="staffFullName">Personal Danillanos</h3>
+            <p class="staff-email-text" id="staffEmailText"></p>
+          </div>
+          <button
+            type="button"
+            class="staff-menu-toggle-arrow"
+            id="staffMenuToggleBtn"
+            aria-label="Expandir o contraer Opciones Directas"
+          >
+            <span class="material-symbols-rounded" id="staffMenuToggleIcon">expand_more</span>
+          </button>
+        </div>
+
+        <nav class="staff-nav-card" id="staffNavCard" aria-label="Menú de Panel Operativo">
+          <div class="staff-nav-label">Opciones Directas</div>
+          <div class="staff-nav-list" id="staffNavList"></div>
+          <div class="staff-nav-Divider"></div>
+          <a href="index.html" class="staff-nav-option">
+            <span class="material-symbols-rounded">storefront</span>
+            <span>Ir a la Tienda</span>
+          </a>
+          <button type="button" class="staff-nav-option staff-logout-option" id="btnStaffLogout">
+            <span class="material-symbols-rounded">logout</span>
+            <span>Cerrar Sesión</span>
+          </button>
+        </nav>
+
+      </aside>
+
+      <!-- ÁREA PRINCIPAL DE INTERACCIÓN (SE EXPANDE AL 100% CUANDO SE CIERRAN LAS OPCIONES DIRECTAS) -->
+      <div class="staff-main-panel" id="staffMainPanel">
+
+        <!-- ==================================================================
+             SUB-PANEL 1: RESUMEN EJECUTIVO ADMIN + HISTORIAL GENERAL CON FILTROS
+             ================================================================== -->
+        <div class="staff-view-section hidden" id="panelViewAdmin">
+          <div class="staff-panel-header">
+            <div>
+              <span class="staff-eyebrow">GERENCIA DANILLANOS</span>
+              <h2>Resumen de Ventas y Operación</h2>
+            </div>
+            <button type="button" class="btn-refresh-staff" id="btnAdminRefresh">
+              <span class="material-symbols-rounded">refresh</span>
+              <span>Actualizar Datos</span>
+            </button>
+          </div>
+
+          <div class="admin-kpi-grid" id="adminKpiGrid"></div>
+
+          <div class="admin-charts-grid">
+            <div class="admin-chart-card">
+              <h3>Ventas por Categoría</h3>
+              <p class="chart-subtitle">Volumen facturado por línea comercial</p>
+              <div class="vertical-bars-wrapper" id="adminCategoryChart"></div>
+            </div>
+            <div class="admin-chart-card">
+              <h3>Distribución por Medio de Pago</h3>
+              <p class="chart-subtitle">Participación PSE, Nequi, Bancolombia, Tarjeta y Efectivo</p>
+              <div class="pie-chart-wrapper" id="adminPaymentChart"></div>
+            </div>
+          </div>
+
+          <!-- Historial General de Pedidos y Facturas del Administrador -->
+          <div class="role-history-block" id="adminOrdersHistorySection">
+            <div class="role-history-header">
+              <div>
+                <span class="staff-eyebrow">AUDITORÍA Y REGISTRO COMERCIAL</span>
+                <h3>Historial General de Pedidos y Facturas</h3>
+              </div>
+              <div class="filter-results-meta" id="adminOrdersSummaryBadge"></div>
+            </div>
+
+            <div class="orders-filter-toolbar">
+              <div class="filter-search-box">
+                <span class="material-symbols-rounded">search</span>
+                <input
+                  type="search"
+                  id="adminOrderSearchInput"
+                  class="modal-input"
+                  placeholder="Buscar por #Pedido, factura FAC-DN, cliente, entregador, dirección, ciudad o producto..."
+                />
+              </div>
+              <div class="filter-selects-row">
+                <select id="adminOrderStatusFilter" class="driver-assign-select" aria-label="Filtrar por estado">
+                  <option value="todos">Todos los estados</option>
+                  <option value="pendiente">1. Por Confirmar</option>
+                  <option value="en_proceso">2. Aceptados en Bodega</option>
+                  <option value="en_camino">3. En Ruta de Reparto</option>
+                  <option value="entregado">4. Entregados</option>
+                  <option value="cancelado">Cancelados / Reembolsados</option>
+                </select>
+                <select id="adminOrderZoneFilter" class="driver-assign-select" aria-label="Filtrar por zona">
+                  <option value="todas">Todas las zonas</option>
+                  <option value="villavicencio">Villavicencio</option>
+                  <option value="meta">Municipios del Meta</option>
+                </select>
+                <select id="adminOrderPayFilter" class="driver-assign-select" aria-label="Filtrar por medio de pago">
+                  <option value="todos">Todos los medios de pago</option>
+                  <option value="pse">PSE</option>
+                  <option value="nequi">Nequi</option>
+                  <option value="bancolombia">Bancolombia</option>
+                  <option value="tarjeta">Tarjeta</option>
+                  <option value="efectivo">Efectivo</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="customer-orders-accordion-list" id="adminOrdersHistoryContainer"></div>
+          </div>
+        </div>
+
+        <!-- ==================================================================
+             SUB-PANEL 2 (EXCLUSIVO ADMIN): GESTIÓN DEL CATÁLOGO (CREAR, EDITAR, ELIMINAR)
+             ================================================================== -->
+        <div class="staff-view-section hidden" id="panelViewCatalogo">
+          <div class="staff-panel-header">
+            <div>
+              <span class="staff-eyebrow">ADMINISTRACIÓN COMERCIAL</span>
+              <h2>Gestión de Catálogo (<span id="adminCatalogTotalBadge">0</span> productos)</h2>
+            </div>
+            <button type="button" class="btn-primary" id="btnOpenNewProductForm">
+              <span class="material-symbols-rounded">add_circle</span>
+              <span>Nuevo Producto</span>
+            </button>
+          </div>
+
+          <!-- Formulario Crear / Editar Producto -->
+          <div class="surface-card admin-catalog-form-card hidden" id="adminCatalogFormCard" style="margin-bottom: 1.5rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+              <h3 id="adminCatalogFormTitle">Crear Nuevo Producto</h3>
+              <button type="button" class="icon-close-btn" id="btnCloseCatalogForm">
+                <span class="material-symbols-rounded">close</span>
+              </button>
+            </div>
+            <form id="adminProductForm" class="modal-form">
+              <input type="hidden" id="admProdId" value="" />
+              <div class="form-row-2">
+                <div class="form-group">
+                  <label for="admProdNombre">Nombre del Producto *</label>
+                  <input type="text" id="admProdNombre" class="modal-input" placeholder="Ej: COSTILLA ESPECIAL AHUMADA X 2 KG" required />
+                </div>
+                <div class="form-group">
+                  <label for="admProdCategoria">Categoría *</label>
+                  <select id="admProdCategoria" class="modal-input" required></select>
+                </div>
+              </div>
+              <div class="form-row-2">
+                <div class="form-group">
+                  <label for="admProdPrecio">Precio de Venta (COP) *</label>
+                  <input type="number" id="admProdPrecio" class="modal-input" min="100" step="100" placeholder="Ej: 45000" required />
+                </div>
+                <div class="form-group">
+                  <label for="admProdPresentacion">Presentación *</label>
+                  <input type="text" id="admProdPresentacion" class="modal-input" placeholder="Ej: Paquete x 2 Kg / Caja x 20 Und" value="Unidad" required />
+                </div>
+              </div>
+              <div class="form-row-2">
+                <div class="form-group">
+                  <label for="admProdTemp">Conservación</label>
+                  <select id="admProdTemp" class="modal-input">
+                    <option value="Congelado -18°C">Congelado -18°C</option>
+                    <option value="0°C a 4°C Refrigerado">0°C a 4°C Refrigerado</option>
+                    <option value="Ambiente Fresco">Ambiente Fresco</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="admProdEtiqueta">Etiqueta Destacada (Opcional)</label>
+                  <input type="text" id="admProdEtiqueta" class="modal-input" placeholder="Ej: Nuevo / Oferta / Destacado" />
+                </div>
+              </div>
+              <div class="form-row-2">
+                <div class="form-group">
+                  <label for="admProdImagen">URL de Imagen (Opcional)</label>
+                  <input type="url" id="admProdImagen" class="modal-input" placeholder="https://..." />
+                </div>
+                <div class="form-group">
+                  <label for="admProdDesc">Descripción Comercial</label>
+                  <input type="text" id="admProdDesc" class="modal-input" placeholder="Calidad garantizada Danillanos." />
+                </div>
+              </div>
+              <div style="display:flex; justify-content:flex-end; gap:0.75rem; margin-top:0.5rem;">
+                <button type="button" class="btn-secondary" id="btnCancelCatalogForm">Cancelar</button>
+                <button type="submit" class="btn-primary">
+                  <span class="material-symbols-rounded">save</span>
+                  <span id="admProdSubmitText">Guardar Producto</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div class="admin-catalog-toolbar">
+            <input
+              type="search"
+              id="adminCatalogSearchInput"
+              class="modal-input"
+              placeholder="Buscar por nombre, SKU o categoría para editar o eliminar..."
+            />
+          </div>
+
+          <div class="admin-catalog-table-wrap" id="adminCatalogListContainer"></div>
+        </div>
+
+        <!-- ==================================================================
+             SUB-PANEL 3 (EXCLUSIVO ADMIN): GESTIÓN DE CUENTAS Y ROLES DE EMPLEADOS
+             ================================================================== -->
+        <div class="staff-view-section hidden" id="panelViewUsuarios">
+          <div class="staff-panel-header">
+            <div>
+              <span class="staff-eyebrow">CONTROL DE PERSONAL Y ACCESOS</span>
+              <h2>Cuentas de Empleados y Asignación de Roles</h2>
+            </div>
+          </div>
+          <div class="staff-orders-list" id="adminUsersListContainer"></div>
+        </div>
+
+        <!-- ==================================================================
+             SUB-PANEL 4: EMPLEADO GENERAL (PEDIDOS POR CONFIRMAR + HISTORIAL DE PEDIDOS ACEPTADOS CON FILTROS)
+             ================================================================== -->
+        <div class="staff-view-section hidden" id="panelViewEmpleado">
+          <div class="staff-panel-header">
+            <div>
+              <span class="staff-eyebrow">DESPACHO Y BODEGA</span>
+              <h2>Pedidos por Confirmar y Asignación de Entregador</h2>
+            </div>
+            <button type="button" class="btn-refresh-staff" id="btnEmpleadoRefresh">
+              <span class="material-symbols-rounded">refresh</span>
+              <span>Actualizar</span>
+            </button>
+          </div>
+
+          <!-- Buscador rápido para cola activa de bodega -->
+          <div class="orders-filter-toolbar compact-filter-toolbar" style="margin-bottom: 1.15rem;">
+            <div class="filter-search-box">
+              <span class="material-symbols-rounded">search</span>
+              <input
+                type="search"
+                id="empActiveSearchInput"
+                class="modal-input"
+                placeholder="Buscar en cola activa por #Pedido, cliente, teléfono, dirección o producto..."
+              />
+            </div>
+            <select id="empActiveZoneFilter" class="driver-assign-select" aria-label="Filtrar cola activa por zona">
+              <option value="todas">Todas las zonas</option>
+              <option value="villavicencio">Villavicencio</option>
+              <option value="meta">Municipios del Meta</option>
+            </select>
+          </div>
+
+          <div class="staff-orders-list" id="empleadoOrdersContainer"></div>
+
+          <!-- Historial de Pedidos Aceptados y Facturas para Empleado -->
+          <div class="role-history-block" id="empleadoHistorySection">
+            <div class="role-history-header">
+              <div>
+                <span class="staff-eyebrow">REGISTRO DE BODEGA</span>
+                <h3>Historial de Pedidos Aceptados y Facturas</h3>
+              </div>
+              <div class="filter-results-meta" id="empHistorySummaryBadge"></div>
+            </div>
+
+            <div class="orders-filter-toolbar">
+              <div class="filter-search-box">
+                <span class="material-symbols-rounded">search</span>
+                <input
+                  type="search"
+                  id="empHistorySearchInput"
+                  class="modal-input"
+                  placeholder="Buscar pedido aceptado o factura FAC-DN por #ID, cliente, entregador, dirección o producto..."
+                />
+              </div>
+              <div class="filter-selects-row">
+                <select id="empHistoryStatusFilter" class="driver-assign-select" aria-label="Estado del pedido aceptado">
+                  <option value="todos">Todos los pedidos aceptados / gestionados</option>
+                  <option value="en_proceso">Aceptados en Bodega</option>
+                  <option value="en_camino">Despachados a Ruta</option>
+                  <option value="entregado">Entregados Finalizados</option>
+                  <option value="cancelado">Cancelados</option>
+                </select>
+                <select id="empHistoryZoneFilter" class="driver-assign-select" aria-label="Zona de entrega">
+                  <option value="todas">Todas las ciudades</option>
+                  <option value="villavicencio">Villavicencio</option>
+                  <option value="meta">Municipios del Meta</option>
+                </select>
+                <select id="empHistoryPayFilter" class="driver-assign-select" aria-label="Medio de pago">
+                  <option value="todos">Todos los medios de pago</option>
+                  <option value="pse">PSE</option>
+                  <option value="nequi">Nequi</option>
+                  <option value="bancolombia">Bancolombia</option>
+                  <option value="tarjeta">Tarjeta</option>
+                  <option value="efectivo">Efectivo</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="customer-orders-accordion-list" id="empleadoHistoryOrdersContainer"></div>
+          </div>
+        </div>
+
+        <!-- ==================================================================
+             SUB-PANEL 5: ENTREGADOR (RUTA VERTICAL ESTILO RAPPI + HISTORIAL DE PEDIDOS ENTREGADOS CON FILTROS)
+             ================================================================== -->
+        <div class="staff-view-section hidden" id="panelViewEntregador">
+          <div class="staff-panel-header">
+            <div>
+              <span class="staff-eyebrow">LOGÍSTICA DE REPARTO</span>
+              <h2>Ruta Activa y Entregas del Día</h2>
+            </div>
+            <button type="button" class="btn-refresh-staff" id="btnEntregadorRefresh">
+              <span class="material-symbols-rounded">refresh</span>
+              <span>Actualizar Ruta</span>
+            </button>
+          </div>
+
+          <!-- Encabezado de Progreso Minimalista (Estilo Rappi) -->
+          <div class="driver-rappi-progress-card" id="driverRappiProgressCard"></div>
+
+          <!-- Mapa Limpio + Botón Directo con Logo de Google Maps -->
+          <div class="driver-minimal-map-card">
+            <div class="driver-map-box" id="driverMapContainer"></div>
+            <div class="driver-external-nav-bar" id="driverExternalNavToolbar"></div>
+          </div>
+
+          <!-- Lista Vertical Conectada de Puntos de Entrega (De Arriba a Abajo estilo Rappi, Expandibles al Tocar) -->
+          <div class="driver-vertical-stops-timeline" id="entregadorOrdersContainer"></div>
+
+          <!-- Historial de Pedidos Entregados para el Entregador -->
+          <div class="role-history-block" id="driverHistorySection">
+            <div class="role-history-header">
+              <div>
+                <span class="staff-eyebrow">ENTREGAS COMPLETADAS</span>
+                <h3>Historial de Pedidos Entregados y Comprobantes</h3>
+              </div>
+              <div class="filter-results-meta" id="driverHistorySummaryBadge"></div>
+            </div>
+
+            <div class="orders-filter-toolbar">
+              <div class="filter-search-box">
+                <span class="material-symbols-rounded">search</span>
+                <input
+                  type="search"
+                  id="driverHistorySearchInput"
+                  class="modal-input"
+                  placeholder="Buscar entrega realizada por #Pedido, factura FAC-DN, destinatario, dirección o ciudad..."
+                />
+              </div>
+              <div class="filter-selects-row">
+                <select id="driverHistoryZoneFilter" class="driver-assign-select" aria-label="Filtrar entregas por zona">
+                  <option value="todas">Todas las zonas</option>
+                  <option value="villavicencio">Villavicencio</option>
+                  <option value="meta">Municipios del Meta</option>
+                </select>
+                <select id="driverHistoryPayFilter" class="driver-assign-select" aria-label="Filtrar entregas por medio de pago">
+                  <option value="todos">Todos los medios de pago</option>
+                  <option value="efectivo">Efectivo Contraentrega</option>
+                  <option value="electronico">Pago Electrónico (PSE / Nequi / Tarjeta / Bancolombia)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="customer-orders-accordion-list" id="entregadorHistoryContainer"></div>
+          </div>
+        </div>
+
+        <!-- ==================================================================
+             SUB-PANEL 6: SOPORTE (TICKETS CON MINICHAT FILTRABLES + HISTORIAL DE PEDIDOS Y FACTURAS CON FILTROS)
+             ================================================================== -->
+        <div class="staff-view-section hidden" id="panelViewSoporte">
+          <div class="staff-panel-header">
+            <div>
+              <span class="staff-eyebrow">ATENCIÓN AL CLIENTE Y AUDITORÍA</span>
+              <h2>Centro de Tickets, Facturas y Pedidos</h2>
+            </div>
+            <button type="button" class="btn-refresh-staff" id="btnSoporteRefresh">
+              <span class="material-symbols-rounded">refresh</span>
+              <span>Actualizar</span>
+            </button>
+          </div>
+
+          <!-- 1. Bandeja e Historial de Tickets con Buscador y Filtro -->
+          <div class="role-history-header" style="margin-bottom: 0.75rem;">
+            <div>
+              <h3 class="subsection-heading">Tickets de Clientes y Mini-Chat en Vivo</h3>
+            </div>
+            <div class="filter-results-meta" id="soporteTicketsSummaryBadge"></div>
+          </div>
+
+          <div class="orders-filter-toolbar compact-filter-toolbar" style="margin-bottom: 1.15rem;">
+            <div class="filter-search-box">
+              <span class="material-symbols-rounded">search</span>
+              <input
+                type="search"
+                id="soporteTicketSearchInput"
+                class="modal-input"
+                placeholder="Buscar ticket por #Ticket, #Pedido, asunto, autor o texto del chat..."
+              />
+            </div>
+            <select id="soporteTicketStatusFilter" class="driver-assign-select" aria-label="Filtrar tickets por estado">
+              <option value="todos">Todos los tickets (Activos e Historial)</option>
+              <option value="activos">Abiertos / En Revisión</option>
+              <option value="resuelto">Historial de Tickets Resueltos</option>
+            </select>
+          </div>
+
+          <div class="staff-orders-list" id="soporteTicketsContainer"></div>
+
+          <!-- 2. Historial y Buscador Filtrable de Pedidos, Facturas, Entregas y Reembolsos para Soporte -->
+          <div class="role-history-block" id="soporteOrdersHistorySection">
+            <div class="role-history-header">
+              <div>
+                <span class="staff-eyebrow">CONSULTA RÁPIDA DE PEDIDOS Y FACTURAS</span>
+                <h3>Historial de Pedidos, Facturas, Evidencias y Reembolsos</h3>
+              </div>
+              <div class="filter-results-meta" id="soporteOrdersSummaryBadge"></div>
+            </div>
+
+            <div class="orders-filter-toolbar">
+              <div class="filter-search-box">
+                <span class="material-symbols-rounded">search</span>
+                <input
+                  type="search"
+                  id="soporteOrderSearchInput"
+                  class="modal-input"
+                  placeholder="Filtrar pedidos y facturas por #ID, FAC-DN, cliente, teléfono, dirección, producto o motivo..."
+                />
+              </div>
+              <div class="filter-selects-row">
+                <select id="soporteOrderStatusFilter" class="driver-assign-select" aria-label="Filtrar pedidos de soporte por estado">
+                  <option value="todos">Todos los pedidos y facturas</option>
+                  <option value="entregado">Entregados con Fotografía</option>
+                  <option value="cancelado">Cancelados y Reembolsos</option>
+                  <option value="activos">En Curso (Pendiente / Bodega / Ruta)</option>
+                </select>
+                <select id="soporteOrderZoneFilter" class="driver-assign-select" aria-label="Filtrar por ciudad">
+                  <option value="todas">Todas las zonas</option>
+                  <option value="villavicencio">Villavicencio</option>
+                  <option value="meta">Municipios del Meta</option>
+                </select>
+                <select id="soporteOrderPayFilter" class="driver-assign-select" aria-label="Filtrar por medio de pago">
+                  <option value="todos">Todos los medios de pago</option>
+                  <option value="reembolsado">Con Reembolso Aplicado</option>
+                  <option value="pse">PSE</option>
+                  <option value="nequi">Nequi</option>
+                  <option value="bancolombia">Bancolombia</option>
+                  <option value="tarjeta">Tarjeta</option>
+                  <option value="efectivo">Efectivo</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="customer-orders-accordion-list" id="soporteFilteredOrdersContainer"></div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- MODAL VISOR DE FACTURA ELECTRÓNICA GRÁFICA -->
+  <div class="invoice-modal-backdrop hidden" id="invoiceModalBackdrop">
+    <div class="invoice-modal-dialog">
+      <div class="invoice-modal-top">
+        <strong>Comprobante Electrónico de Venta Danillanos</strong>
+        <button type="button" class="icon-close-btn" id="btnCloseInvoiceModal" aria-label="Cerrar factura">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <div class="invoice-modal-body" id="invoiceModalContent"></div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

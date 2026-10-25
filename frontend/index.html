@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Danillanos | Cárnicos, Congelados e Insumos para Restaurante</title>
+  <meta name="description" content="Danillanos - Distribuimos calidad en Villavicencio y todo el Meta. Cárnicos, embutidos, papas francesas, pulpas, salsas, panes e icopores." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,500,0,0" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body data-page="store">
+
+  <header class="site-header" id="siteHeader">
+    <div class="header-container">
+
+      <!-- BOTÓN HAMBURGER (Móvil) -->
+      <div class="header-mobile-left">
+        <button type="button" class="action-icon-btn hamburger-btn" id="mobileMenuBtn" aria-label="Abrir menú de navegación">
+          <span class="material-symbols-rounded">menu</span>
+        </button>
+        <a href="perfil.html" class="action-icon-btn mobile-quick-profile-btn" aria-label="Mi cuenta">
+          <span class="material-symbols-rounded">person</span>
+        </a>
+      </div>
+
+      <!-- ZONA IZQUIERDA DESKTOP: Botones (Catálogo, Soporte, Perfil) -->
+      <nav class="header-nav-left" aria-label="Navegación Principal">
+
+        <!-- 1. Botón Catálogo + Dropdown Redondeado -->
+        <div class="nav-dropdown-wrapper">
+          <a href="index.html#catalogo-tienda" class="nav-btn">
+            <span class="nav-btn-text">Catálogo</span>
+            <span class="material-symbols-rounded nav-btn-icon">restaurant_menu</span>
+          </a>
+
+          <div class="dropdown-menu dropdown-menu-catalog" role="menu" aria-label="Líneas del Catálogo Danillanos">
+            <div class="dropdown-header-label">Nuestras Líneas</div>
+            <a href="index.html#catalogo-tienda" class="dropdown-item" data-filter-category="todos" role="menuitem">
+              <span class="material-symbols-rounded dropdown-item-icon">grid_view</span>
+              <div class="dropdown-item-content">
+                <span class="dropdown-item-title">Catálogo Completo</span>
+                <span class="dropdown-item-desc">Abastecimiento integral para negocios y hogares</span>
+              </div>
+            </a>
+            <a href="index.html#catalogo-tienda" class="dropdown-item" data-filter-category="embutidos" role="menuitem">
+              <span class="material-symbols-rounded dropdown-item-icon">kebab_dining</span>
+              <div class="dropdown-item-content">
+                <span class="dropdown-item-title">Cárnicos y Embutidos</span>
+                <span class="dropdown-item-desc">Costillas, chorizos, hamburguesas, jamones y tocinetas</span>
+              </div>
+            </a>
+            <a href="index.html#catalogo-tienda" class="dropdown-item" data-filter-category="congelados" role="menuitem">
+              <span class="material-symbols-rounded dropdown-item-icon">ac_unit</span>
+              <div class="dropdown-item-content">
+                <span class="dropdown-item-title">Congelados</span>
+                <span class="dropdown-item-desc">Papa francesa, criolla, yuca, maíz, nuggets y apanados</span>
+              </div>
+            </a>
+            <a href="index.html#catalogo-tienda" class="dropdown-item" data-filter-category="pulpas" role="menuitem">
+              <span class="material-symbols-rounded dropdown-item-icon">local_drink</span>
+              <div class="dropdown-item-content">
+                <span class="dropdown-item-title">Pulpas y Limonadas</span>
+                <span class="dropdown-item-desc">Fruta seleccionada y limonadas listas para preparar</span>
+              </div>
+            </a>
+            <a href="index.html#catalogo-tienda" class="dropdown-item" data-filter-category="salsas" role="menuitem">
+              <span class="material-symbols-rounded dropdown-item-icon">soup_kitchen</span>
+              <div class="dropdown-item-content">
+                <span class="dropdown-item-title">Salsas Institucionales</span>
+                <span class="dropdown-item-desc">Río Grande, Salsabor y Alimentek en todas sus presentaciones</span>
+              </div>
+            </a>
+            <a href="index.html#catalogo-tienda" class="dropdown-item" data-filter-category="pan" role="menuitem">
+              <span class="material-symbols-rounded dropdown-item-icon">bakery_dining</span>
+              <div class="dropdown-item-content">
+                <span class="dropdown-item-title">Panadería</span>
+                <span class="dropdown-item-desc">Pan artesanal para hamburguesa y perro caliente</span>
+              </div>
+            </a>
+            <a href="index.html#catalogo-tienda" class="dropdown-item" data-filter-category="adobos" role="menuitem">
+              <span class="material-symbols-rounded dropdown-item-icon">nutrition</span>
+              <div class="dropdown-item-content">
+                <span class="dropdown-item-title">Adobos y Sazonadores</span>
+                <span class="dropdown-item-desc">Adobos, pasta de ajo, ají, soya y miel</span>
+              </div>
+            </a>
+            <a href="index.html#catalogo-tienda" class="dropdown-item" data-filter-category="desechables" role="menuitem">
+              <span class="material-symbols-rounded dropdown-item-icon">takeout_dining</span>
+              <div class="dropdown-item-content">
+                <span class="dropdown-item-title">Desechables e Icopor</span>
+                <span class="dropdown-item-desc">Contenedores, aluminio, vasos y servilletas</span>
+              </div>
+            </a>
+            <a href="index.html#catalogo-tienda" class="dropdown-item" data-filter-category="secos" role="menuitem">
+              <span class="material-symbols-rounded dropdown-item-icon">eco</span>
+              <div class="dropdown-item-content">
+                <span class="dropdown-item-title">Frutos Secos y Dulcería</span>
+                <span class="dropdown-item-desc">Maní, arándanos, leche condensada, syropes y obleas</span>
+              </div>
+            </a>
+          </div>
+        </div>
+
+        <!-- 2. Botón Soporte -->
+        <div class="nav-dropdown-wrapper">
+          <a href="perfil.html#soporte-cliente" class="nav-btn">
+            <span class="nav-btn-text">Soporte</span>
+            <span class="material-symbols-rounded nav-btn-icon">support_agent</span>
+          </a>
+
+          <div class="dropdown-menu" role="menu" aria-label="Opciones de Soporte">
+            <div class="dropdown-header-label">Atención al Cliente</div>
+            <a href="perfil.html#soporte-cliente" class="dropdown-item" role="menuitem">
+              <span class="material-symbols-rounded dropdown-item-icon">chat</span>
+              <div class="dropdown-item-content">
+                <span class="dropdown-item-title">Centro de Soporte y Tickets</span>
+                <span class="dropdown-item-desc">Atención personalizada para tus pedidos</span>
+              </div>
+            </a>
+          </div>
+        </div>
+
+        <!-- 3. Botón Perfil -->
+        <div class="nav-dropdown-wrapper">
+          <a href="perfil.html" class="nav-btn">
+            <span class="nav-btn-text">Perfil</span>
+            <span class="material-symbols-rounded nav-btn-icon">account_circle</span>
+          </a>
+
+          <div class="dropdown-menu" id="profileDropdownMenu" role="menu" aria-label="Opciones de Perfil"></div>
+        </div>
+
+      </nav>
+
+      <!-- ZONA CENTRAL: NOMBRE DE LA EMPRESA -->
+      <div class="header-brand-center">
+        <a href="index.html" class="brand-link" id="brandLink" aria-label="Inicio Danillanos">
+          <div class="brand-text-wrapper" id="brandTextWrapper">
+            <span class="brand-name">DANILLANOS</span>
+            <span class="brand-tagline">DISTRIBUIMOS CALIDAD</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- ZONA DERECHA -->
+      <div class="header-actions-right">
+
+        <div class="search-wrapper desktop-search-only" id="searchWrapper">
+          <div class="search-expandable" id="searchContainer">
+            <span class="material-symbols-rounded search-icon" aria-hidden="true">search</span>
+            <input
+              type="search"
+              id="searchInput"
+              class="search-input"
+              placeholder="Buscar producto..."
+              aria-label="Buscar productos"
+              autocomplete="off"
+            />
+            <button type="button" class="search-clear-btn" id="searchClearBtn" aria-label="Limpiar búsqueda">
+              <span class="material-symbols-rounded">close</span>
+            </button>
+          </div>
+
+          <div class="search-autocomplete-dropdown hidden" id="searchAutocompleteDropdown" role="listbox"></div>
+        </div>
+
+        <button
+          type="button"
+          class="action-icon-btn cart-btn"
+          id="cartToggleBtn"
+          aria-label="Abrir carrito de compras"
+          title="Ver carrito de compras"
+        >
+          <span class="material-symbols-rounded cart-icon">shopping_cart</span>
+          <span class="cart-badge" id="cartBadge">0</span>
+          <span class="cart-pulse-ring" aria-hidden="true"></span>
+        </button>
+
+        <button
+          type="button"
+          class="action-icon-btn theme-toggle-btn monochrome-theme-btn"
+          id="themeToggleBtn"
+          aria-label="Cambiar tema de color"
+          title="Cambiar tema"
+        >
+          <span class="theme-icon-stage">
+            <span class="material-symbols-rounded theme-icon-dark">dark_mode</span>
+            <span class="material-symbols-rounded theme-icon-light">light_mode</span>
+          </span>
+        </button>
+
+        <a
+          href="perfil.html"
+          class="user-avatar-btn is-guest"
+          id="userAvatarBtn"
+          aria-label="Ir a mi perfil"
+          title="Mi Cuenta"
+        >
+          <img src="" alt="Foto de perfil" class="user-avatar-img hidden" id="userAvatarImg" />
+          <span class="material-symbols-rounded guest-avatar-icon" id="guestAvatarIcon">person</span>
+          <span class="user-avatar-initial hidden" id="userAvatarInitial"></span>
+          <span class="user-status-dot hidden" id="userStatusDot" aria-hidden="true"></span>
+        </a>
+
+      </div>
+
+    </div>
+
+    <!-- BARRA DE BÚSQUEDA SIEMPRE ABIERTA EN CELULAR -->
+    <div class="mobile-search-bar-row" id="mobileSearchRow">
+      <div class="mobile-search-box" id="mobileSearchBox">
+        <input
+          type="search"
+          id="mobileSearchInput"
+          class="mobile-search-input"
+          placeholder="¿Qué estás buscando?"
+          aria-label="Buscar productos en móvil"
+          autocomplete="off"
+        />
+        <button type="button" class="mobile-search-submit-btn" id="mobileSearchSubmitBtn" aria-label="Buscar">
+          <span class="material-symbols-rounded">search</span>
+        </button>
+      </div>
+      <div class="search-autocomplete-dropdown mobile-autocomplete hidden" id="mobileSearchAutocompleteDropdown" role="listbox"></div>
+    </div>
+  </header>
+
+  <!-- MENÚ LATERAL HAMBURGER PARA MÓVIL -->
+  <div class="mobile-nav-backdrop" id="mobileNavBackdrop" aria-hidden="true"></div>
+  <aside class="mobile-nav-drawer" id="mobileNavDrawer" aria-label="Menú Móvil Danillanos" aria-hidden="true">
+    <div class="mobile-nav-header">
+      <div class="brand-text-wrapper" style="align-items:flex-start;">
+        <span class="brand-name" style="font-size:1.35rem;">DANILLANOS</span>
+        <span class="brand-tagline">MENÚ PRINCIPAL</span>
+      </div>
+      <button type="button" class="icon-close-btn" id="mobileMenuCloseBtn" aria-label="Cerrar menú">
+        <span class="material-symbols-rounded">close</span>
+      </button>
+    </div>
+    <div class="mobile-nav-body" id="mobileNavBody"></div>
+  </aside>
+
+  <main class="main-content" id="storeView">
+
+    <!-- HERO CARRUSEL PROMOCIONAL -->
+    <section class="hero-section" aria-label="Promociones destacadas de Danillanos">
+      <div class="hero-carousel" id="heroCarousel">
+        <div class="carousel-progress-track" aria-hidden="true">
+          <div class="carousel-progress-bar" id="carouselProgressBar"></div>
+        </div>
+
+        <div class="carousel-track" id="carouselTrack"></div>
+
+        <button type="button" class="carousel-arrow carousel-arrow-prev" id="carouselPrevBtn" aria-label="Anterior">
+          <span class="material-symbols-rounded">chevron_left</span>
+        </button>
+
+        <button type="button" class="carousel-arrow carousel-arrow-next" id="carouselNextBtn" aria-label="Siguiente">
+          <span class="material-symbols-rounded">chevron_right</span>
+        </button>
+
+        <div class="carousel-dots" id="carouselDots" role="tablist"></div>
+      </div>
+    </section>
+
+    <!-- LOS TRES PUNTOS CLAVE BAJO EL CARRUSEL -->
+    <section class="trust-strip" aria-label="Puntos clave de servicio Danillanos">
+      <div class="trust-item">
+        <span class="material-symbols-rounded trust-icon">bolt</span>
+        <div>
+          <h3 class="trust-title">Envíos el mismo día para Villavicencio</h3>
+          <p class="trust-desc">Entrega ágil para tu restaurante o negocio desde Av. Los Maracos</p>
+        </div>
+      </div>
+      <div class="trust-item">
+        <span class="material-symbols-rounded trust-icon">verified</span>
+        <div>
+          <h3 class="trust-title">Productos de calidad</h3>
+          <p class="trust-desc">Cárnicos seleccionados, congelados, salsas, panes e insumos</p>
+        </div>
+      </div>
+      <div class="trust-item">
+        <span class="material-symbols-rounded trust-icon">local_shipping</span>
+        <div>
+          <h3 class="trust-title">Entregas a todo el Meta</h3>
+          <p class="trust-desc">Cobertura regional con cadena de frío garantizada</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN: CATÁLOGO DE PRODUCTOS -->
+    <section class="bestsellers-section" id="catalogo-tienda">
+      <div class="section-header">
+        <div class="section-title-group">
+          <span class="section-eyebrow">
+            <span class="material-symbols-rounded">inventory_2</span>
+            VENTA MAYORISTA Y AL DETAL (<span id="totalCatalogCount">235</span> REFERENCIAS)
+          </span>
+          <h2 class="section-title" id="catalogSectionTitle">Productos Más Vendidos</h2>
+          <p class="section-subtitle" id="catalogSectionSubtitle">
+            Selecciona tus productos y las unidades que necesita tu cocina o negocio.
+          </p>
+        </div>
+
+        <div class="category-pills" id="categoryPills" role="tablist">
+          <button type="button" class="category-pill active" data-category="mas_vendidos">
+            <span class="material-symbols-rounded">star</span>
+            <span>Más Vendidos</span>
+          </button>
+          <button type="button" class="category-pill" data-category="todos">
+            <span class="material-symbols-rounded">apps</span>
+            <span>Todos</span>
+          </button>
+          <button type="button" class="category-pill" data-category="embutidos">
+            <span class="material-symbols-rounded">kebab_dining</span>
+            <span>Cárnicos y Embutidos</span>
+          </button>
+          <button type="button" class="category-pill" data-category="congelados">
+            <span class="material-symbols-rounded">ac_unit</span>
+            <span>Congelados</span>
+          </button>
+          <button type="button" class="category-pill" data-category="pulpas">
+            <span class="material-symbols-rounded">local_drink</span>
+            <span>Pulpas</span>
+          </button>
+          <button type="button" class="category-pill" data-category="salsas">
+            <span class="material-symbols-rounded">soup_kitchen</span>
+            <span>Salsas</span>
+          </button>
+          <button type="button" class="category-pill" data-category="adobos">
+            <span class="material-symbols-rounded">nutrition</span>
+            <span>Adobos y Sazón</span>
+          </button>
+          <button type="button" class="category-pill" data-category="pan">
+            <span class="material-symbols-rounded">bakery_dining</span>
+            <span>Panes</span>
+          </button>
+          <button type="button" class="category-pill" data-category="desechables">
+            <span class="material-symbols-rounded">takeout_dining</span>
+            <span>Desechables e Icopor</span>
+          </button>
+          <button type="button" class="category-pill" data-category="secos">
+            <span class="material-symbols-rounded">eco</span>
+            <span>Don Maní</span>
+          </button>
+          <button type="button" class="category-pill" data-category="otros">
+            <span class="material-symbols-rounded">icecream</span>
+            <span>Dulcería y Otros</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="search-status-banner hidden" id="searchStatusBanner">
+        <span class="material-symbols-rounded">manage_search</span>
+        <span id="searchStatusText">Mostrando resultados para:</span>
+        <button type="button" class="btn-reset-search" id="btnResetSearch">Ver todo el catálogo</button>
+      </div>
+
+      <div class="products-grid" id="productsGrid"></div>
+
+      <div class="load-more-container hidden" id="loadMoreContainer">
+        <button type="button" class="btn-load-more" id="btnLoadMore">
+          <span>Mostrar más productos</span>
+          <span class="material-symbols-rounded">expand_more</span>
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-container">
+      <div class="footer-brand">
+        <span class="footer-logo-text">DANILLANOS</span>
+        <p class="footer-description">
+          <strong>Clle 15 # 12-91 Avenida Los Maracos, Villavicencio - Meta.</strong><br />
+          Proveedores integrales de cárnicos, embutidos, congelados, papas francesas, salsas, panadería e insumos para restaurantes y hogares.
+        </p>
+        <div class="db-status-pill" id="dbStatusPill">
+          <span class="db-status-dot" id="dbStatusDot"></span>
+          <span id="dbStatusText">Servicio en Línea Activo</span>
+        </div>
+      </div>
+
+      <div class="footer-links-col">
+        <h4>Categorías Destacadas</h4>
+        <ul>
+          <li><a href="index.html#catalogo-tienda" data-filter-category="embutidos">Cárnicos, Chorizos y Costillas</a></li>
+          <li><a href="index.html#catalogo-tienda" data-filter-category="congelados">Papas Francesas y Congelados</a></li>
+          <li><a href="index.html#catalogo-tienda" data-filter-category="salsas">Salsas Río Grande, Salsabor y Alimentek</a></li>
+          <li><a href="index.html#catalogo-tienda" data-filter-category="desechables">Icopores, Aluminio y Desechables</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-links-col">
+        <h4>Atención al Cliente</h4>
+        <ul>
+          <li><a href="perfil.html">Mi Cuenta</a></li>
+          <li><a href="perfil.html#soporte-cliente">Centro de Soporte</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; 2026 Danillanos - Distribuimos Calidad. Todos los derechos reservados.</span>
+      <span>Villavicencio, Meta - Colombia</span>
+    </div>
+  </footer>
+
+  <!-- DRAWER LATERAL DEL CARRITO -->
+  <div class="cart-backdrop" id="cartBackdrop" aria-hidden="true"></div>
+  <aside class="cart-drawer" id="cartDrawer" aria-label="Carrito de compras" aria-hidden="true">
+    <div class="cart-drawer-header">
+      <div class="cart-drawer-title">
+        <span class="material-symbols-rounded">shopping_bag</span>
+        <h3>Tu Carrito Danillanos</h3>
+      </div>
+      <button type="button" class="icon-close-btn" id="cartCloseBtn" aria-label="Cerrar carrito">
+        <span class="material-symbols-rounded">close</span>
+      </button>
+    </div>
+
+    <div class="cart-drawer-body" id="cartItemsContainer"></div>
+
+    <div class="cart-drawer-footer">
+      <div class="cart-live-address-box" id="cartLiveAddressBox"></div>
+
+      <div class="cart-summary-row">
+        <span>Subtotal productos</span>
+        <strong id="cartSubtotalValue">$0</strong>
+      </div>
+      <a href="pagos.html" class="btn-checkout" id="btnGoToCheckoutPage">
+        <span id="btnCheckoutText">Finalizar Compra</span>
+        <span class="material-symbols-rounded">arrow_forward</span>
+      </a>
+    </div>
+  </aside>
+
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
