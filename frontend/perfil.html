@@ -292,6 +292,7 @@
           <span class="material-symbols-rounded">local_shipping</span>
           <span>Pedidos en Curso</span>
           <span class="customer-tab-count" id="tabActiveOrdersCount">0</span>
+          <span class="tab-notification-dot hidden" id="tabPedidosDot" title="Actualización activa en tus despachos"></span>
         </button>
         <button type="button" class="customer-tab-btn" data-profile-tab="direcciones">
           <span class="material-symbols-rounded">pin_drop</span>
@@ -307,6 +308,7 @@
           <span class="material-symbols-rounded">support_agent</span>
           <span>Soporte y Mis Tickets</span>
           <span class="customer-tab-count" id="tabTicketsCount">0</span>
+          <span class="tab-notification-dot hidden" id="tabSoporteDot" title="Respuestas del equipo de soporte"></span>
         </button>
       </div>
     </section>
@@ -564,6 +566,60 @@
     </section>
 
   </main>
+
+  <!-- MODAL DE EDICIÓN DE PERFIL Y DATOS DE FACTURACIÓN COMERCIAL -->
+  <div class="modal-backdrop hidden" id="editProfileModalBackdrop">
+    <div class="modal-card surface-card edit-profile-dialog">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="material-symbols-rounded modal-title-icon" style="color:var(--brand-red);">badge</span>
+          <div>
+            <h3 class="modal-title">Editar Información de la Cuenta</h3>
+            <p class="modal-subtitle">Modifica tus datos comerciales para pedidos y facturación electrónica.</p>
+          </div>
+        </div>
+        <button type="button" class="icon-close-btn" id="btnCloseEditProfileModal" aria-label="Cerrar modal">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <form id="editProfileForm" class="modal-form">
+        <div class="form-group">
+          <label for="editProfileNombre">Nombre Completo / Titular *</label>
+          <input type="text" id="editProfileNombre" class="modal-input" placeholder="Nombre completo o titular" required />
+        </div>
+        <div class="form-group">
+          <label for="editProfileEmpresa">Empresa / Negocio (Opcional)</label>
+          <input type="text" id="editProfileEmpresa" class="modal-input" placeholder="Ej: Restaurante El Asador S.A.S." />
+        </div>
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="editProfileTipoDoc">Tipo de Documento</label>
+            <select id="editProfileTipoDoc" class="modal-input">
+              <option value="CC">Cédula de Ciudadanía (CC)</option>
+              <option value="NIT">NIT (Empresas)</option>
+              <option value="CE">Cédula de Extranjería (CE)</option>
+              <option value="PP">Pasaporte</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="editProfileNumDoc">Número de Identificación</label>
+            <input type="text" id="editProfileNumDoc" class="modal-input" placeholder="Ej: 1121890456" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="editProfileTelefono">Teléfono de Contacto Principal *</label>
+          <input type="tel" id="editProfileTelefono" class="modal-input" placeholder="Ej: 310 234 5678" required />
+        </div>
+        <div class="modal-actions-row" style="display:flex; justify-content:flex-end; gap:0.75rem; margin-top:1.25rem;">
+          <button type="button" class="btn-secondary" id="btnCancelEditProfile">Cancelar</button>
+          <button type="submit" class="btn-primary" id="btnSaveProfile">
+            <span class="material-symbols-rounded">save</span>
+            <span>Guardar Cambios</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- MODAL VISOR DE FACTURA ELECTRÓNICA GRÁFICA -->
   <div class="invoice-modal-backdrop hidden" id="invoiceModalBackdrop">

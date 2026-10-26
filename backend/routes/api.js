@@ -751,6 +751,81 @@ router.get('/auth/me', async (req, res) => {
   }
 });
 
+/**
+ * PATCH /api/auth/perfil
+ * Permite al cliente autenticado actualizar su información personal y de facturación empresarial
+ * (Nombre completo / titular, Empresa, Tipo de documento, Número de documento, Teléfono)
+ */
+router.patch('/auth/perfil', async (req, res) => {
+  const authUser = getAuthUserFromRequest(req);
+  if (!authUser) {
+    return res.status(401).json({ ok: false, error: 'No autorizado. Inicie sesión para actualizar su perfil.' });
+  }
+
+  const { nombre_completo, empresa, tipo_documento, numero_documento, telefono } = req.body || {};
+
+  if (!nombre_completo || !nombre_completo.trim()) {
+    return res.status(400).json({ ok: false, error: 'El nombre completo es obligatorio.' });
+  }
+
+  const cleanNombre = nombre_completo.trim();
+  const cleanEmpresa = empresa ? empresa.trim() : null;
+  const cleanTipoDoc = ['CC', 'NIT', 'CE', 'PP'].includes(tipo_documento) ? tipo_documento : 'CC';
+  const cleanNumDoc = numero_documento ? numero_documento.trim() : null;
+  const cleanTel = telefono ? telefono.trim() : null;
+
+  const nombreEnc = encryptData(cleanNombre);
+  const empresaEnc = cleanEmpresa ? encryptData(cleanEmpresa) : null;
+  const numDocEnc = cleanNumDoc ? encryptData(cleanNumDoc) : null;
+  const telEnc = cleanTel ? encryptData(cleanTel) : null;
+
+  try {
+    await pool.query(
+      `UPDATE usuarios 
+       SET nombre_completo_enc = ?, empresa_enc = ?, tipo_documento = ?, numero_documento_enc = ?, telefono_enc = ?
+       WHERE id = ?`,
+      [nombreEnc, empresaEnc, cleanTipoDoc, numDocEnc, telEnc, authUser.id]
+    );
+
+    const [rows] = await pool.query('SELECT * FROM usuarios WHERE id = ? LIMIT 1', [authUser.id]);
+    const safeUser = formatSafeUser(rows[0]);
+
+    // Actualizar también en el almacenamiento en memoria si existe
+    const memUser = usuariosFallback.find((u) => Number(u.id) === Number(authUser.id));
+    if (memUser) {
+      memUser.nombre_completo_enc = nombreEnc;
+      memUser.empresa_enc = empresaEnc;
+      memUser.tipo_documento = cleanTipoDoc;
+      memUser.numero_documento_enc = numDocEnc;
+      memUser.telefono_enc = telEnc;
+    }
+
+    return res.json({
+      ok: true,
+      message: 'Información de perfil actualizada exitosamente.',
+      user: safeUser
+    });
+  } catch (error) {
+    // Si la BD externa no está activa, actualizamos el fallback en memoria
+    const memUser = usuariosFallback.find((u) => Number(u.id) === Number(authUser.id));
+    if (memUser) {
+      memUser.nombre_completo_enc = nombreEnc;
+      memUser.empresa_enc = empresaEnc;
+      memUser.tipo_documento = cleanTipoDoc;
+      memUser.numero_documento_enc = numDocEnc;
+      memUser.telefono_enc = telEnc;
+      return res.json({
+        ok: true,
+        source: 'fallback',
+        message: 'Información de perfil actualizada exitosamente.',
+        user: formatSafeUser(memUser)
+      });
+    }
+
+    return res.status(500).json({ ok: false, error: 'No se pudo actualizar la información del perfil.' });
+  }
+});
+
 // ============================================================================
 // 3. SISTEMA DE DIRECCIONES (MÁXIMO 5 POR CUENTA + RADIO VILLAVICENCIO / META)
 // ============================================================================
@@ -1049,9 +1124,9 @@ router.post('/pedidos', async (req, res) => {
   const nombreEnc = encryptData(nombre_recibe || (authUser ? authUser.username : 'Cliente Danillanos'));
   const telEnc = encryptData(telefono_cliente || '3100000000');
   const dirEnc = encryptData(direccion_entrega || 'Villavicencio, Meta');
-  const validMethod = ['pse', 'nequi', 'bancolombia', 'tarjeta', 'efectivo'].includes(metodo_pago)
+  const validMethod = ['bancolombia', 'nequi', 'tarjeta', 'efectivo', 'pse'].includes(metodo_pago)
     ? metodo_pago
-    : 'efectivo';
+    : 'bancolombia';
 
   let connection;
   try {

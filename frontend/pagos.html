@@ -91,20 +91,20 @@
     <div class="page-top-intro">
       <span class="section-eyebrow">
         <span class="material-symbols-rounded">verified_user</span>
-        COMPRA SEGURA EN 3 PASOS Y FACTURA ELECTRÓNICA AL INSTANTE
+        COMPRA SEGURA Y FACTURACIÓN ELECTRÓNICA
       </span>
-      <h1 class="page-hero-title">Finalizar Pedido y Pasarela de Pagos</h1>
+      <h1 class="page-hero-title">Finalizar Pedido y Despacho</h1>
       <p class="page-hero-desc">
-        Avanza paso a paso: confirma el pin rojo de tu dirección y estimado de entrega, revisa tus productos y realiza el pago para generar tu factura visual.
+        Complete su orden de compra en tres pasos: confirme su dirección de destino, verifique el resumen de productos y seleccione su método de pago preferido.
       </p>
     </div>
 
     <!-- AVISO CUANDO EL USUARIO NO HA INICIADO SESIÓN (No puede hacer pedido ni ver direcciones) -->
     <div class="surface-card hidden" id="checkoutGuestBlockCard" style="text-align:center; padding:3rem 2rem;">
       <span class="material-symbols-rounded" style="font-size:3.4rem; color:var(--brand-red); margin-bottom:0.75rem;">lock_person</span>
-      <h2 style="font-family:'Outfit',sans-serif; font-size:1.65rem; margin-bottom:0.5rem;">Inicia Sesión para Realizar tu Pedido</h2>
+      <h2 style="font-family:'Outfit',sans-serif; font-size:1.65rem; margin-bottom:0.5rem;">Inicie Sesión para Realizar su Pedido</h2>
       <p style="color:var(--text-secondary); max-width:540px; margin:0 auto 1.5rem;">
-        Por seguridad de tus datos y para gestionar tus direcciones de entrega en el mapa del Meta, debes iniciar sesión o crear tu cuenta Danillanos antes de continuar al pago.
+        Por seguridad y para vincular su factura electrónica a su cuenta, inicie sesión o cree su cuenta Danillanos antes de continuar con el pago.
       </p>
       <div style="display:flex; justify-content:center; gap:0.85rem; flex-wrap:wrap;">
         <a href="perfil.html#cuenta-section" class="btn-primary">
@@ -132,8 +132,8 @@
             <div class="wizard-step-icon">
               <span class="material-symbols-rounded">pin_drop</span>
             </div>
-            <span class="wizard-step-title">1. Dirección y Estimado</span>
-            <span class="wizard-step-sub">Mapa y tiempo de entrega</span>
+            <span class="wizard-step-title">1. Datos de Entrega</span>
+            <span class="wizard-step-sub">Destino y tiempo estimado</span>
           </button>
 
           <!-- Paso 2: Confirmación de Productos -->
@@ -141,8 +141,8 @@
             <div class="wizard-step-icon">
               <span class="material-symbols-rounded">inventory_2</span>
             </div>
-            <span class="wizard-step-title">2. Confirmar Productos</span>
-            <span class="wizard-step-sub">Unidades y resumen</span>
+            <span class="wizard-step-title">2. Resumen del Pedido</span>
+            <span class="wizard-step-sub">Cantidades y verificación</span>
           </button>
 
           <!-- Paso 3: Método de Pago y Factura -->
@@ -150,8 +150,8 @@
             <div class="wizard-step-icon">
               <span class="material-symbols-rounded">payments</span>
             </div>
-            <span class="wizard-step-title">3. Pago y Confirmación</span>
-            <span class="wizard-step-sub">PSE, Nequi, Tarjeta o Efectivo</span>
+            <span class="wizard-step-title">3. Método de Pago</span>
+            <span class="wizard-step-sub">Bancolombia, Nequi, Tarjeta o Efectivo</span>
           </button>
         </div>
       </div>
@@ -168,44 +168,53 @@
               <div class="card-step-header">
                 <span class="step-circle">1</span>
                 <div>
-                  <h3>Dirección de Entrega y Estimado de Envío</h3>
+                  <h3>Datos de Entrega y Destino</h3>
                   <p class="card-helper-text">
-                    Selecciona una de tus direcciones o <strong>haz clic sobre tu ubicación en el mapa para colocar el pin rojo Danillanos y autorellenar tu dirección</strong>.
+                    Seleccione una dirección guardada o <strong>haga clic en el mapa para ubicar el pin exacto de entrega y completar los datos</strong>.
                   </p>
                 </div>
               </div>
 
               <div class="form-group" style="margin-bottom: 1rem;">
-                <label for="checkoutAddressSelect">Seleccionar o cambiar mi dirección activa en vivo (Hasta 5 por cuenta)</label>
+                <label for="checkoutAddressSelect">Dirección de Entrega Registrada</label>
                 <div class="address-select-row">
                   <select id="checkoutAddressSelect" class="modal-input"></select>
-                  <a href="perfil.html#direcciones-mapa-section" class="btn-secondary">
-                    <span class="material-symbols-rounded">bookmark_manager</span>
-                    <span>Gestionar mis 5 direcciones</span>
+                  <a
+                    href="perfil.html#direcciones-mapa-section"
+                    class="btn-icon-manage"
+                    id="btnManageAddressesIcon"
+                    title="Gestionar y editar mis direcciones guardadas"
+                    aria-label="Gestionar direcciones"
+                  >
+                    <span class="material-symbols-rounded">edit_location_alt</span>
                   </a>
                 </div>
               </div>
 
-              <!-- Atajos de municipios del Meta y Mapa en vivo con Pin Rojo Danillanos -->
-              <div class="meta-municipalities-bar" id="metaMunicipalitiesBar"></div>
-              <div class="address-map-canvas checkout-map-canvas" id="addressMapCanvas"></div>
+              <!-- Atajos de municipios del Meta y Mapa en vivo con Pin Rojo Danillanos (Colapsable de forma animada) -->
+              <div class="checkout-map-collapsible is-collapsed" id="checkoutMapCollapsible">
+                <div class="checkout-map-collapsible-inner">
+                  <div class="meta-municipalities-bar" id="metaMunicipalitiesBar"></div>
+                  <div class="address-map-canvas checkout-map-canvas" id="addressMapCanvas"></div>
+                </div>
+              </div>
 
               <!-- Estimado de Entrega calculado al momento de pagar -->
               <div class="zone-live-indicator is-villavicencio" id="zoneLiveIndicator" style="margin-bottom: 1.25rem;">
                 <span class="material-symbols-rounded" id="zoneLiveIcon">bolt</span>
                 <div>
-                  <strong id="zoneLiveTitle">Estimado de Entrega al Pagar: Envío el mismo día (Villavicencio)</strong>
-                  <p id="zoneLiveSubtitle">Tu pin rojo está dentro del radio de cobertura inmediata de Villavicencio</p>
+                  <strong id="zoneLiveTitle">Modalidad de Envío: Despacho el mismo día (Villavicencio)</strong>
+                  <p id="zoneLiveSubtitle">Ubicación dentro de la zona de cobertura prioritaria</p>
                 </div>
               </div>
 
               <div class="form-row-2">
                 <div class="form-group">
-                  <label for="checkoutRecipientName">Nombre completo de la persona que recibe *</label>
-                  <input type="text" id="checkoutRecipientName" class="modal-input" placeholder="Ej: Carlos Andrés Méndez / Chef Principal" required />
+                  <label for="checkoutRecipientName">Nombre y apellidos de quien recibe *</label>
+                  <input type="text" id="checkoutRecipientName" class="modal-input" placeholder="Ej: Carlos Andrés Méndez" required />
                 </div>
                 <div class="form-group">
-                  <label for="checkoutRecipientPhone">Teléfono / Celular de quien recibe *</label>
+                  <label for="checkoutRecipientPhone">Número celular de contacto *</label>
                   <input type="tel" id="checkoutRecipientPhone" class="modal-input" placeholder="310 000 0000" required />
                 </div>
               </div>
@@ -216,23 +225,23 @@
                   <input type="text" id="addrMunicipio" class="modal-input" value="Villavicencio" required />
                 </div>
                 <div class="form-group">
-                  <label for="addrRef">Barrio / Punto de referencia</label>
-                  <input type="text" id="addrRef" class="modal-input" placeholder="Ej: Frente al parque, local portón negro" />
+                  <label for="addrRef">Barrio o punto de referencia</label>
+                  <input type="text" id="addrRef" class="modal-input" placeholder="Ej: Frente al parque, local comercial portón negro" />
                 </div>
               </div>
 
               <div class="form-group" style="margin-top: 0.85rem;">
-                <label for="addrStreet">Dirección Exacta (Se autorellena al dar clic en el mapa) *</label>
-                <input type="text" id="addrStreet" class="modal-input" placeholder="Haz clic en tu ubicación en el mapa o escribe tu dirección..." required />
+                <label for="addrStreet">Dirección de Despacho (Se completa automáticamente al pulsar en el mapa) *</label>
+                <input type="text" id="addrStreet" class="modal-input" placeholder="Indique la nomenclatura completa o selecciónela en el mapa..." required />
               </div>
 
               <div class="form-group" style="margin-top: 0.85rem;">
-                <label for="checkoutObservations">Observaciones hechas para el pedido y el entregador</label>
+                <label for="checkoutObservations">Instrucciones especiales para el personal de entrega (Opcional)</label>
                 <textarea
                   id="checkoutObservations"
                   class="modal-input"
                   rows="2"
-                  placeholder="Ej: Entregar por la puerta de proveedores, timbrar en el segundo piso..."
+                  placeholder="Ej: Entregar en área de recepción de cocina, timbrar en portería..."
                 ></textarea>
               </div>
 
@@ -245,7 +254,7 @@
                   <span>Seguir Comprando</span>
                 </a>
                 <button type="button" class="btn-primary btn-pay-large" id="btnWizardToStep2">
-                  <span>Continuar a Confirmación de Productos</span>
+                  <span>Continuar al Resumen del Pedido</span>
                   <span class="material-symbols-rounded">arrow_forward</span>
                 </button>
               </div>
@@ -260,9 +269,9 @@
               <div class="card-step-header">
                 <span class="step-circle">2</span>
                 <div>
-                  <h3>Confirmación de Productos y Cantidades</h3>
+                  <h3>Resumen y Confirmación de Productos</h3>
                   <p class="card-helper-text">
-                    Verifica los productos de tu pedido. Puedes ajustar manualmente cualquier cantidad (ej. 100 o 700 unidades) antes de pasar al pago.
+                    Verifique los artículos y cantidades de su pedido. Puede ajustar las unidades directamente antes de proceder al pago.
                   </p>
                 </div>
               </div>
@@ -274,15 +283,15 @@
 
               <div class="checkout-summary-breakdown" style="margin-top: 1.5rem;">
                 <div class="summary-line">
-                  <span>Total Referencias y Unidades</span>
+                  <span>Total Unidades</span>
                   <strong id="checkoutItemsCountText">0 unidades</strong>
                 </div>
                 <div class="summary-line">
-                  <span>Estimado de Entrega Confirmado</span>
-                  <strong id="checkoutStep2EtaText">Envío el mismo día (Villavicencio)</strong>
+                  <span>Modalidad de Envío</span>
+                  <strong id="checkoutStep2EtaText">Despacho el mismo día (Villavicencio)</strong>
                 </div>
                 <div class="summary-line total-line">
-                  <span>Subtotal Confirmado</span>
+                  <span>Subtotal a Confirmar</span>
                   <strong id="checkoutStep2TotalAmount">$0</strong>
                 </div>
               </div>
@@ -290,10 +299,10 @@
               <div class="wizard-step-actions">
                 <button type="button" class="btn-secondary" id="btnWizardBackToStep1">
                   <span class="material-symbols-rounded">arrow_back</span>
-                  <span>Volver a Dirección y Estimado</span>
+                  <span>Volver a Datos de Entrega</span>
                 </button>
                 <button type="button" class="btn-primary btn-pay-large" id="btnWizardToStep3">
-                  <span>Continuar al Medio de Pago</span>
+                  <span>Continuar al Método de Pago</span>
                   <span class="material-symbols-rounded">arrow_forward</span>
                 </button>
               </div>
@@ -308,37 +317,37 @@
               <div class="card-step-header">
                 <span class="step-circle">3</span>
                 <div>
-                  <h3>Selecciona tu Medio de Pago</h3>
+                  <h3>Método de Pago</h3>
                   <p class="card-helper-text">
-                    Elige tu medio de pago preferido para generar tu factura electrónica y confirmar el despacho.
+                    Seleccione su medio de pago preferido para emitir su factura electrónica y programar el despacho de su pedido.
                   </p>
                 </div>
               </div>
 
               <div class="payment-methods-grid" id="paymentMethodsGrid">
-                <button type="button" class="payment-method-card active" data-pay-method="pse">
-                  <div class="pay-logo pay-logo-pse">PSE</div>
-                  <span>PSE</span>
+                <button type="button" class="payment-method-card active" data-pay-method="bancolombia">
+                  <div class="pay-logo pay-logo-bco">
+                    <img src="img/bancolombia.webp" alt="Bancolombia" class="pay-brand-logo-img" />
+                  </div>
+                  <span>Bancolombia</span>
                 </button>
                 <button type="button" class="payment-method-card" data-pay-method="nequi">
-                  <div class="pay-logo pay-logo-nequi">Nequi</div>
+                  <div class="pay-logo pay-logo-nequi">
+                    <img src="img/nequi.png" alt="Nequi" class="pay-brand-logo-img" />
+                  </div>
                   <span>Nequi</span>
-                </button>
-                <button type="button" class="payment-method-card" data-pay-method="bancolombia">
-                  <div class="pay-logo pay-logo-bco">B</div>
-                  <span>Bancolombia</span>
                 </button>
                 <button type="button" class="payment-method-card" data-pay-method="tarjeta">
                   <div class="pay-logo pay-logo-card">
                     <span class="material-symbols-rounded">credit_card</span>
                   </div>
-                  <span>Tarjeta</span>
+                  <span>Tarjeta Débito / Crédito</span>
                 </button>
                 <button type="button" class="payment-method-card" data-pay-method="efectivo">
                   <div class="pay-logo pay-logo-cash">
                     <span class="material-symbols-rounded">payments</span>
                   </div>
-                  <span>Efectivo</span>
+                  <span>Pago Contraentrega</span>
                 </button>
               </div>
 
@@ -346,15 +355,15 @@
 
               <div class="checkout-summary-breakdown">
                 <div class="summary-line">
-                  <span>Dirección de Despacho</span>
+                  <span>Destino de Despacho</span>
                   <strong id="checkoutStep3AddressText">Villavicencio</strong>
                 </div>
                 <div class="summary-line">
-                  <span>Estimado de Entrega (Al Pagar)</span>
-                  <strong id="checkoutEtaSummaryText">Envío el mismo día (Villavicencio)</strong>
+                  <span>Tiempo Estimado de Entrega</span>
+                  <strong id="checkoutEtaSummaryText">Despacho el mismo día (Villavicencio)</strong>
                 </div>
                 <div class="summary-line total-line">
-                  <span>Total a Pagar</span>
+                  <span>Total Facturado</span>
                   <strong id="checkoutTotalAmount">$0</strong>
                 </div>
               </div>
@@ -366,7 +375,7 @@
                 </button>
                 <button type="submit" class="btn-primary btn-pay-large" id="btnSubmitFinalOrder">
                   <span class="material-symbols-rounded">lock</span>
-                  <span>Confirmar Pago y Generar Factura</span>
+                  <span>Confirmar Orden y Emitir Factura</span>
                 </button>
               </div>
             </div>
@@ -385,10 +394,10 @@
                     <path class="animated-checkmark-check" fill="none" d="M14 27l7.8 7.8L38 17" />
                   </svg>
                 </div>
-                <span class="invoice-success-pill">¡PEDIDO CONFIRMADO Y FACTURADO!</span>
-                <h2 class="invoice-success-title">Gracias por tu compra en Danillanos</h2>
+                <span class="invoice-success-pill">¡ORDEN CONFIRMADA Y FACTURADA CON ÉXITO!</span>
+                <h2 class="invoice-success-title">Gracias por confiar en Danillanos</h2>
                 <p class="invoice-success-sub">
-                  Hemos registrado tu pedido con las coordenadas exactas de tu pin rojo para nuestro equipo de despacho.
+                  Su pedido ha sido radicado y transferido a nuestro centro de logística y refrigeración para su preparación inmediata.
                 </p>
               </div>
 
@@ -398,7 +407,7 @@
                   <div style="display:flex; align-items:center; gap:0.55rem;">
                     <span class="material-symbols-rounded" style="color:#22c55e;">schedule</span>
                     <span>
-                      Te llevaremos automáticamente a tu sección de <strong>Mis Pedidos</strong> en
+                      Redireccionando al seguimiento en <strong>Mis Pedidos</strong> en
                       <strong id="invoiceCountdownSeconds">10</strong> segundos...
                     </span>
                   </div>

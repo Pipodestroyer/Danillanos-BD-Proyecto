@@ -43,7 +43,7 @@
     visibleProductsLimit: 24,
     searchQuery: '',
     cart: JSON.parse(localStorage.getItem('danillanos_cart') || '[]'),
-    selectedPayMethod: 'pse',
+    selectedPayMethod: 'bancolombia',
     staffOrders: [],
     staffTickets: [],
     activeStaffTab: 'empleado',
@@ -380,6 +380,52 @@
     `;
   }
 
+  function syncUserNotificationDots() {
+    const statusDot = document.getElementById('userStatusDot');
+    const tabPedidosDot = document.getElementById('tabPedidosDot');
+    const tabSoporteDot = document.getElementById('tabSoporteDot');
+
+    if (!state.user) {
+      if (statusDot) {
+        statusDot.classList.add('hidden');
+        statusDot.classList.remove('has-notification-red');
+      }
+      tabPedidosDot?.classList.add('hidden');
+      tabSoporteDot?.classList.add('hidden');
+      return;
+    }
+
+    const activeOrders = (state.customerOrders || []).filter((o) =>
+      ['pendiente', 'en_proceso', 'en_camino'].includes(o.estado)
+    );
+    const activeTickets = (state.customerTickets || []).filter((t) => t.estado === 'abierto');
+
+    const hasActiveOrders = activeOrders.length > 0;
+    const hasActiveTickets = activeTickets.length > 0;
+    const hasNotification = hasActiveOrders || hasActiveTickets;
+
+    if (statusDot) {
+      if (hasNotification) {
+        statusDot.classList.remove('hidden');
+        statusDot.classList.add('has-notification-red');
+        statusDot.title = hasActiveOrders
+          ? `Tienes ${activeOrders.length} despacho(s) en seguimiento en tiempo real`
+          : 'Tienes tickets de soporte activos';
+      } else {
+        statusDot.classList.add('hidden');
+        statusDot.classList.remove('has-notification-red');
+        statusDot.title = '';
+      }
+    }
+
+    if (tabPedidosDot) {
+      tabPedidosDot.classList.toggle('hidden', !hasActiveOrders);
+    }
+    if (tabSoporteDot) {
+      tabSoporteDot.classList.toggle('hidden', !hasActiveTickets);
+    }
+  }
+
   function renderSharedHeaderAuthUI() {
     const avatarBtn = document.getElementById('userAvatarBtn');
     const avatarImg = document.getElementById('userAvatarImg');
@@ -396,7 +442,7 @@
         if (guestIcon) guestIcon.classList.remove('hidden');
         if (avatarInitial) avatarInitial.classList.add('hidden');
         if (avatarImg) avatarImg.classList.add('hidden');
-        if (statusDot) statusDot.classList.add('hidden');
+        syncUserNotificationDots();
       } else {
         const displayName = (state.user.nombre_completo || state.user.username || 'U').trim();
         const initial = displayName.charAt(0).toUpperCase();
@@ -404,7 +450,7 @@
         avatarBtn.setAttribute('href', isStaffUser() ? 'panel.html' : 'perfil.html');
         avatarBtn.title = `Cuenta activa: ${state.user.nombre_completo}`;
         if (guestIcon) guestIcon.classList.add('hidden');
-        if (statusDot) statusDot.classList.remove('hidden');
+        syncUserNotificationDots();
 
         if (state.user.avatar_url && avatarImg) {
           avatarImg.src = state.user.avatar_url;
@@ -2052,6 +2098,138 @@
     `;
   }
 
+  /**
+   * Genera el HTML de la Factura emulada en Papel Térmico de punto de venta (POS)
+   * con textura de papel gris y bordes dentados (sawtooth / zigzag arriba y abajo),
+   * con el mismo ancho de la barra de progreso, para pedidos del historial.
+   */
+  function buildThermalPaperReceiptHtml(ord) {
+    if (!ord) return '';
+    const invCode = getInvoiceCode(ord.id);
+    const dateStr = ord.creado_en
+      ? new Date(ord.creado_en).toLocaleString('es-CO', {
+          dateStyle: 'medium',
+          timeStyle: 'short'
+        })
+      : new Date().toLocaleString('es-CO');
+    const items = ord.items || [];
+    const cufeHash = `CUFE-${(ord.id * 894311 + 512349).toString(16).toUpperCase()}-DN2026-${(Number(ord.total) || 9999).toString(16).toUpperCase()}`;
+
+    // Dientes de sierra SVG (triángulos exactos de 0 a 100)
+    const topTeeth =
+      '0,8 1.25,0 2.5,8 3.75,0 5,8 6.25,0 7.5,8 8.75,0 10,8 11.25,0 12.5,8 13.75,0 15,8 16.25,0 17.5,8 18.75,0 20,8 21.25,0 22.5,8 23.75,0 25,8 26.25,0 27.5,8 28.75,0 30,8 31.25,0 32.5,8 33.75,0 35,8 36.25,0 37.5,8 38.75,0 40,8 41.25,0 42.5,8 43.75,0 45,8 46.25,0 47.5,8 48.75,0 50,8 51.25,0 52.5,8 53.75,0 55,8 56.25,0 57.5,8 58.75,0 60,8 61.25,0 62.5,8 63.75,0 65,8 66.25,0 67.5,8 68.75,0 70,8 71.25,0 72.5,8 73.75,0 75,8 76.25,0 77.5,8 78.75,0 80,8 81.25,0 82.5,8 83.75,0 85,8 86.25,0 87.5,8 88.75,0 90,8 91.25,0 92.5,8 93.75,0 95,8 96.25,0 97.5,8 98.75,0 100,8';
+    const bottomTeeth =
+      '0,0 1.25,8 2.5,0 3.75,8 5,0 6.25,8 7.5,0 8.75,8 10,0 11.25,8 12.5,0 13.75,8 15,0 16.25,8 17.5,0 18.75,8 20,0 21.25,8 22.5,0 23.75,8 25,0 26.25,8 27.5,0 28.75,8 30,0 31.25,8 32.5,0 33.75,8 35,0 36.25,8 37.5,0 38.75,8 40,0 41.25,8 42.5,0 43.75,8 45,0 46.25,8 47.5,0 48.75,8 50,0 51.25,8 52.5,0 53.75,8 55,0 56.25,8 57.5,0 58.75,8 60,0 61.25,8 62.5,0 63.75,8 65,0 66.25,8 67.5,0 68.75,8 70,0 71.25,8 72.5,0 73.75,8 75,0 76.25,8 77.5,0 78.75,8 80,0 81.25,8 82.5,0 83.75,8 85,0 86.25,8 87.5,0 88.75,8 90,0 91.25,8 92.5,0 93.75,8 95,0 96.25,8 97.5,0 98.75,8 100,0';
+
+    return `
+      <div class="emulated-thermal-receipt" aria-label="Factura electrónica papel térmico">
+        <div class="thermal-sawtooth top" aria-hidden="true">
+          <svg viewBox="0 0 100 8" preserveAspectRatio="none"><polygon points="${topTeeth}" /></svg>
+        </div>
+        <div class="thermal-receipt-body">
+          <div class="thermal-header-center">
+            <div class="thermal-store-name">DANILLANOS S.A.S.</div>
+            <div class="thermal-store-sub">DISTRIBUIDORA AGROPECUARIA & CÁRNICOS DEL META</div>
+            <div class="thermal-store-sub">NIT: 900.842.190-4 • IVA RÉGIMEN SIMPLE</div>
+            <div class="thermal-store-sub">Cra 32 # 24-18, Villavicencio - Meta</div>
+            <div class="thermal-store-sub">PBX: (608) 662-4411 • WhatsApp: 310 234 5678</div>
+          </div>
+
+          <div class="thermal-divider-dashed">--------------------------------------------------------</div>
+
+          <div class="thermal-meta-row">
+            <div class="thermal-meta-col">
+              <div><strong>FACTURA:</strong> ${invCode}</div>
+              <div><strong>PEDIDO:</strong> #${ord.id}</div>
+              <div><strong>FECHA:</strong> ${dateStr}</div>
+            </div>
+            <div class="thermal-meta-col thermal-text-right">
+              <div><strong>MEDIO PAGO:</strong> ${(ord.metodo_pago || 'efectivo').toUpperCase()}</div>
+              <div><strong>ESTADO:</strong> ${ord.estado === 'cancelado' ? 'CANCELADO' : 'ENTREGADO'}</div>
+              <div><strong>REF:</strong> ${ord.referencia_pago || ('DN-' + ord.id)}</div>
+            </div>
+          </div>
+
+          <div class="thermal-divider-dashed">--------------------------------------------------------</div>
+
+          <div class="thermal-customer-box">
+            <div><strong>ADQUIRENTE:</strong> ${ord.nombre_recibe || (state.user ? state.user.nombre_completo : 'Consumidor Final')}</div>
+            <div><strong>DOCUMENTO / NIT:</strong> ${state.user && state.user.numero_documento ? `${state.user.tipo_documento || 'CC'} ${state.user.numero_documento}` : '222222222222 (Consumidor Final)'}</div>
+            <div><strong>DIRECCIÓN DE ENTREGA:</strong> ${ord.direccion_entrega} (${ord.municipio || 'Villavicencio'})</div>
+            ${ord.entregador_nombre ? `<div><strong>ENTREGADOR RESPONSABLE:</strong> ${ord.entregador_nombre}</div>` : ''}
+          </div>
+
+          <div class="thermal-divider-dashed">--------------------------------------------------------</div>
+
+          <div class="thermal-items-header">
+            <span class="col-cant">CANT</span>
+            <span class="col-desc">DESCRIPCIÓN DEL ARTÍCULO</span>
+            <span class="col-unit">VR.UNIT</span>
+            <span class="col-total">TOTAL</span>
+          </div>
+          <div class="thermal-divider-dotted">........................................................</div>
+
+          <div class="thermal-items-list">
+            ${items
+              .map((it) => {
+                const qty = Number(it.cantidad || 1);
+                const unit = Number(it.precio_unitario ?? it.precio ?? 0);
+                const sub = Number(it.subtotal ?? qty * unit);
+                const name = (it.nombre_producto || it.nombre || 'Producto').toUpperCase();
+                return `
+                  <div class="thermal-item-row">
+                    <span class="col-cant">${qty}x</span>
+                    <span class="col-desc">${name}</span>
+                    <span class="col-unit">${formatCurrency(unit)}</span>
+                    <span class="col-total">${formatCurrency(sub)}</span>
+                  </div>
+                `;
+              })
+              .join('')}
+          </div>
+
+          <div class="thermal-divider-dashed">--------------------------------------------------------</div>
+
+          <div class="thermal-totals-table">
+            <div class="thermal-total-line">
+              <span>SUBTOTAL PRODUCTOS:</span>
+              <strong>${formatCurrency(ord.total)}</strong>
+            </div>
+            <div class="thermal-total-line">
+              <span>IVA (19% / EXENTO LEY AGRO):</span>
+              <span>$0</span>
+            </div>
+            <div class="thermal-total-line thermal-big-total">
+              <span>TOTAL FACTURADO:</span>
+              <strong>${formatCurrency(ord.total)}</strong>
+            </div>
+          </div>
+
+          <div class="thermal-divider-dashed">--------------------------------------------------------</div>
+
+          <div class="thermal-barcode-box">
+            <div class="thermal-simulated-barcode" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <div class="thermal-cufe-code">${cufeHash}</div>
+            <div class="thermal-resolution-text">
+              RESOLUCIÓN DIAN ELECTRÓNICA N° 18764000123 DE 2026-01-15<br/>
+              RANGO AUTORIZADO: FAC-DN-000001 HASTA FAC-DN-999999<br/>
+              ¡GRACIAS POR SU COMPRA EN DANILLANOS!
+            </div>
+          </div>
+        </div>
+        <div class="thermal-sawtooth bottom" aria-hidden="true">
+          <svg viewBox="0 0 100 8" preserveAspectRatio="none"><polygon points="${bottomTeeth}" /></svg>
+        </div>
+      </div>
+    `;
+  }
+
   function openInvoiceModalByOrder(ord) {
     if (!ord) return;
     const backdrop = document.getElementById('invoiceModalBackdrop');
@@ -2462,6 +2640,87 @@
       }
     });
 
+    // ========================================================================
+    // MODAL Y FORMULARIO DE EDICIÓN DE PERFIL COMERCIAL Y DATOS DEL TITULAR
+    // ========================================================================
+    const editProfileBackdrop = document.getElementById('editProfileModalBackdrop');
+    const editProfileForm = document.getElementById('editProfileForm');
+    const btnCloseEditProfile = document.getElementById('btnCloseEditProfileModal');
+    const btnCancelEditProfile = document.getElementById('btnCancelEditProfile');
+
+    function openEditProfileModal() {
+      if (!state.user || !editProfileBackdrop) return;
+      const nomInput = document.getElementById('editProfileNombre');
+      const empInput = document.getElementById('editProfileEmpresa');
+      const tipoInput = document.getElementById('editProfileTipoDoc');
+      const numInput = document.getElementById('editProfileNumDoc');
+      const telInput = document.getElementById('editProfileTelefono');
+
+      if (nomInput) nomInput.value = state.user.nombre_completo || '';
+      if (empInput) empInput.value = state.user.empresa || '';
+      if (tipoInput) tipoInput.value = state.user.tipo_documento || 'CC';
+      if (numInput) numInput.value = state.user.numero_documento || '';
+      if (telInput) telInput.value = state.user.telefono || '';
+      editProfileBackdrop.classList.remove('hidden');
+    }
+
+    function closeEditProfileModal() {
+      if (editProfileBackdrop) editProfileBackdrop.classList.add('hidden');
+    }
+
+    btnCloseEditProfile?.addEventListener('click', closeEditProfileModal);
+    btnCancelEditProfile?.addEventListener('click', closeEditProfileModal);
+    editProfileBackdrop?.addEventListener('click', (e) => {
+      if (e.target === editProfileBackdrop) closeEditProfileModal();
+    });
+
+    document.getElementById('companySummaryCard')?.addEventListener('click', (e) => {
+      if (e.target.closest('#btnOpenEditProfileModal')) {
+        openEditProfileModal();
+      }
+    });
+
+    editProfileForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!state.user) return;
+
+      const payload = {
+        nombre_completo: document.getElementById('editProfileNombre')?.value.trim() || state.user.nombre_completo,
+        empresa: document.getElementById('editProfileEmpresa')?.value.trim() || '',
+        tipo_documento: document.getElementById('editProfileTipoDoc')?.value || 'CC',
+        numero_documento: document.getElementById('editProfileNumDoc')?.value.trim() || '',
+        telefono: document.getElementById('editProfileTelefono')?.value.trim() || ''
+      };
+
+      try {
+        const res = await fetch(`${CONFIG.api.baseUrl}/auth/perfil`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.ok && data.user) {
+          state.user = { ...state.user, ...data.user };
+        } else {
+          state.user = { ...state.user, ...payload };
+        }
+      } catch (_) {
+        state.user = { ...state.user, ...payload };
+      }
+
+      localStorage.setItem(CONFIG.storageKeys.user, JSON.stringify(state.user));
+      const usersList = getLocalUsersStore();
+      const idx = usersList.findIndex((u) => Number(u.id) === Number(state.user.id));
+      if (idx !== -1) {
+        usersList[idx] = { ...usersList[idx], ...state.user };
+        saveLocalUsersStore(usersList);
+      }
+      closeEditProfileModal();
+      renderPerfilPageAuthState();
+      renderSharedHeaderAuthUI();
+      alert('Información comercial y de facturación actualizada exitosamente.');
+    });
+
     // Eventos de filtrado en Historial de Compras del Cliente
     ['custHistorySearchInput', 'custHistoryStatusFilter', 'custHistoryZoneFilter', 'custHistoryPayFilter'].forEach((id) => {
       const el = document.getElementById(id);
@@ -2594,11 +2853,16 @@
       navOrds?.classList.remove('hidden');
       navSoporte?.classList.remove('hidden');
 
-      document.getElementById('loggedAvatarLarge').textContent = (
-        state.user.nombre_completo || 'U'
-      )
-        .charAt(0)
-        .toUpperCase();
+      const avatarLarge = document.getElementById('loggedAvatarLarge');
+      if (avatarLarge) {
+        if (state.user.avatar_url) {
+          avatarLarge.innerHTML = `<img src="${state.user.avatar_url}" alt="${state.user.nombre_completo || 'Usuario'}" class="logged-avatar-img" referrerpolicy="no-referrer" />`;
+          avatarLarge.classList.add('has-photo');
+        } else {
+          avatarLarge.textContent = (state.user.nombre_completo || 'U').charAt(0).toUpperCase();
+          avatarLarge.classList.remove('has-photo');
+        }
+      }
       document.getElementById('loggedUserName').textContent = state.user.nombre_completo;
       document.getElementById('loggedUserEmail').textContent = `${state.user.email} • ${state.user.telefono || 'Sin teléfono'}`;
 
@@ -2614,21 +2878,36 @@
       const companyCard = document.getElementById('companySummaryCard');
       if (companyCard) {
         companyCard.innerHTML = `
-          <div>
-            <span class="detail-box-label">Titular de la Cuenta</span>
-            <strong>${state.user.nombre_completo}</strong>
+          <div class="company-card-header">
+            <div class="company-card-header-left">
+              <span class="material-symbols-rounded" style="color:var(--brand-red); font-size:1.5rem;">verified_user</span>
+              <div>
+                <strong style="font-size:1.05rem; display:block;">Información Comercial y Facturación</strong>
+                <span style="font-size:0.8rem; color:var(--text-muted);">Datos registrados para tus pedidos y comprobantes electrónicos</span>
+              </div>
+            </div>
+            <button type="button" class="btn-secondary btn-sm" id="btnOpenEditProfileModal">
+              <span class="material-symbols-rounded" style="font-size:1.05rem;">edit</span>
+              <span>Editar Información</span>
+            </button>
           </div>
-          <div>
-            <span class="detail-box-label">Empresa / Negocio</span>
-            <strong>${state.user.empresa || 'Cuenta Personal / Hogar'}</strong>
-          </div>
-          <div>
-            <span class="detail-box-label">Identificación</span>
-            <strong>${state.user.tipo_documento || 'CC'} ${state.user.numero_documento || 'Registrado'}</strong>
-          </div>
-          <div>
-            <span class="detail-box-label">Contacto Principal</span>
-            <strong>${state.user.telefono || 'Registrado'}</strong>
+          <div class="company-summary-grid">
+            <div>
+              <span class="detail-box-label">Titular de la Cuenta</span>
+              <strong>${state.user.nombre_completo}</strong>
+            </div>
+            <div>
+              <span class="detail-box-label">Empresa / Negocio</span>
+              <strong>${state.user.empresa || 'Cuenta Personal / Hogar'}</strong>
+            </div>
+            <div>
+              <span class="detail-box-label">Identificación</span>
+              <strong>${state.user.tipo_documento || 'CC'} ${state.user.numero_documento || 'No registrado'}</strong>
+            </div>
+            <div>
+              <span class="detail-box-label">Contacto Principal</span>
+              <strong>${state.user.telefono || 'No registrado'}</strong>
+            </div>
           </div>
         `;
       }
@@ -2643,6 +2922,7 @@
       renderSavedAddressesList();
       loadCustomerOrdersList();
       loadCustomerSupportTickets();
+      syncUserNotificationDots();
     }
   }
 
@@ -2812,8 +3092,8 @@
 
     if (state.customerExpandedOrderIds === null) {
       state.customerExpandedOrderIds = new Set();
+      // Solo abrimos el primer pedido si es un pedido ACTIVO en curso. En historial van todos colapsados por defecto.
       if (activeOrders.length > 0) state.customerExpandedOrderIds.add(activeOrders[0].id);
-      if (historyOrdersAll.length > 0) state.customerExpandedOrderIds.add(historyOrdersAll[0].id);
     }
 
     const histQuery = document.getElementById('custHistorySearchInput')?.value || '';
@@ -2889,16 +3169,24 @@
 
                     <div class="customer-order-direct-stage">
                       <div class="direct-stage-info-box">
-                        <span class="direct-stage-badge ${isCancelled ? 'is-cancelled' : ''}">
-                          <span class="material-symbols-rounded" style="font-size:1.05rem;">${meta.icon}</span>
-                          <span>${meta.badge}</span>
-                        </span>
                         ${
-                          !isCancelled
-                            ? `<div class="direct-stage-mini-bar-bg">
-                                 <div class="direct-stage-mini-bar-fill" style="width:${meta.pct}%;"></div>
-                               </div>`
-                            : ''
+                          !isActiveSection && !isCancelled
+                            ? `<span class="history-delivery-date">
+                                 <span class="material-symbols-rounded" style="font-size:0.95rem;">event_available</span>
+                                 <span>${ord.creado_en ? new Date(ord.creado_en).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Finalizado'}</span>
+                               </span>`
+                            : `<span class="direct-stage-badge ${isCancelled ? 'is-cancelled' : ''}">
+                                 ${isActiveSection && !isCancelled ? '<span class="order-live-pulse-dot" aria-hidden="true"></span>' : ''}
+                                 <span class="material-symbols-rounded" style="font-size:1.05rem;">${meta.icon}</span>
+                                 <span>${meta.badge}</span>
+                               </span>
+                               ${
+                                 !isCancelled
+                                   ? `<div class="direct-stage-mini-bar-bg">
+                                        <div class="direct-stage-mini-bar-fill" style="width:${meta.pct}%;"></div>
+                                      </div>`
+                                   : ''
+                               }`
                         }
                       </div>
                       <span class="customer-order-chevron">
@@ -2908,117 +3196,121 @@
                   </button>
 
                   <div class="customer-order-body">
-                    ${
-                      isCancelled
-                        ? `<div class="detail-box" style="margin-top:0.85rem; border:1px solid rgba(239,68,68,0.4); color:#fca5a5;">
-                             <strong>Motivo de cancelación:</strong> ${ord.razon_cancelacion || 'Cancelado'}
-                             ${
-                               ord.reembolso_estado === 'reembolsado'
-                                 ? `<div style="margin-top:4px; color:#4ade80; font-weight:700;">
-                                      ✔ Reembolso electrónico aplicado (${ord.metodo_pago.toUpperCase()})
-                                    </div>`
-                                 : ''
-                             }
-                           </div>`
-                        : `<div class="order-timeline-4steps" aria-label="Progreso del pedido">
-                             <div class="order-timeline-line-bg">
-                               <div class="order-timeline-line-fill" style="width:${meta.linePct}%;"></div>
-                             </div>
-
-                             <div class="timeline-point ${getStepClass(1)}">
-                               <div class="timeline-icon-circle">
-                                 <span class="material-symbols-rounded">storefront</span>
+                    <div class="customer-order-body-content">
+                      ${
+                        isCancelled
+                          ? `<div class="detail-box" style="margin-top:0.85rem; border:1px solid rgba(239,68,68,0.4); color:#fca5a5;">
+                               <strong>Motivo de cancelación:</strong> ${ord.razon_cancelacion || 'Cancelado'}
+                               ${
+                                 ord.reembolso_estado === 'reembolsado'
+                                   ? `<div style="margin-top:4px; color:#4ade80; font-weight:700;">
+                                        ✔ Reembolso electrónico aplicado (${ord.metodo_pago.toUpperCase()})
+                                      </div>`
+                                   : ''
+                               }
+                             </div>`
+                          : `<div class="order-timeline-4steps" aria-label="Progreso del pedido">
+                               <div class="order-timeline-line-bg">
+                                 <div class="order-timeline-line-fill" style="width:${meta.linePct}%;"></div>
                                </div>
-                               <span class="timeline-label-title">1. Recibido</span>
-                               <span class="timeline-label-sub">En tienda</span>
-                             </div>
 
-                             <div class="timeline-point ${getStepClass(2)}">
-                               <div class="timeline-icon-circle">
-                                 <span class="material-symbols-rounded">warehouse</span>
+                               <div class="timeline-point ${getStepClass(1)}">
+                                 <div class="timeline-icon-circle">
+                                   <span class="material-symbols-rounded">storefront</span>
+                                 </div>
+                                 <span class="timeline-label-title">1. Recibido</span>
+                                 <span class="timeline-label-sub">En tienda</span>
                                </div>
-                               <span class="timeline-label-title">2. En Proceso</span>
-                               <span class="timeline-label-sub">En bodega</span>
-                             </div>
 
-                             <div class="timeline-point ${getStepClass(3)}">
-                               <div class="timeline-icon-circle">
-                                 <span class="material-symbols-rounded">local_shipping</span>
+                               <div class="timeline-point ${getStepClass(2)}">
+                                 <div class="timeline-icon-circle">
+                                   <span class="material-symbols-rounded">warehouse</span>
+                                 </div>
+                                 <span class="timeline-label-title">2. En Proceso</span>
+                                 <span class="timeline-label-sub">En bodega</span>
                                </div>
-                               <span class="timeline-label-title">3. En Reparto</span>
-                               <span class="timeline-label-sub">En camino</span>
-                             </div>
 
-                             <div class="timeline-point ${getStepClass(4)}">
-                               <div class="timeline-icon-circle">
-                                 <span class="material-symbols-rounded">check_circle</span>
+                               <div class="timeline-point ${getStepClass(3)}">
+                                 <div class="timeline-icon-circle">
+                                   <span class="material-symbols-rounded">local_shipping</span>
+                                 </div>
+                                 <span class="timeline-label-title">3. En Reparto</span>
+                                 <span class="timeline-label-sub">En camino</span>
                                </div>
-                               <span class="timeline-label-title">4. Entregado</span>
-                               <span class="timeline-label-sub">Finalizado</span>
-                             </div>
-                           </div>`
-                    }
 
-                    <div class="order-items-chips" style="margin-top: 0.75rem;">
-                      ${(ord.items || [])
-                        .map((i) => `<span class="order-item-chip">${i.cantidad}x ${i.nombre_producto}</span>`)
-                        .join('')}
-                    </div>
+                               <div class="timeline-point ${getStepClass(4)}">
+                                 <div class="timeline-icon-circle">
+                                   <span class="material-symbols-rounded">check_circle</span>
+                                 </div>
+                                 <span class="timeline-label-title">4. Entregado</span>
+                                 <span class="timeline-label-sub">Finalizado</span>
+                               </div>
+                             </div>`
+                      }
 
-                    <!-- Barra de acciones del pedido: Ver Factura, Contactar a Soporte y Cancelar (si aún no está en envío) -->
-                    <div class="customer-order-actions-bar">
-                      <div style="font-size:0.79rem; color:var(--text-secondary);">
-                        ${
-                          isActiveSection
-                            ? canCustomerCancel
-                              ? '✔ Aún no ha salido a reparto: puedes cancelar el pedido sin costo.'
-                              : '🚚 El pedido ya se encuentra en ruta de envío con nuestro entregador.'
-                            : `Comprobante electrónico: <strong>${invCode}</strong> • Pago: ${(ord.metodo_pago || 'efectivo').toUpperCase()}`
-                        }
+                      ${!isActiveSection && !isCancelled ? buildThermalPaperReceiptHtml(ord) : ''}
+
+                      <div class="order-items-chips" style="margin-top: 0.75rem;">
+                        ${(ord.items || [])
+                          .map((i) => `<span class="order-item-chip">${i.cantidad}x ${i.nombre_producto}</span>`)
+                          .join('')}
                       </div>
-                      <div class="customer-order-actions-btns">
-                        <button type="button" class="btn-secondary" data-view-cust-invoice="${ord.id}">
-                          <span class="material-symbols-rounded">receipt_long</span>
-                          <span>Ver Factura</span>
-                        </button>
-                        <button type="button" class="btn-secondary" data-cust-contact-support="${ord.id}">
-                          <span class="material-symbols-rounded">support_agent</span>
-                          <span>Contactar a Soporte</span>
-                        </button>
-                        ${
-                          isActiveSection && canCustomerCancel
-                            ? `<button type="button" class="btn-cancel-order" data-cust-toggle-cancel="${ord.id}">
-                                 <span class="material-symbols-rounded">cancel</span>
-                                 <span>Cancelar Pedido</span>
-                               </button>`
-                            : ''
-                        }
-                      </div>
-                    </div>
 
-                    ${
-                      isActiveSection && canCustomerCancel && isCancelBoxOpen
-                        ? `<div class="cust-inline-cancel-box">
-                             <strong>¿Confirmas cancelar el Pedido #${ord.id}?</strong>
-                             <span style="font-size:0.8rem; color:var(--text-secondary);">
-                               Indica brevemente el motivo de cancelación (se aplicará reembolso automático si pagaste por medio electrónico):
-                             </span>
-                             <input
-                               type="text"
-                               id="custCancelReasonInput_${ord.id}"
-                               class="modal-input"
-                               value="Cancelado por el cliente antes de salir a envío"
-                             />
-                             <div style="display:flex; justify-content:flex-end; gap:0.6rem;">
-                               <button type="button" class="btn-secondary" data-cust-abort-cancel="${ord.id}">Volver</button>
-                               <button type="button" class="btn-cancel-order" style="background:#dc2626; color:#fff;" data-cust-confirm-cancel="${ord.id}">
-                                 <span class="material-symbols-rounded">check</span>
-                                 <span>Confirmar Cancelación</span>
-                               </button>
-                             </div>
-                           </div>`
-                        : ''
-                    }
+                      <!-- Barra de acciones del pedido: Ver Factura, Contactar a Soporte y Cancelar (si aún no está en envío) -->
+                      <div class="customer-order-actions-bar">
+                        <div style="font-size:0.79rem; color:var(--text-secondary);">
+                          ${
+                            isActiveSection
+                              ? canCustomerCancel
+                                ? '✔ Aún no ha salido a reparto: puedes cancelar el pedido sin costo.'
+                                : '🚚 El pedido ya se encuentra en ruta de envío con nuestro entregador.'
+                              : `Comprobante electrónico: <strong>${invCode}</strong> • Pago: ${(ord.metodo_pago || 'efectivo').toUpperCase()}`
+                          }
+                        </div>
+                        <div class="customer-order-actions-btns">
+                          <button type="button" class="btn-secondary" data-view-cust-invoice="${ord.id}">
+                            <span class="material-symbols-rounded">receipt_long</span>
+                            <span>Ver Factura</span>
+                          </button>
+                          <button type="button" class="btn-secondary" data-cust-contact-support="${ord.id}">
+                            <span class="material-symbols-rounded">support_agent</span>
+                            <span>Contactar a Soporte</span>
+                          </button>
+                          ${
+                            isActiveSection && canCustomerCancel
+                              ? `<button type="button" class="btn-cancel-order" data-cust-toggle-cancel="${ord.id}">
+                                   <span class="material-symbols-rounded">cancel</span>
+                                   <span>Cancelar Pedido</span>
+                                 </button>`
+                              : ''
+                          }
+                        </div>
+                      </div>
+
+                      ${
+                        isActiveSection && canCustomerCancel && isCancelBoxOpen
+                          ? `<div class="cust-inline-cancel-box">
+                               <strong>¿Confirmas cancelar el Pedido #${ord.id}?</strong>
+                               <span style="font-size:0.8rem; color:var(--text-secondary);">
+                                 Indica brevemente el motivo de cancelación (se aplicará reembolso automático si pagaste por medio electrónico):
+                               </span>
+                               <input
+                                 type="text"
+                                 id="custCancelReasonInput_${ord.id}"
+                                 class="modal-input"
+                                 value="Cancelado por el cliente antes de salir a envío"
+                               />
+                               <div style="display:flex; justify-content:flex-end; gap:0.6rem;">
+                                 <button type="button" class="btn-secondary" data-cust-abort-cancel="${ord.id}">Volver</button>
+                                 <button type="button" class="btn-cancel-order" style="background:#dc2626; color:#fff;" data-cust-confirm-cancel="${ord.id}">
+                                   <span class="material-symbols-rounded">check</span>
+                                   <span>Confirmar Cancelación</span>
+                                 </button>
+                               </div>
+                             </div>`
+                          : ''
+                      }
+                    </div>
                   </div>
                 </article>
               `;
@@ -3113,17 +3405,23 @@
       const headerBtn = e.target.closest('[data-toggle-cust-order]');
       if (headerBtn) {
         const ordId = Number(headerBtn.getAttribute('data-toggle-cust-order'));
-        if (state.customerExpandedOrderIds.has(ordId)) {
-          state.customerExpandedOrderIds.delete(ordId);
-        } else {
-          state.customerExpandedOrderIds.add(ordId);
+        const card = headerBtn.closest('.customer-order-accordion');
+        if (card) {
+          const isNowExpanded = card.classList.toggle('is-expanded');
+          headerBtn.setAttribute('aria-expanded', isNowExpanded ? 'true' : 'false');
+          if (isNowExpanded) {
+            state.customerExpandedOrderIds.add(ordId);
+          } else {
+            state.customerExpandedOrderIds.delete(ordId);
+          }
         }
-        renderCustomerOrdersViews();
+        return;
       }
     };
 
     activeContainer.onclick = handleOrderContainerClick;
     if (historyContainer) historyContainer.onclick = handleOrderContainerClick;
+    syncUserNotificationDots();
   }
 
   /**
@@ -3269,6 +3567,8 @@
 
       loadCustomerSupportTickets();
     };
+
+    syncUserNotificationDots();
   }
 
   // ==========================================================================
@@ -3278,13 +3578,21 @@
     const addrSelect = document.getElementById('checkoutAddressSelect');
     if (!addrSelect) return;
 
-    addrSelect.innerHTML = `<option value="map_pin">Usar el Pin Rojo puesto en el Mapa de abajo (Autorellenado)</option>`;
+    addrSelect.innerHTML = '';
+
+    // Listamos primero las direcciones guardadas del usuario
     state.direcciones.forEach((d, idx) => {
       const opt = document.createElement('option');
       opt.value = String(idx);
-      opt.textContent = `${d.etiqueta} (${d.municipio}) — ${d.direccion}`;
+      opt.textContent = `📍 ${d.etiqueta} (${d.municipio}) — ${d.direccion}`;
       addrSelect.appendChild(opt);
     });
+
+    // Opción para desplegar el mapa interactivo si desea buscar o marcar nueva ubicación
+    const mapOpt = document.createElement('option');
+    mapOpt.value = 'map_pin';
+    mapOpt.textContent = `🗺️ Marcar o buscar nueva ubicación en el mapa interactivo`;
+    addrSelect.appendChild(mapOpt);
 
     if (state.direcciones.length > 0) {
       const selectedIdx = state.direcciones.findIndex(
@@ -3293,6 +3601,9 @@
       const useIdx = selectedIdx !== -1 ? selectedIdx : 0;
       addrSelect.value = String(useIdx);
       applySavedAddressToCheckout(useIdx);
+    } else {
+      addrSelect.value = 'map_pin';
+      toggleCheckoutMapVisibility(true);
     }
   }
 
@@ -3451,7 +3762,9 @@
 
     const addrSelect = document.getElementById('checkoutAddressSelect');
     addrSelect?.addEventListener('change', (e) => {
-      if (e.target.value !== 'map_pin') {
+      if (e.target.value === 'map_pin') {
+        toggleCheckoutMapVisibility(true);
+      } else {
         const idx = Number(e.target.value);
         const dir = state.direcciones[idx];
         if (dir) {
@@ -3534,14 +3847,76 @@
     });
   }
 
+  function toggleCheckoutMapVisibility(showMap) {
+    const mapCollapsible = document.getElementById('checkoutMapCollapsible');
+    const muniInput = document.getElementById('addrMunicipio');
+    const streetInput = document.getElementById('addrStreet');
+    const refInput = document.getElementById('addrRef');
+
+    if (!mapCollapsible) return;
+
+    if (showMap) {
+      mapCollapsible.classList.remove('is-collapsed');
+      if (muniInput) {
+        muniInput.readOnly = false;
+        muniInput.classList.remove('is-locked-field');
+      }
+      if (streetInput) {
+        streetInput.readOnly = false;
+        streetInput.classList.remove('is-locked-field');
+      }
+      if (refInput) {
+        refInput.readOnly = false;
+        refInput.classList.remove('is-locked-field');
+      }
+      setTimeout(() => {
+        state.maps.addressMap?.invalidateSize();
+      }, 380);
+    } else {
+      mapCollapsible.classList.add('is-collapsed');
+      if (muniInput) {
+        muniInput.readOnly = true;
+        muniInput.classList.add('is-locked-field');
+      }
+      if (streetInput) {
+        streetInput.readOnly = true;
+        streetInput.classList.add('is-locked-field');
+      }
+      if (refInput) {
+        refInput.readOnly = true;
+        refInput.classList.add('is-locked-field');
+      }
+    }
+  }
+
   function applySavedAddressToCheckout(idx) {
     const dir = state.direcciones[idx];
     if (!dir) return;
-    document.getElementById('addrMunicipio').value = dir.municipio;
-    document.getElementById('addrStreet').value = dir.direccion;
-    document.getElementById('addrRef').value = dir.barrio_referencia || '';
-    document.getElementById('addrLat').value = dir.lat;
-    document.getElementById('addrLng').value = dir.lng;
+
+    const muniInput = document.getElementById('addrMunicipio');
+    const streetInput = document.getElementById('addrStreet');
+    const refInput = document.getElementById('addrRef');
+
+    if (muniInput) {
+      muniInput.value = dir.municipio;
+      muniInput.readOnly = true;
+      muniInput.classList.add('is-locked-field');
+    }
+    if (streetInput) {
+      streetInput.value = dir.direccion;
+      streetInput.readOnly = true;
+      streetInput.classList.add('is-locked-field');
+    }
+    if (refInput) {
+      refInput.value = dir.barrio_referencia || '';
+      refInput.readOnly = true;
+      refInput.classList.add('is-locked-field');
+    }
+
+    const latEl = document.getElementById('addrLat');
+    const lngEl = document.getElementById('addrLng');
+    if (latEl) latEl.value = dir.lat;
+    if (lngEl) lngEl.value = dir.lng;
 
     updateZoneBannerUI(dir.lat, dir.lng, dir.municipio);
 
@@ -3549,6 +3924,9 @@
       state.maps.addressMap.setView([dir.lat, dir.lng], 14);
       state.maps.addressMarker.setLatLng([dir.lat, dir.lng]).openPopup();
     }
+
+    // Al seleccionar una dirección guardada conocida, ocultamos el mapa animado para ahorrar espacio
+    toggleCheckoutMapVisibility(false);
   }
 
   function renderCheckoutPageItems() {
@@ -3621,106 +3999,115 @@
   }
 
   function renderPaymentVisualBox(method) {
-    state.selectedPayMethod = method;
+    state.selectedPayMethod = method || 'bancolombia';
     document.querySelectorAll('#paymentMethodsGrid .payment-method-card').forEach((c) => {
-      c.classList.toggle('active', c.getAttribute('data-pay-method') === method);
+      c.classList.toggle('active', c.getAttribute('data-pay-method') === state.selectedPayMethod);
     });
 
     const box = document.getElementById('paymentVisualBox');
     if (!box) return;
 
-    if (method === 'pse') {
+    if (state.selectedPayMethod === 'bancolombia') {
       box.innerHTML = `
         <div class="modal-form">
-          <div style="display:flex; align-items:center; gap:0.6rem;">
-            <span class="pay-logo pay-logo-pse">PSE</span>
-            <strong>Pagos Seguros en Línea (ACH Colombia)</strong>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label>Banco</label>
-              <select class="modal-input">
-                <option>Bancolombia</option>
-                <option>Banco de Bogotá</option>
-                <option>Davivienda</option>
-                <option>BBVA Colombia</option>
-                <option>Nequi / DaviPlata</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Tipo de Cliente</label>
-              <select class="modal-input">
-                <option>Persona Natural</option>
-                <option>Persona Jurídica (Restaurante/NIT)</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Documento (${state.user?.tipo_documento || 'CC'})</label>
-            <input type="text" class="modal-input" value="${state.user?.numero_documento || '1121890123'}" />
-          </div>
-        </div>
-      `;
-    } else if (method === 'nequi') {
-      box.innerHTML = `
-        <div class="modal-form">
-          <div style="display:flex; align-items:center; gap:0.6rem;">
-            <span class="pay-logo pay-logo-nequi">Nequi</span>
-            <strong>Pago con Notificación Nequi</strong>
-          </div>
-          <div class="form-group">
-            <label>Número de Celular Nequi</label>
-            <input type="tel" class="modal-input" value="${state.user?.telefono || '3114567890'}" />
-          </div>
-        </div>
-      `;
-    } else if (method === 'bancolombia') {
-      box.innerHTML = `
-        <div class="modal-form">
-          <div style="display:flex; align-items:center; gap:0.6rem;">
-            <span class="pay-logo pay-logo-bco">B</span>
-            <strong>Botón Bancolombia / Transferencia QR</strong>
-          </div>
-          <div class="detail-box" style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="pay-method-brand-header">
+            <img src="img/bancolombia.webp" alt="Bancolombia" class="pay-modal-brand-logo bco-brand" />
             <div>
-              <span class="detail-box-label">Convenio Recaudo Danillanos</span>
-              <strong>Cuenta Ahorros N° 364-000918-21</strong>
+              <strong>Transferencia Bancaria Bancolombia / Código QR</strong>
+              <div class="pay-method-brand-sub">Cuenta Corriente Empresarial Danillanos S.A.S.</div>
             </div>
-            <span class="material-symbols-rounded" style="font-size:2.4rem;">qr_code_2</span>
           </div>
+          <div class="detail-box pay-banking-detail">
+            <div>
+              <span class="detail-box-label">Convenio Recaudo Empresarial</span>
+              <strong style="font-size:1.05rem; letter-spacing:0.02em;">Cuenta de Ahorros N° 364-000918-21</strong>
+              <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:3px;">
+                Beneficiario: <strong>Danillanos S.A.S.</strong> • NIT 901.452.889-1
+              </div>
+            </div>
+            <div class="qr-code-box">
+              <span class="material-symbols-rounded" style="font-size:2.2rem;">qr_code_2</span>
+              <span style="font-size:0.62rem; font-weight:700; text-transform:uppercase;">Código QR</span>
+            </div>
+          </div>
+          <p class="pay-instruction-note">
+            <span class="material-symbols-rounded">info</span>
+            <span>Al confirmar su pedido, se emitirá su factura electrónica con el código de referencia para validar su transferencia.</span>
+          </p>
         </div>
       `;
-    } else if (method === 'tarjeta') {
+    } else if (state.selectedPayMethod === 'nequi') {
       box.innerHTML = `
         <div class="modal-form">
-          <strong>Tarjeta Débito / Crédito</strong>
+          <div class="pay-method-brand-header">
+            <img src="img/nequi.png" alt="Nequi" class="pay-modal-brand-logo nequi-brand" />
+            <div>
+              <strong>Pago Rápido Nequi</strong>
+              <div class="pay-method-brand-sub">Transferencia directa entre cuentas o notificación de cobro</div>
+            </div>
+          </div>
           <div class="form-group">
-            <label>Número de Tarjeta</label>
-            <input type="text" class="modal-input" value="4532 7100 9921 4410" />
+            <label for="nequiPhoneInput">Número de Celular Nequi del Comprador *</label>
+            <input type="tel" id="nequiPhoneInput" class="modal-input" value="${state.user?.telefono || ''}" placeholder="Ej: 310 123 4567" required />
+          </div>
+          <div class="detail-box" style="margin-top:0.25rem;">
+            <span class="detail-box-label">Línea de Recaudo Oficial Nequi</span>
+            <strong>311 456 7890</strong> • Danillanos Cárnicos y Congelados
+          </div>
+          <p class="pay-instruction-note">
+            <span class="material-symbols-rounded">notifications_active</span>
+            <span>Abra su app Nequi y confirme la solicitud enviada por Danillanos para autorizar la transacción.</span>
+          </p>
+        </div>
+      `;
+    } else if (state.selectedPayMethod === 'tarjeta') {
+      box.innerHTML = `
+        <div class="modal-form">
+          <div class="pay-method-brand-header">
+            <span class="pay-logo pay-logo-card"><span class="material-symbols-rounded">credit_card</span></span>
+            <div>
+              <strong>Tarjeta de Crédito o Débito</strong>
+              <div class="pay-method-brand-sub">Transacción cifrada bajo protocolos de seguridad bancaria</div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Número de Tarjeta *</label>
+            <input type="text" class="modal-input" value="•••• •••• •••• 4410" placeholder="•••• •••• •••• ••••" />
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label>Vencimiento</label>
-              <input type="text" class="modal-input" value="08/29" />
+              <label>Fecha de Vencimiento *</label>
+              <input type="text" class="modal-input" value="08/29" placeholder="MM/AA" />
             </div>
             <div class="form-group">
-              <label>CVV</label>
-              <input type="password" class="modal-input" value="842" />
+              <label>Código de Seguridad (CVV) *</label>
+              <input type="password" class="modal-input" value="842" maxlength="4" placeholder="•••" />
             </div>
+          </div>
+          <div class="form-group">
+            <label>Titular de la Tarjeta *</label>
+            <input type="text" class="modal-input" value="${state.user?.nombre_completo || 'Titular de la tarjeta'}" />
           </div>
         </div>
       `;
     } else {
       box.innerHTML = `
         <div class="modal-form">
-          <div style="display:flex; align-items:center; gap:0.6rem;">
+          <div class="pay-method-brand-header">
             <span class="pay-logo pay-logo-cash"><span class="material-symbols-rounded">payments</span></span>
-            <strong>Pago en Efectivo Contraentrega</strong>
+            <div>
+              <strong>Pago Contraentrega en Efectivo</strong>
+              <div class="pay-method-brand-sub">Cancele directamente al recibir su pedido en su domicilio o negocio</div>
+            </div>
           </div>
           <div class="form-group">
-            <label>Observación de pago en efectivo</label>
-            <input type="text" class="modal-input" value="Pago exacto al recibir" />
+            <label>¿Con cuánto cancelará? (Para alistar cambio)</label>
+            <input type="text" class="modal-input" value="Pago exacto al recibir" placeholder="Ej: Pago exacto / Billete de $100.000" />
           </div>
+          <p class="pay-instruction-note">
+            <span class="material-symbols-rounded">verified</span>
+            <span>El personal de reparto le entregará su producto debidamente refrigerado junto con su factura electrónica de venta.</span>
+          </p>
         </div>
       `;
     }
