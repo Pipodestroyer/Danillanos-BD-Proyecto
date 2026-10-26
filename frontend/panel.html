@@ -305,6 +305,65 @@
               <h2>Cuentas de Empleados y Asignación de Roles</h2>
             </div>
           </div>
+
+          <!-- Formulario rápido para añadir nuevos empleados por correo -->
+          <div class="surface-card admin-new-employee-card" style="margin-bottom: 1.5rem; padding: 1.35rem 1.65rem;">
+            <div style="display:flex; align-items:center; gap:0.65rem; margin-bottom: 0.85rem;">
+              <span class="material-symbols-rounded" style="color:var(--brand-red); font-size:1.6rem;">person_add</span>
+              <div>
+                <h3 style="font-family:'Outfit',sans-serif; font-size:1.15rem; font-weight:800; margin:0;">Añadir Nuevo Empleado por Correo Electrónico</h3>
+                <p style="font-size:0.8rem; color:var(--text-secondary); margin:2px 0 0;">
+                  Vincule el correo o cuenta de Google del empleado para otorgarle acceso inmediato con su rol correspondiente.
+                </p>
+              </div>
+            </div>
+
+            <form id="adminNewEmployeeForm" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) auto; gap:0.75rem; align-items:end;">
+              <div class="form-group">
+                <label for="adminNewEmpEmail" style="font-size:0.78rem; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">
+                  Correo Electrónico (o Cuenta de Google) *
+                </label>
+                <input
+                  type="email"
+                  id="adminNewEmpEmail"
+                  class="modal-input"
+                  placeholder="ejemplo@gmail.com o correo corporativo"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="adminNewEmpName" style="font-size:0.78rem; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">
+                  Nombre Completo (Opcional)
+                </label>
+                <input
+                  type="text"
+                  id="adminNewEmpName"
+                  class="modal-input"
+                  placeholder="Nombre y apellido del empleado"
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="adminNewEmpRole" style="font-size:0.78rem; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">
+                  Rol Asignado *
+                </label>
+                <select id="adminNewEmpRole" class="modal-input" style="height:46px; cursor:pointer;">
+                  <option value="empleado">Empleado General (Bodega / Despacho)</option>
+                  <option value="entregador">Entregador (Conductor de Reparto)</option>
+                  <option value="soporte">Agente de Soporte al Cliente</option>
+                  <option value="admin">Administrador General</option>
+                </select>
+              </div>
+
+              <button type="submit" class="btn-primary" id="btnAdminAddEmployee" style="height:46px; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; gap:0.45rem; padding:0 1.25rem;">
+                <span class="material-symbols-rounded">person_add</span>
+                <span>Vincular Empleado</span>
+              </button>
+            </form>
+            <div id="adminNewEmpMsg" style="font-size:0.82rem; margin-top:0.65rem; display:none;"></div>
+          </div>
+
           <div class="staff-orders-list" id="adminUsersListContainer"></div>
         </div>
 

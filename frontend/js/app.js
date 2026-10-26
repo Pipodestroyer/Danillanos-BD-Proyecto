@@ -1428,6 +1428,7 @@
     }
 
     function updateTransform() {
+      track.style.transition = 'transform 0.45s cubic-bezier(0.22, 1, 0.36, 1)';
       track.style.transform = `translate3d(-${state.carousel.currentIndex * 100}%, 0, 0)`;
       track.querySelectorAll('.carousel-slide').forEach((n, i) =>
         n.classList.toggle('is-active', i === state.carousel.currentIndex)
@@ -1451,12 +1452,14 @@
       const delta = ts - state.carousel.lastFrameTime;
       state.carousel.lastFrameTime = ts;
 
-      state.carousel.elapsedMs += delta;
-      const pct = Math.min((state.carousel.elapsedMs / state.carousel.durationMs) * 100, 100);
-      progressBar.style.width = `${pct}%`;
+      if (!state.carousel.isPaused) {
+        state.carousel.elapsedMs += delta;
+        const pct = Math.min((state.carousel.elapsedMs / state.carousel.durationMs) * 100, 100);
+        progressBar.style.width = `${pct}%`;
 
-      if (state.carousel.elapsedMs >= state.carousel.durationMs) {
-        goToSlide(state.carousel.currentIndex + 1);
+        if (state.carousel.elapsedMs >= state.carousel.durationMs) {
+          goToSlide(state.carousel.currentIndex + 1);
+        }
       }
       state.carousel.rafId = requestAnimationFrame(tick);
     }
@@ -1465,7 +1468,104 @@
     prevBtn?.addEventListener('click', () => goToSlide(state.carousel.currentIndex - 1));
     nextBtn?.addEventListener('click', () => goToSlide(state.carousel.currentIndex + 1));
 
+    // =========================================================================
+    // Deslizamiento con el dedo en móvil (Swipe táctil fluido izquierda/derecha)
+    // =========================================================================
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isSwiping = false;
+    let isHorizontalSwipe = false;
+    let wasDragging = false;
+
+    const carouselEl = document.getElementById('heroCarousel') || track;
+
+    carouselEl.addEventListener(
+      'touchstart',
+      (e) => {
+        if (!e.touches || e.touches.length !== 1) return;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        isSwiping = true;
+        isHorizontalSwipe = false;
+        wasDragging = false;
+        state.carousel.isPaused = true;
+      },
+      { passive: true }
+    );
+
+    carouselEl.addEventListener(
+      'touchmove',
+      (e) => {
+        if (!isSwiping || !e.touches || e.touches.length !== 1) return;
+        const currentX = e.touches[0].clientX;
+        const currentY = e.touches[0].clientY;
+        const diffX = currentX - touchStartX;
+        const diffY = currentY - touchStartY;
+
+        if (!isHorizontalSwipe) {
+          // Si el desplazamiento es predominantemente vertical, permitir scroll natural de la página
+          if (Math.abs(diffY) > Math.abs(diffX)) {
+            isSwiping = false;
+            state.carousel.isPaused = false;
+            return;
+          }
+          if (Math.abs(diffX) > 8) {
+            isHorizontalSwipe = true;
+            wasDragging = true;
+          }
+        }
+
+        if (isHorizontalSwipe) {
+          if (e.cancelable) e.preventDefault();
+          track.style.transition = 'none';
+          const baseOffset = -state.carousel.currentIndex * 100;
+          track.style.transform = `translate3d(calc(${baseOffset}% + ${diffX}px), 0, 0)`;
+        }
+      },
+      { passive: false }
+    );
+
+    function endTouchSwipe(e) {
+      if (!isSwiping && !isHorizontalSwipe) return;
+      isSwiping = false;
+      state.carousel.isPaused = false;
+      state.carousel.lastFrameTime = performance.now();
+      track.style.transition = 'transform 0.42s cubic-bezier(0.22, 1, 0.36, 1)';
+
+      if (isHorizontalSwipe && e.changedTouches && e.changedTouches.length > 0) {
+        const finalX = e.changedTouches[0].clientX;
+        const diffX = finalX - touchStartX;
+        const threshold = 38; // 38px de umbral para cambiar de diapositiva
+
+        if (diffX < -threshold) {
+          // Deslizó hacia la izquierda -> avanzar a la siguiente
+          goToSlide(state.carousel.currentIndex + 1);
+        } else if (diffX > threshold) {
+          // Deslizó hacia la derecha -> regresar a la anterior
+          goToSlide(state.carousel.currentIndex - 1);
+        } else {
+          // Umbral no alcanzado -> volver a centrar suavemente la diapositiva actual
+          updateTransform();
+        }
+      } else {
+        updateTransform();
+      }
+
+      // Reiniciar wasDragging después de que el evento click termine de evaluarse
+      setTimeout(() => {
+        wasDragging = false;
+      }, 120);
+    }
+
+    carouselEl.addEventListener('touchend', endTouchSwipe, { passive: true });
+    carouselEl.addEventListener('touchcancel', endTouchSwipe, { passive: true });
+
     track.addEventListener('click', (e) => {
+      if (wasDragging) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       const btn = e.target.closest('.slide-cta-btn');
       if (!btn) return;
       const prodId = Number(btn.getAttribute('data-slide-product-id'));
@@ -2000,112 +2100,15 @@
     return `FAC-DN-${String(orderId || 1).padStart(5, '0')}`;
   }
 
-  function buildInvoiceHtmlForOrder(ord) {
-    const invoiceNum = getInvoiceCode(ord.id || ord.pedido_id);
-    const dateStr = ord.creado_en
-      ? new Date(ord.creado_en).toLocaleString('es-CO')
-      : new Date().toLocaleString('es-CO');
-    const items = ord.items || [];
-    const statusLabelMap = {
-      pendiente: '1. RECIBIDO EN TIENDA',
-      en_proceso: '2. ACEPTADO EN BODEGA',
-      en_camino: '3. EN RUTA DE REPARTO',
-      entregado: '4. ENTREGADO Y VERIFICADO',
-      cancelado: ord.reembolso_estado === 'reembolsado' ? 'CANCELADO (REEMBOLSADO)' : 'CANCELADO'
-    };
-
-    return `
-      <div class="danillanos-visual-invoice">
-        <div class="invoice-top-ribbon">
-          <div>
-            <div class="invoice-brand-title">DANILLANOS</div>
-            <div class="invoice-brand-sub">CÁRNICOS & CONGELADOS • NIT 901.452.889-1</div>
-            <div class="invoice-brand-sub">Sede Principal: Clle 15 # 12-91 Av. Los Maracos, Villavicencio - Meta</div>
-          </div>
-          <div class="invoice-number-box">
-            <span class="invoice-number-label">Factura Electrónica de Venta</span>
-            <span class="invoice-number-val">${invoiceNum}</span>
-            <div style="font-size:0.72rem; color:#cbd5e1; margin-top:2px;">Pedido #${ord.id || ord.pedido_id} • ${dateStr}</div>
-          </div>
-        </div>
-
-        <div class="invoice-body-pad">
-          <div class="invoice-meta-grid">
-            <div class="invoice-meta-box">
-              <span class="invoice-meta-heading">Datos del Destinatario</span>
-              <div><strong>Recibe:</strong> ${ord.nombre_recibe || 'Cliente Danillanos'}</div>
-              <div><strong>Teléfono:</strong> ${ord.telefono_cliente || 'Registrado'}</div>
-              ${ord.entregador_nombre ? `<div><strong>Entregador Asignado:</strong> ${ord.entregador_nombre}</div>` : ''}
-            </div>
-            <div class="invoice-meta-box">
-              <span class="invoice-meta-heading">Ubicación y Despacho</span>
-              <div><strong>Dirección:</strong> ${ord.direccion_entrega} (${ord.municipio || 'Villavicencio'})</div>
-              <div><strong>Estimado:</strong> <strong style="color:#16a34a;">${ord.tiempo_entrega_estimado || 'Envío programado'}</strong></div>
-              <div><strong>Medio de Pago:</strong> ${(ord.metodo_pago || 'efectivo').toUpperCase()}</div>
-            </div>
-          </div>
-
-          <table class="invoice-items-table">
-            <thead>
-              <tr>
-                <th>Cant.</th>
-                <th>Descripción del Producto</th>
-                <th>V. Unitario</th>
-                <th style="text-align:right;">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${items
-                .map((item) => {
-                  const name = item.nombre_producto || item.nombre || 'Producto Danillanos';
-                  const price = Number(item.precio_unitario ?? item.precio ?? 0);
-                  const qty = Number(item.cantidad || 1);
-                  const sub = Number(item.subtotal ?? price * qty);
-                  return `
-                    <tr>
-                      <td><strong>${qty}</strong></td>
-                      <td>${name}</td>
-                      <td>${formatCurrency(price)}</td>
-                      <td style="text-align:right;"><strong>${formatCurrency(sub)}</strong></td>
-                    </tr>
-                  `;
-                })
-                .join('')}
-            </tbody>
-          </table>
-
-          <div class="invoice-totals-row">
-            <div>
-              <span style="font-size:0.76rem; color:#64748b; text-transform:uppercase; font-weight:800;">Estado Actual</span>
-              <div style="font-weight:800; color:${ord.estado === 'cancelado' ? '#ef4444' : '#16a34a'};">
-                ${statusLabelMap[ord.estado] || 'REGISTRADO'}
-              </div>
-            </div>
-            <div style="text-align:right;">
-              <span style="font-size:0.78rem; color:#64748b; display:block;">Total Facturado (IVA Incluido)</span>
-              <span class="invoice-total-big">${formatCurrency(ord.total)}</span>
-            </div>
-          </div>
-
-          <div class="invoice-barcode-footer">
-            <div class="invoice-barcode-code" style="font-family:monospace; letter-spacing:0.28em; font-size:1.05rem; margin-bottom:4px;">
-              ||| |||| || ||||| ||| |||| ||| |||| ||
-            </div>
-            <span>Comprobante Electrónico ${invoiceNum} • Danillanos Cárnicos y Congelados</span>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
   /**
    * Genera el HTML de la Factura emulada en Papel Térmico de punto de venta (POS)
    * con textura de papel gris y bordes dentados (sawtooth / zigzag arriba y abajo),
-   * con el mismo ancho de la barra de progreso, para pedidos del historial.
+   * unificada para todas las representaciones de facturas (Historial, Modal y Checkout).
    */
   function buildThermalPaperReceiptHtml(ord) {
     if (!ord) return '';
-    const invCode = getInvoiceCode(ord.id);
+    const orderId = ord.id || ord.pedido_id || 101;
+    const invCode = getInvoiceCode(orderId);
     const dateStr = ord.creado_en
       ? new Date(ord.creado_en).toLocaleString('es-CO', {
           dateStyle: 'medium',
@@ -2113,13 +2116,144 @@
         })
       : new Date().toLocaleString('es-CO');
     const items = ord.items || [];
-    const cufeHash = `CUFE-${(ord.id * 894311 + 512349).toString(16).toUpperCase()}-DN2026-${(Number(ord.total) || 9999).toString(16).toUpperCase()}`;
+    const cufeHash = `CUFE-${(orderId * 894311 + 512349).toString(16).toUpperCase()}-DN2026-${(Number(ord.total) || 9999).toString(16).toUpperCase()}`;
+
+    const statusLabelMap = {
+      pendiente: '1. RECIBIDO EN TIENDA',
+      en_proceso: '2. ACEPTADO EN BODEGA',
+      en_camino: '3. EN RUTA DE REPARTO',
+      entregado: '4. ENTREGADO Y VERIFICADO',
+      cancelado: ord.reembolso_estado === 'reembolsado' ? 'CANCELADO (REEMBOLSADO)' : 'CANCELADO'
+    };
+    const estadoTexto = statusLabelMap[ord.estado] || (ord.estado ? String(ord.estado).toUpperCase() : 'RECIBIDO EN TIENDA');
 
     // Dientes de sierra SVG (triángulos exactos de 0 a 100)
     const topTeeth =
       '0,8 1.25,0 2.5,8 3.75,0 5,8 6.25,0 7.5,8 8.75,0 10,8 11.25,0 12.5,8 13.75,0 15,8 16.25,0 17.5,8 18.75,0 20,8 21.25,0 22.5,8 23.75,0 25,8 26.25,0 27.5,8 28.75,0 30,8 31.25,0 32.5,8 33.75,0 35,8 36.25,0 37.5,8 38.75,0 40,8 41.25,0 42.5,8 43.75,0 45,8 46.25,0 47.5,8 48.75,0 50,8 51.25,0 52.5,8 53.75,0 55,8 56.25,0 57.5,8 58.75,0 60,8 61.25,0 62.5,8 63.75,0 65,8 66.25,0 67.5,8 68.75,0 70,8 71.25,0 72.5,8 73.75,0 75,8 76.25,0 77.5,8 78.75,0 80,8 81.25,0 82.5,8 83.75,0 85,8 86.25,0 87.5,8 88.75,0 90,8 91.25,0 92.5,8 93.75,0 95,8 96.25,0 97.5,8 98.75,0 100,8';
     const bottomTeeth =
       '0,0 1.25,8 2.5,0 3.75,8 5,0 6.25,8 7.5,0 8.75,8 10,0 11.25,8 12.5,0 13.75,8 15,0 16.25,8 17.5,0 18.75,8 20,0 21.25,8 22.5,0 23.75,8 25,0 26.25,8 27.5,0 28.75,8 30,0 31.25,8 32.5,0 33.75,8 35,0 36.25,8 37.5,0 38.75,8 40,0 41.25,8 42.5,0 43.75,8 45,0 46.25,8 47.5,0 48.75,8 50,0 51.25,8 52.5,0 53.75,8 55,0 56.25,8 57.5,0 58.75,8 60,0 61.25,8 62.5,0 63.75,8 65,0 66.25,8 67.5,0 68.75,8 70,0 71.25,8 72.5,0 73.75,8 75,0 76.25,8 77.5,0 78.75,8 80,0 81.25,8 82.5,0 83.75,8 85,0 86.25,8 87.5,0 88.75,8 90,0 91.25,8 92.5,0 93.75,8 95,0 96.25,8 97.5,0 98.75,8 100,0';
+
+    const clienteNombre = ord.nombre_recibe || (state.user ? state.user.nombre_completo : 'Consumidor Final');
+    const docNumero = state.user && state.user.numero_documento
+      ? `${state.user.tipo_documento || 'CC'} ${state.user.numero_documento}`
+      : '222222222222 (Consumidor Final)';
+    const dirTexto = ord.direccion_entrega
+      ? `${ord.direccion_entrega} (${ord.municipio || 'Villavicencio'})`
+      : `Entrega en Sede / Domicilio Registrado (${ord.municipio || 'Villavicencio'})`;
+
+    return `
+      <div class="emulated-thermal-receipt" aria-label="Factura electrónica papel térmico">
+        <div class="thermal-sawtooth top" aria-hidden="true">
+          <svg viewBox="0 0 100 8" preserveAspectRatio="none"><polygon points="${topTeeth}" /></svg>
+        </div>
+        <div class="thermal-receipt-body">
+          <div class="thermal-header-center">
+            <div class="thermal-store-name">DANILLANOS S.A.S.</div>
+            <div class="thermal-store-sub">DISTRIBUIDORA AGROPECUARIA & CÁRNICOS DEL META</div>
+            <div class="thermal-store-sub">NIT: 900.842.190-4 • IVA RÉGIMEN SIMPLE</div>
+            <div class="thermal-store-sub">Cra 32 # 24-18, Villavicencio - Meta</div>
+            <div class="thermal-store-sub">PBX: (608) 662-4411 • WhatsApp: 310 234 5678</div>
+          </div>
+
+          <div class="thermal-divider-dashed">--------------------------------------------------------</div>
+
+          <div class="thermal-meta-row">
+            <div class="thermal-meta-col">
+              <div><strong>FACTURA:</strong> ${invCode}</div>
+              <div><strong>PEDIDO:</strong> #${orderId}</div>
+              <div><strong>FECHA:</strong> ${dateStr}</div>
+            </div>
+            <div class="thermal-meta-col thermal-text-right">
+              <div><strong>MEDIO PAGO:</strong> ${(ord.metodo_pago || 'efectivo').toUpperCase()}</div>
+              <div><strong>ESTADO:</strong> ${estadoTexto}</div>
+              <div><strong>REF:</strong> ${ord.referencia_pago || ('DN-' + orderId)}</div>
+            </div>
+          </div>
+
+          <div class="thermal-divider-dashed">--------------------------------------------------------</div>
+
+          <div class="thermal-customer-box">
+            <div><strong>ADQUIRENTE:</strong> ${clienteNombre}</div>
+            <div><strong>DOCUMENTO / NIT:</strong> ${docNumero}</div>
+            <div><strong>DIRECCIÓN DE ENTREGA:</strong> ${dirTexto}</div>
+            ${ord.telefono_cliente ? `<div><strong>TELÉFONO:</strong> ${ord.telefono_cliente}</div>` : ''}
+            ${ord.entregador_nombre ? `<div><strong>ENTREGADOR RESPONSABLE:</strong> ${ord.entregador_nombre}</div>` : ''}
+          </div>
+
+          <div class="thermal-divider-dashed">--------------------------------------------------------</div>
+
+          <div class="thermal-items-header">
+            <span class="col-cant">CANT</span>
+            <span class="col-desc">DESCRIPCIÓN DEL ARTÍCULO</span>
+            <span class="col-unit">VR.UNIT</span>
+            <span class="col-total">TOTAL</span>
+          </div>
+          <div class="thermal-divider-dotted">........................................................</div>
+
+          <div class="thermal-items-list">
+            ${items
+              .map((it) => {
+                const qty = Number(it.cantidad || 1);
+                const unit = Number(it.precio_unitario ?? it.precio ?? 0);
+                const sub = Number(it.subtotal ?? qty * unit);
+                const name = (it.nombre_producto || it.nombre || 'Producto').toUpperCase();
+                return `
+                  <div class="thermal-item-row">
+                    <span class="col-cant">${qty}x</span>
+                    <span class="col-desc">${name}</span>
+                    <span class="col-unit">${formatCurrency(unit)}</span>
+                    <span class="col-total">${formatCurrency(sub)}</span>
+                  </div>
+                `;
+              })
+              .join('')}
+          </div>
+
+          <div class="thermal-divider-dashed">--------------------------------------------------------</div>
+
+          <div class="thermal-totals-table">
+            <div class="thermal-total-line">
+              <span>SUBTOTAL PRODUCTOS:</span>
+              <strong>${formatCurrency(ord.total)}</strong>
+            </div>
+            <div class="thermal-total-line">
+              <span>IVA (19% / EXENTO LEY AGRO):</span>
+              <span>$0</span>
+            </div>
+            <div class="thermal-total-line thermal-big-total">
+              <span>TOTAL FACTURADO:</span>
+              <strong>${formatCurrency(ord.total)}</strong>
+            </div>
+          </div>
+
+          <div class="thermal-divider-dashed">--------------------------------------------------------</div>
+
+          <div class="thermal-barcode-box">
+            <div class="thermal-simulated-barcode" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <div class="thermal-cufe-code">${cufeHash}</div>
+            <div class="thermal-resolution-text">
+              RESOLUCIÓN DIAN ELECTRÓNICA N° 18764000123 DE 2026-01-15<br/>
+              RANGO AUTORIZADO: FAC-DN-000001 HASTA FAC-DN-999999<br/>
+              ¡GRACIAS POR SU COMPRA EN DANILLANOS!
+            </div>
+          </div>
+        </div>
+        <div class="thermal-sawtooth bottom" aria-hidden="true">
+          <svg viewBox="0 0 100 8" preserveAspectRatio="none"><polygon points="${bottomTeeth}" /></svg>
+        </div>
+      </div>
+    `;
+  }
+
+  function buildInvoiceHtmlForOrder(ord) {
+    return buildThermalPaperReceiptHtml(ord);
+  }
 
     return `
       <div class="emulated-thermal-receipt" aria-label="Factura electrónica papel térmico">
@@ -3268,10 +3402,14 @@
                           }
                         </div>
                         <div class="customer-order-actions-btns">
-                          <button type="button" class="btn-secondary" data-view-cust-invoice="${ord.id}">
-                            <span class="material-symbols-rounded">receipt_long</span>
-                            <span>Ver Factura</span>
-                          </button>
+                          ${
+                            isActiveSection
+                              ? `<button type="button" class="btn-secondary" data-view-cust-invoice="${ord.id}">
+                                   <span class="material-symbols-rounded">receipt_long</span>
+                                   <span>Ver Factura</span>
+                                 </button>`
+                              : ''
+                          }
                           <button type="button" class="btn-secondary" data-cust-contact-support="${ord.id}">
                             <span class="material-symbols-rounded">support_agent</span>
                             <span>Contactar a Soporte</span>
@@ -3407,12 +3545,20 @@
         const ordId = Number(headerBtn.getAttribute('data-toggle-cust-order'));
         const card = headerBtn.closest('.customer-order-accordion');
         if (card) {
-          const isNowExpanded = card.classList.toggle('is-expanded');
-          headerBtn.setAttribute('aria-expanded', isNowExpanded ? 'true' : 'false');
-          if (isNowExpanded) {
+          const wasExpanded = card.classList.contains('is-expanded');
+
+          // Solo se permite tener 1 pedido desplegado a la vez (cerrar todos los demás en curso e historial)
+          document.querySelectorAll('.customer-order-accordion.is-expanded').forEach((otherCard) => {
+            otherCard.classList.remove('is-expanded');
+            const otherBtn = otherCard.querySelector('[data-toggle-cust-order]');
+            if (otherBtn) otherBtn.setAttribute('aria-expanded', 'false');
+          });
+          state.customerExpandedOrderIds.clear();
+
+          if (!wasExpanded) {
+            card.classList.add('is-expanded');
+            headerBtn.setAttribute('aria-expanded', 'true');
             state.customerExpandedOrderIds.add(ordId);
-          } else {
-            state.customerExpandedOrderIds.delete(ordId);
           }
         }
         return;
@@ -4189,20 +4335,21 @@
         return;
       }
 
-      // Expandir / contraer acordeón de historial en cualquier rol
+      // Expandir / contraer acordeón de historial en cualquier rol (máximo 1 abierto a la vez)
       const toggleHistHeader = e.target.closest('[data-toggle-staff-hist]');
       if (toggleHistHeader && !e.target.closest('[data-staff-view-invoice]') && !e.target.closest('[data-emp-cancel]')) {
         const ordId = Number(toggleHistHeader.getAttribute('data-toggle-staff-hist'));
         if (state.staffHistoryExpandedIds.has(ordId)) {
           state.staffHistoryExpandedIds.delete(ordId);
         } else {
+          state.staffHistoryExpandedIds.clear();
           state.staffHistoryExpandedIds.add(ordId);
         }
         renderActiveStaffTab();
         return;
       }
 
-      // Expandir / colapsar paradas verticales del entregador (estilo Rappi)
+      // Expandir / colapsar paradas verticales del entregador (estilo Rappi, máximo 1 abierta a la vez)
       const toggleStopHeader = e.target.closest('[data-toggle-driver-stop]');
       if (toggleStopHeader && !e.target.closest('a') && !e.target.closest('button:not([data-toggle-driver-stop])')) {
         const ordId = Number(toggleStopHeader.getAttribute('data-toggle-driver-stop'));
@@ -4210,6 +4357,7 @@
         if (state.driverExpandedOrderIds.has(ordId)) {
           state.driverExpandedOrderIds.delete(ordId);
         } else {
+          state.driverExpandedOrderIds.clear();
           state.driverExpandedOrderIds.add(ordId);
         }
         renderEntregadorPanel();

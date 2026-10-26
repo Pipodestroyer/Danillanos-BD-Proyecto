@@ -1724,12 +1724,17 @@ button {
   align-items: center;
   gap: 0.65rem;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .address-select-row select,
 #checkoutAddressSelect {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
+  max-width: calc(100% - 56px);
+  width: 100%;
   height: 48px;
   border-radius: var(--radius-lg) !important;
   background-color: var(--bg-surface) !important;
@@ -1739,8 +1744,12 @@ button {
   user-select: auto !important;
   font-weight: 600;
   opacity: 1 !important;
-  padding: 0 1rem;
+  padding: 0 0.85rem;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .address-select-row select:hover,
@@ -2375,24 +2384,35 @@ textarea.modal-input.is-locked-field:focus {
 
 .staff-order-details-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 0.9rem;
-  font-size: 0.86rem;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1.15rem;
+  font-size: 0.88rem;
 }
 
 .detail-box {
   background-color: var(--bg-elevated);
-  padding: 0.8rem 1rem;
-  border-radius: var(--radius-md);
+  padding: 1.05rem 1.25rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  line-height: 1.45;
 }
 
 .detail-box-label {
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 0.72rem;
+  font-weight: 800;
   text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--text-muted);
   display: block;
-  margin-bottom: 2px;
+}
+
+.detail-box-sub {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
 }
 
 .order-items-chips {
@@ -3995,7 +4015,7 @@ html[data-theme='dark'] .staff-nav-card {
 }
 
 .customer-order-accordion.is-expanded .customer-order-body-content {
-  padding: 0.85rem 1.5rem 1.5rem;
+  padding: 1.15rem 1.65rem 1.65rem;
   opacity: 1;
 }
 
@@ -4281,14 +4301,21 @@ html[data-theme='dark'] .staff-nav-card {
 
 /* 4. Pasarela de Pagos en 3 Pasos Animados (Derecha a Izquierda) + Factura Gráfica */
 .checkout-wizard-container {
+  width: 100%;
   max-width: 980px;
+  min-width: 0;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  box-sizing: border-box;
 }
 
 .checkout-wizard-header-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 1.5rem 2rem;
 }
 
@@ -4297,6 +4324,10 @@ html[data-theme='dark'] .staff-nav-card {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.75rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .checkout-wizard-line-bg {
@@ -4327,6 +4358,12 @@ html[data-theme='dark'] .staff-nav-card {
   gap: 0.42rem;
   background: transparent;
   cursor: pointer;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.step-text-mobile {
+  display: none;
 }
 
 .wizard-step-icon {
@@ -4340,6 +4377,7 @@ html[data-theme='dark'] .staff-nav-card {
   align-items: center;
   justify-content: center;
   transition: all 0.32s ease;
+  flex-shrink: 0;
 }
 
 .wizard-step-node.is-done .wizard-step-icon,
@@ -4357,6 +4395,8 @@ html[data-theme='dark'] .staff-nav-card {
   font-size: 0.84rem;
   font-weight: 800;
   color: var(--text-muted);
+  max-width: 100%;
+  word-break: break-word;
 }
 
 .wizard-step-node.is-done .wizard-step-title {
@@ -4375,24 +4415,38 @@ html[data-theme='dark'] .staff-nav-card {
 /* Viewport deslizante de derecha a izquierda */
 .checkout-wizard-viewport {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow: hidden;
   border-radius: var(--radius-xl);
+  box-sizing: border-box;
 }
 
 .checkout-wizard-track {
   display: flex;
   width: 400%;
+  max-width: 400%;
+  min-width: 400%;
   align-items: flex-start;
   transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  box-sizing: border-box;
 }
 
 .checkout-wizard-slide {
   width: 25%;
+  max-width: 25%;
+  min-width: 0;
   flex: 0 0 25%;
   padding: 0.15rem;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .wizard-step-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 2.1rem;
 }
 
@@ -4537,7 +4591,18 @@ html[data-theme='dark'] .staff-nav-card {
   transition: width 1s linear;
 }
 
-/* Factura Emulada Gráficamente (Estilo Comprobante Moderno) */
+/* Factura Emulada Gráficamente (Estilo Comprobante Moderno / Térmico Unificado) */
+#danillanosVisualInvoice.danillanos-visual-invoice,
+#danillanosVisualInvoice {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  padding: 0 !important;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
 .danillanos-visual-invoice {
   background-color: #ffffff;
   color: #0f172a;
@@ -4686,18 +4751,322 @@ html[data-theme='dark'] .staff-nav-card {
 }
 
 @media (max-width: 768px) {
-  .checkout-wizard-header-card,
-  .wizard-step-card,
-  .invoice-body-pad {
-    padding: 1.2rem;
+  /* Contenedor del Wizard de Pagos en Móvil */
+  .checkout-wizard-container {
+    gap: 1rem;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .checkout-wizard-header-card {
+    padding: 0.85rem 0.65rem !important;
+    border-radius: var(--radius-lg) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .checkout-wizard-steps {
+    gap: 0.2rem !important;
+    width: 100% !important;
+  }
+
+  .checkout-wizard-line-bg {
+    top: 19px !important;
+    left: 14% !important;
+    right: 14% !important;
+    height: 3px !important;
+  }
+
+  .wizard-step-node {
+    gap: 0.28rem !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+  }
+
+  .wizard-step-icon {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  .wizard-step-icon .material-symbols-rounded {
+    font-size: 1.15rem !important;
+  }
+
+  .wizard-step-title {
+    font-size: 0.68rem !important;
+    line-height: 1.2 !important;
+    text-align: center;
+    max-width: 100%;
+    letter-spacing: -0.01em;
+  }
+
+  .step-text-desktop {
+    display: none !important;
+  }
+
+  .step-text-mobile {
+    display: inline !important;
+    font-weight: 800 !important;
+    font-size: 0.74rem !important;
   }
 
   .wizard-step-sub {
-    display: none;
+    display: none !important;
+  }
+
+  .checkout-wizard-viewport {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  .checkout-wizard-track {
+    width: 400% !important;
+    max-width: 400% !important;
+    min-width: 400% !important;
+    box-sizing: border-box !important;
+  }
+
+  .checkout-wizard-slide {
+    width: 25% !important;
+    max-width: 25% !important;
+    min-width: 0 !important;
+    flex: 0 0 25% !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  .wizard-step-card {
+    padding: 1.15rem 0.95rem !important;
+    border-radius: var(--radius-lg) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .card-step-header {
+    gap: 0.65rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .card-step-header > div {
+    min-width: 0 !important;
+    flex: 1 !important;
+  }
+
+  .step-circle {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 0.85rem !important;
+  }
+
+  .card-step-header h3 {
+    font-size: 1.12rem !important;
+    margin-bottom: 0.25rem !important;
+    line-height: 1.25 !important;
+  }
+
+  .card-step-header .card-helper-text {
+    font-size: 0.78rem !important;
+    line-height: 1.4 !important;
+  }
+
+  .address-select-row {
+    gap: 0.45rem !important;
+  }
+
+  .address-select-row select,
+  #checkoutAddressSelect {
+    max-width: calc(100% - 50px) !important;
+    font-size: 0.8rem !important;
+    padding: 0 0.6rem !important;
+    height: 46px !important;
+  }
+
+  .btn-icon-manage {
+    width: 44px !important;
+    height: 46px !important;
+  }
+
+  .checkout-map-canvas {
+    height: 250px !important;
+  }
+
+  .zone-live-indicator {
+    padding: 0.75rem 0.85rem !important;
+    gap: 0.6rem !important;
+    font-size: 0.78rem !important;
+  }
+
+  .zone-live-indicator .material-symbols-rounded {
+    font-size: 1.3rem !important;
+  }
+
+  .zone-live-indicator > div {
+    min-width: 0 !important;
+    flex: 1 !important;
+  }
+
+  .zone-live-indicator strong {
+    font-size: 0.8rem !important;
+    line-height: 1.3 !important;
+    display: block !important;
+  }
+
+  .zone-live-indicator p {
+    font-size: 0.72rem !important;
+    line-height: 1.35 !important;
+    margin-top: 0.15rem !important;
+  }
+
+  .wizard-step-actions {
+    flex-direction: column-reverse !important;
+    gap: 0.65rem !important;
+    margin-top: 1.35rem !important;
+    padding-top: 1rem !important;
+    width: 100% !important;
+  }
+
+  .wizard-step-actions .btn-primary,
+  .wizard-step-actions .btn-secondary,
+  .wizard-step-actions button,
+  .wizard-step-actions a {
+    width: 100% !important;
+    justify-content: center !important;
+    text-align: center !important;
+    padding: 0.75rem 1rem !important;
+    font-size: 0.86rem !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Paso 2: Resumen del Pedido */
+  .wizard-step2-address-pill {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.65rem !important;
+    padding: 0.75rem 0.85rem !important;
+    font-size: 0.8rem !important;
+  }
+
+  .wizard-step2-address-pill .cart-addr-mini-btn {
+    align-self: flex-start !important;
+  }
+
+  .checkout-item-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+    padding: 0.8rem 0.85rem !important;
+  }
+
+  .checkout-item-left {
+    width: 100% !important;
+    gap: 0.75rem !important;
+  }
+
+  .checkout-item-img {
+    width: 48px !important;
+    height: 48px !important;
+  }
+
+  .checkout-item-row .bulk-qty-box {
+    align-self: flex-end !important;
+  }
+
+  .checkout-summary-breakdown {
+    margin: 1.15rem 0 !important;
+    padding: 0.85rem !important;
+  }
+
+  .summary-line {
+    font-size: 0.82rem !important;
+  }
+
+  .summary-line.total-line {
+    font-size: 1.05rem !important;
+  }
+
+  /* Paso 3: Métodos de Pago */
+  .payment-methods-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.55rem !important;
+  }
+
+  .payment-method-card {
+    padding: 0.75rem 0.45rem !important;
+    gap: 0.45rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  .pay-logo {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  .payment-visual-box {
+    padding: 1rem 0.85rem !important;
+  }
+
+  /* Paso 4: Factura Gráfica y Redirección */
+  .danillanos-visual-invoice {
+    border-radius: 14px !important;
+  }
+
+  .invoice-top-ribbon {
+    padding: 1.1rem 1rem !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+
+  .invoice-brand-title {
+    font-size: 1.35rem !important;
+  }
+
+  .invoice-number-box {
+    width: 100% !important;
+    text-align: left !important;
+    padding: 0.5rem 0.75rem !important;
+  }
+
+  .invoice-body-pad {
+    padding: 1rem 0.85rem !important;
   }
 
   .invoice-meta-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
+    gap: 0.65rem !important;
+  }
+
+  .invoice-items-table {
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+  }
+
+  .invoice-totals-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.65rem !important;
+  }
+
+  .invoice-redirect-top {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.65rem !important;
+  }
+
+  .invoice-redirect-top a {
+    width: 100% !important;
+    text-align: center !important;
+    justify-content: center !important;
   }
 
   .customer-order-direct-stage {
@@ -6060,7 +6429,7 @@ html[data-theme='dark'] .invoice-barcode-code {
     gap: 1.35rem !important;
   }
 
-  /* Hero Carrusel Promocional balanceado en móvil */
+  /* Hero Carrusel Promocional balanceado en móvil con Swipe Táctil */
   .hero-section {
     margin-bottom: 1.05rem !important;
   }
@@ -6068,6 +6437,20 @@ html[data-theme='dark'] .invoice-barcode-code {
   .hero-carousel {
     height: 278px !important;
     border-radius: 16px !important;
+    touch-action: pan-y !important;
+  }
+
+  .carousel-track {
+    touch-action: pan-y !important;
+  }
+
+  /* Ocultar botones de flecha en móvil (reemplazados por deslizamiento táctil con el dedo) */
+  .carousel-arrow,
+  .carousel-arrow-prev,
+  .carousel-arrow-next {
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
   }
 
   .carousel-slide-overlay {
