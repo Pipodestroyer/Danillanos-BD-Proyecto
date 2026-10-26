@@ -156,8 +156,9 @@
           </div>
         </div>
 
-        <div class="wide-auth-card">
-          <div class="auth-tabs">
+        <div class="wide-auth-card" id="wideAuthCard">
+          <div class="auth-tabs" id="authTabsBar">
+            <span class="auth-tab-slider" aria-hidden="true"></span>
             <button type="button" class="auth-tab active" id="tabLoginBtn">Iniciar Sesión</button>
             <button type="button" class="auth-tab" id="tabRegisterBtn">Crear Cuenta</button>
           </div>
@@ -174,76 +175,84 @@
 
           <div class="auth-divider"><span>o con tu correo electrónico</span></div>
 
-          <form id="loginForm" class="modal-form">
-            <div class="form-group">
-              <label for="loginEmail">Correo Electrónico</label>
-              <input type="email" id="loginEmail" class="modal-input" placeholder="tucorreo@ejemplo.com" required />
-            </div>
-            <div class="form-group">
-              <label for="loginPassword">Contraseña</label>
-              <input type="password" id="loginPassword" class="modal-input" placeholder="••••••••" required />
-            </div>
-            <button type="submit" class="btn-primary btn-full">
-              <span class="material-symbols-rounded">login</span>
-              <span>Ingresar</span>
-            </button>
-          </form>
-
-          <form id="registerForm" class="modal-form hidden">
-            <div class="form-row-2">
-              <div class="form-group">
-                <label for="regNombres">Nombre(s) *</label>
-                <input type="text" id="regNombres" class="modal-input" placeholder="Ej: Carlos Andrés" required />
+          <div class="auth-forms-viewport" id="authFormsViewport">
+            <div class="auth-forms-track" id="authFormsTrack">
+              <div class="auth-form-panel is-active" id="loginFormPanel">
+                <form id="loginForm" class="modal-form">
+                  <div class="form-group">
+                    <label for="loginEmail">Correo Electrónico</label>
+                    <input type="email" id="loginEmail" class="modal-input" placeholder="tucorreo@ejemplo.com" required />
+                  </div>
+                  <div class="form-group">
+                    <label for="loginPassword">Contraseña</label>
+                    <input type="password" id="loginPassword" class="modal-input" placeholder="••••••••" required />
+                  </div>
+                  <button type="submit" class="btn-primary btn-full">
+                    <span class="material-symbols-rounded">login</span>
+                    <span>Ingresar</span>
+                  </button>
+                </form>
               </div>
-              <div class="form-group">
-                <label for="regApellidos">Apellidos *</label>
-                <input type="text" id="regApellidos" class="modal-input" placeholder="Ej: Méndez Rojas" required />
+
+              <div class="auth-form-panel" id="registerFormPanel">
+                <form id="registerForm" class="modal-form">
+                  <div class="form-row-2">
+                    <div class="form-group">
+                      <label for="regNombres">Nombre(s) *</label>
+                      <input type="text" id="regNombres" class="modal-input" placeholder="Ej: Carlos Andrés" required />
+                    </div>
+                    <div class="form-group">
+                      <label for="regApellidos">Apellidos *</label>
+                      <input type="text" id="regApellidos" class="modal-input" placeholder="Ej: Méndez Rojas" required />
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="regEmpresa">Empresa / Restaurante <span style="color:var(--text-muted); font-weight:400;">(Opcional)</span></label>
+                    <input type="text" id="regEmpresa" class="modal-input" placeholder="Nombre de tu restaurante o negocio" />
+                  </div>
+
+                  <div class="form-row-2">
+                    <div class="form-group">
+                      <label for="regTipoDoc">Tipo de Documento *</label>
+                      <select id="regTipoDoc" class="modal-input" required>
+                        <option value="CC">CC - Cédula de Ciudadanía</option>
+                        <option value="NIT">NIT - NIT Empresarial</option>
+                        <option value="CE">CE - Cédula de Extranjería</option>
+                        <option value="TI">TI - Tarjeta de Identidad</option>
+                        <option value="PP">PP - Pasaporte</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="regNumDoc">Número de Documento *</label>
+                      <input type="text" id="regNumDoc" class="modal-input" placeholder="Ej: 1121890123" required />
+                    </div>
+                  </div>
+
+                  <div class="form-row-2">
+                    <div class="form-group">
+                      <label for="regPhone">Celular *</label>
+                      <input type="tel" id="regPhone" class="modal-input" placeholder="310 000 0000" required />
+                    </div>
+                    <div class="form-group">
+                      <label for="regEmail">Correo Electrónico *</label>
+                      <input type="email" id="regEmail" class="modal-input" placeholder="correo@ejemplo.com" required />
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="regPassword">Contraseña *</label>
+                    <input type="password" id="regPassword" class="modal-input" placeholder="Mínimo 6 caracteres" minlength="6" required />
+                  </div>
+
+                  <button type="submit" class="btn-primary btn-full">
+                    <span class="material-symbols-rounded">person_add</span>
+                    <span>Crear Cuenta</span>
+                  </button>
+                </form>
               </div>
             </div>
-
-            <div class="form-group">
-              <label for="regEmpresa">Empresa / Restaurante <span style="color:var(--text-muted); font-weight:400;">(Opcional)</span></label>
-              <input type="text" id="regEmpresa" class="modal-input" placeholder="Nombre de tu restaurante o negocio" />
-            </div>
-
-            <div class="form-row-2">
-              <div class="form-group">
-                <label for="regTipoDoc">Tipo de Documento *</label>
-                <select id="regTipoDoc" class="modal-input" required>
-                  <option value="CC">CC - Cédula de Ciudadanía</option>
-                  <option value="NIT">NIT - NIT Empresarial</option>
-                  <option value="CE">CE - Cédula de Extranjería</option>
-                  <option value="TI">TI - Tarjeta de Identidad</option>
-                  <option value="PP">PP - Pasaporte</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="regNumDoc">Número de Documento *</label>
-                <input type="text" id="regNumDoc" class="modal-input" placeholder="Ej: 1121890123" required />
-              </div>
-            </div>
-
-            <div class="form-row-2">
-              <div class="form-group">
-                <label for="regPhone">Celular *</label>
-                <input type="tel" id="regPhone" class="modal-input" placeholder="310 000 0000" required />
-              </div>
-              <div class="form-group">
-                <label for="regEmail">Correo Electrónico *</label>
-                <input type="email" id="regEmail" class="modal-input" placeholder="correo@ejemplo.com" required />
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label for="regPassword">Contraseña *</label>
-              <input type="password" id="regPassword" class="modal-input" placeholder="Mínimo 6 caracteres" minlength="6" required />
-            </div>
-
-            <button type="submit" class="btn-primary btn-full">
-              <span class="material-symbols-rounded">person_add</span>
-              <span>Crear Cuenta</span>
-            </button>
-          </form>
+          </div>
         </div>
       </div>
 

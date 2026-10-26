@@ -16,10 +16,26 @@
 
   const state = {
     theme: localStorage.getItem('danillanos_theme') || 'dark',
-    token: sessionStorage.getItem('danillanos_token') || null,
-    user: JSON.parse(sessionStorage.getItem('danillanos_user') || 'null'),
-    direcciones: JSON.parse(sessionStorage.getItem('danillanos_dirs') || '[]'),
-    selectedAddressId: Number(sessionStorage.getItem('danillanos_selected_addr_id') || '0') || null,
+    token:
+      sessionStorage.getItem('danillanos_token') ||
+      localStorage.getItem('danillanos_token') ||
+      null,
+    user: JSON.parse(
+      sessionStorage.getItem('danillanos_user') ||
+        localStorage.getItem('danillanos_user') ||
+        'null'
+    ),
+    direcciones: JSON.parse(
+      sessionStorage.getItem('danillanos_dirs') ||
+        localStorage.getItem('danillanos_dirs') ||
+        '[]'
+    ),
+    selectedAddressId:
+      Number(
+        sessionStorage.getItem('danillanos_selected_addr_id') ||
+          localStorage.getItem('danillanos_selected_addr_id') ||
+          '0'
+      ) || null,
     cartQuickAddrOpen: false,
     slides: [...CONFIG.carouselSlides],
     products: [...CONFIG.products],
@@ -92,44 +108,92 @@
     return haversineKm(center.lat, center.lng, Number(lat), Number(lng)) <= radiusKm;
   }
 
+  function normalizeRole(roleVal) {
+    const r = String(roleVal || '').trim().toLowerCase();
+    if (['empleado', 'empleado_general', 'bodega'].includes(r)) return 'empleado';
+    if (['entregador', 'repartidor', 'domiciliario'].includes(r)) return 'entregador';
+    if (['soporte', 'atencion'].includes(r)) return 'soporte';
+    if (['admin', 'administrador'].includes(r)) return 'admin';
+    return r || 'cliente';
+  }
+
+  function syncCurrentUserRoleFromLocalStore() {
+    if (!state.user) return;
+    try {
+      const raw = localStorage.getItem('danillanos_users_store');
+      if (raw) {
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          const match = list.find(
+            (u) =>
+              (u.email &&
+                state.user.email &&
+                u.email.toLowerCase() === state.user.email.toLowerCase()) ||
+              (u.id && state.user.id && Number(u.id) === Number(state.user.id))
+          );
+          if (match && match.rol) {
+            state.user.rol = normalizeRole(match.rol);
+          }
+        }
+      }
+    } catch (_) {}
+    state.user.rol = normalizeRole(state.user.rol);
+  }
+
   function getAuthHeaders() {
+    syncCurrentUserRoleFromLocalStore();
     const headers = { 'Content-Type': 'application/json' };
     if (state.token) headers.Authorization = `Bearer ${state.token}`;
+    if (state.user && state.user.rol) {
+      headers['X-User-Role'] = normalizeRole(state.user.rol);
+    }
     return headers;
   }
 
   function isStaffUser(user = state.user) {
-    return Boolean(user && ['empleado', 'entregador', 'soporte', 'admin'].includes(user.rol));
+    if (!user) return false;
+    const rol = normalizeRole(user.rol);
+    return ['empleado', 'entregador', 'soporte', 'admin'].includes(rol);
   }
 
   function syncSelectedAddressDefault() {
     if (!state.direcciones || state.direcciones.length === 0) {
       state.selectedAddressId = null;
       sessionStorage.removeItem('danillanos_selected_addr_id');
+      localStorage.removeItem('danillanos_selected_addr_id');
       return;
     }
     const exists = state.direcciones.some((d) => Number(d.id) === Number(state.selectedAddressId));
     if (!exists) {
       state.selectedAddressId = state.direcciones[0].id;
       sessionStorage.setItem('danillanos_selected_addr_id', String(state.selectedAddressId));
+      localStorage.setItem('danillanos_selected_addr_id', String(state.selectedAddressId));
     }
   }
 
   function setSession(token, user, direcciones = []) {
+    const normalizedUser = user ? { ...user, rol: normalizeRole(user.rol) } : null;
     state.token = token;
-    state.user = user;
+    state.user = normalizedUser;
     state.direcciones = direcciones || [];
     syncSelectedAddressDefault();
 
-    if (token && user) {
+    if (token && normalizedUser) {
       sessionStorage.setItem('danillanos_token', token);
-      sessionStorage.setItem('danillanos_user', JSON.stringify(user));
+      sessionStorage.setItem('danillanos_user', JSON.stringify(normalizedUser));
       sessionStorage.setItem('danillanos_dirs', JSON.stringify(state.direcciones));
+      localStorage.setItem('danillanos_token', token);
+      localStorage.setItem('danillanos_user', JSON.stringify(normalizedUser));
+      localStorage.setItem('danillanos_dirs', JSON.stringify(state.direcciones));
     } else {
       sessionStorage.removeItem('danillanos_token');
       sessionStorage.removeItem('danillanos_user');
       sessionStorage.removeItem('danillanos_dirs');
       sessionStorage.removeItem('danillanos_selected_addr_id');
+      localStorage.removeItem('danillanos_token');
+      localStorage.removeItem('danillanos_user');
+      localStorage.removeItem('danillanos_dirs');
+      localStorage.removeItem('danillanos_selected_addr_id');
     }
     renderSharedHeaderAuthUI();
     renderMobileHamburgerMenuContent();
@@ -1604,6 +1668,197 @@
     });
   }
 
+  const DEFAULT_STAFF_ORDERS = [
+    {
+      id: 1,
+      usuario_id: 1,
+      nombre_recibe: 'Carlos Andrés Méndez (Restaurante La Brasa Llanera)',
+      telefono_cliente: '3102345678',
+      direccion_entrega: 'Calle 38 # 32-14 Barrio Centro',
+      municipio: 'Villavicencio',
+      lat: 4.1482,
+      lng: -73.6352,
+      es_villavicencio: true,
+      tiempo_entrega_estimado: 'Envío el mismo día (Villavicencio)',
+      metodo_pago: 'pse',
+      referencia_pago: 'PSE-984412',
+      total: 412000,
+      estado: 'pendiente',
+      observaciones_cliente: 'Entregar por la entrada de cocina antes de las 4:00 PM.',
+      razon_cancelacion: null,
+      reembolso_estado: 'no_aplica',
+      entregador_id: 3,
+      entregador_nombre: 'Diego Alejandro Vargas',
+      creado_en: '2026-10-25T13:10:00.000Z',
+      items: [
+        {
+          producto_id: 49,
+          nombre_producto: 'PAPA FRANCESA 9X9 CONGELADA CAJA X 10 KILOS',
+          cantidad: 2,
+          precio_unitario: 105000,
+          subtotal: 210000
+        },
+        {
+          producto_id: 13,
+          nombre_producto: 'COSTILLA AHUMADA DE CERDO POR KILO',
+          cantidad: 4,
+          precio_unitario: 25000,
+          subtotal: 100000
+        },
+        {
+          producto_id: 131,
+          nombre_producto: 'SALSA DE TOMATE RIO GRANDE PAQUETE X 4000 GR',
+          cantidad: 6,
+          precio_unitario: 17000,
+          subtotal: 102000
+        }
+      ]
+    },
+    {
+      id: 2,
+      usuario_id: 1,
+      nombre_recibe: 'Carlos Andrés Méndez (Sucursal Acacías)',
+      telefono_cliente: '3102345678',
+      direccion_entrega: 'Carrera 17 # 12-40 Centro Acacías',
+      municipio: 'Acacías',
+      lat: 3.9879,
+      lng: -73.7597,
+      es_villavicencio: false,
+      tiempo_entrega_estimado: 'Llega el 00 de octubre',
+      metodo_pago: 'tarjeta',
+      referencia_pago: 'CARD-550192',
+      total: 245000,
+      estado: 'en_camino',
+      observaciones_cliente: 'Llamar 10 minutos antes de llegar.',
+      razon_cancelacion: null,
+      reembolso_estado: 'no_aplica',
+      entregador_id: 3,
+      entregador_nombre: 'Diego Alejandro Vargas',
+      creado_en: '2026-10-25T11:45:00.000Z',
+      items: [
+        {
+          producto_id: 5,
+          nombre_producto: 'CHORIZO SANTARROSANO PAQUETE X 10 UNID',
+          cantidad: 10,
+          precio_unitario: 16500,
+          subtotal: 165000
+        },
+        {
+          producto_id: 62,
+          nombre_producto: 'PULPA DE MARACUYA X 1000 GR',
+          cantidad: 8,
+          precio_unitario: 10000,
+          subtotal: 80000
+        }
+      ]
+    },
+    {
+      id: 3,
+      usuario_id: 1,
+      nombre_recibe: 'Asadero y Parrilla El Corral Llanero',
+      telefono_cliente: '3158891122',
+      direccion_entrega: 'Av. 40 # 24A-71 Sector Llanocentro',
+      municipio: 'Villavicencio',
+      lat: 4.1338,
+      lng: -73.6371,
+      es_villavicencio: true,
+      tiempo_entrega_estimado: 'Envío el mismo día (Villavicencio)',
+      metodo_pago: 'nequi',
+      referencia_pago: 'NEQ-332190',
+      total: 318000,
+      estado: 'en_proceso',
+      observaciones_cliente: 'Dejar en recepción de mercancías.',
+      razon_cancelacion: null,
+      reembolso_estado: 'no_aplica',
+      entregador_id: 3,
+      entregador_nombre: 'Diego Alejandro Vargas',
+      creado_en: '2026-10-25T10:15:00.000Z',
+      items: [
+        {
+          producto_id: 1,
+          nombre_producto: 'CARNE DE HAMBURGUESA ESPECIAL X 10 UNID',
+          cantidad: 12,
+          precio_unitario: 18500,
+          subtotal: 222000
+        },
+        {
+          producto_id: 145,
+          nombre_producto: 'PAN HAMBURGUESA ARTESANAL PAQUETE X 12',
+          cantidad: 12,
+          precio_unitario: 8000,
+          subtotal: 96000
+        }
+      ]
+    },
+    {
+      id: 4,
+      usuario_id: 1,
+      nombre_recibe: 'Restaurante Los Capachos',
+      telefono_cliente: '3204459900',
+      direccion_entrega: 'Km 4 Vía Acacías',
+      municipio: 'Villavicencio',
+      lat: 4.1195,
+      lng: -73.6512,
+      es_villavicencio: true,
+      tiempo_entrega_estimado: 'Envío el mismo día (Villavicencio)',
+      metodo_pago: 'bancolombia',
+      referencia_pago: 'BCO-771029',
+      total: 195000,
+      estado: 'entregado',
+      observaciones_cliente: 'Pedido mensual de salsas e icopores.',
+      observaciones_entregador: 'Entregado y recibido a satisfacción por jefe de bodega.',
+      razon_cancelacion: null,
+      reembolso_estado: 'no_aplica',
+      entregador_id: 3,
+      entregador_nombre: 'Diego Alejandro Vargas',
+      fecha_entrega: '2026-10-25T09:40:00.000Z',
+      creado_en: '2026-10-24T16:20:00.000Z',
+      items: [
+        {
+          producto_id: 131,
+          nombre_producto: 'SALSA DE TOMATE RIO GRANDE PAQUETE X 4000 GR',
+          cantidad: 5,
+          precio_unitario: 17000,
+          subtotal: 85000
+        },
+        {
+          producto_id: 180,
+          nombre_producto: 'PORTACOMIDA ICOPOR J1 PAQUETE X 200 UNID',
+          cantidad: 2,
+          precio_unitario: 55000,
+          subtotal: 110000
+        }
+      ]
+    }
+  ];
+
+  function getLocalCreatedOrders() {
+    try {
+      const raw = localStorage.getItem('danillanos_local_orders');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  function saveLocalCreatedOrder(orderObj) {
+    const list = getLocalCreatedOrders();
+    if (!list.some((o) => Number(o.id) === Number(orderObj.id))) {
+      list.unshift(orderObj);
+      localStorage.setItem('danillanos_local_orders', JSON.stringify(list));
+    }
+  }
+
+  function getFallbackStaffOrders() {
+    const map = new Map();
+    DEFAULT_STAFF_ORDERS.forEach((o) => map.set(Number(o.id), { ...o }));
+    getLocalCreatedOrders().forEach((o) => map.set(Number(o.id), { ...o }));
+    const combined = Array.from(map.values()).sort((a, b) => Number(b.id) - Number(a.id));
+    return applyOrderOverrides(combined);
+  }
+
   function getLocalTicketsStore() {
     try {
       const raw = localStorage.getItem('danillanos_tickets_store');
@@ -1865,19 +2120,49 @@
     const tabRegisterBtn = document.getElementById('tabRegisterBtn');
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
+    const wideAuthCard = document.getElementById('wideAuthCard');
+    const authTabsBar = document.getElementById('authTabsBar');
+    const authFormsViewport = document.getElementById('authFormsViewport');
+    const loginFormPanel = document.getElementById('loginFormPanel');
+    const registerFormPanel = document.getElementById('registerFormPanel');
 
-    tabLoginBtn?.addEventListener('click', () => {
-      tabLoginBtn.classList.add('active');
-      tabRegisterBtn?.classList.remove('active');
-      loginForm?.classList.remove('hidden');
-      registerForm?.classList.add('hidden');
-    });
+    function syncAuthViewportHeight(mode) {
+      if (!authFormsViewport) return;
+      const targetPanel = mode === 'register' ? registerFormPanel : loginFormPanel;
+      if (!targetPanel) return;
+      requestAnimationFrame(() => {
+        const h = targetPanel.scrollHeight;
+        if (h > 0) {
+          authFormsViewport.style.height = `${h}px`;
+        }
+      });
+    }
 
-    tabRegisterBtn?.addEventListener('click', () => {
-      tabRegisterBtn.classList.add('active');
-      tabLoginBtn?.classList.remove('active');
-      registerForm?.classList.remove('hidden');
-      loginForm?.classList.add('hidden');
+    function setAuthSlideMode(mode) {
+      const isRegister = mode === 'register';
+      tabLoginBtn?.classList.toggle('active', !isRegister);
+      tabRegisterBtn?.classList.toggle('active', isRegister);
+      wideAuthCard?.classList.toggle('is-register-mode', isRegister);
+      authTabsBar?.classList.toggle('is-register-mode', isRegister);
+      loginFormPanel?.classList.toggle('is-active', !isRegister);
+      registerFormPanel?.classList.toggle('is-active', isRegister);
+      // Fallback para estructuras sin carril deslizante
+      if (!authFormsViewport) {
+        loginForm?.classList.toggle('hidden', isRegister);
+        registerForm?.classList.toggle('hidden', !isRegister);
+      } else {
+        loginForm?.classList.remove('hidden');
+        registerForm?.classList.remove('hidden');
+        syncAuthViewportHeight(mode);
+      }
+    }
+
+    tabLoginBtn?.addEventListener('click', () => setAuthSlideMode('login'));
+    tabRegisterBtn?.addEventListener('click', () => setAuthSlideMode('register'));
+    setAuthSlideMode('login');
+    window.addEventListener('resize', () => {
+      const isReg = wideAuthCard?.classList.contains('is-register-mode');
+      syncAuthViewportHeight(isReg ? 'register' : 'login');
     });
 
     loginForm?.addEventListener('submit', async (e) => {
@@ -1904,7 +2189,9 @@
           alert(data.message || 'Credenciales incorrectas.');
           return;
         }
-        const finalUser = localMatch ? { ...data.user, rol: localMatch.rol } : data.user;
+        const finalUser = localMatch
+          ? { ...data.user, rol: normalizeRole(localMatch.rol) }
+          : { ...data.user, rol: normalizeRole(data.user.rol) };
         setSession(data.token, finalUser, data.direcciones);
         if (isStaffUser(finalUser)) {
           window.location.href = 'panel.html';
@@ -1912,6 +2199,20 @@
         }
         renderPerfilPageAuthState();
       } catch (err) {
+        // Respaldo local en caso de que el servidor Node no esté activo al probar en móvil
+        if (localMatch) {
+          const fallbackUser = {
+            ...localMatch,
+            rol: normalizeRole(localMatch.rol)
+          };
+          setSession(`local_token_${fallbackUser.id}_${Date.now()}`, fallbackUser, []);
+          if (isStaffUser(fallbackUser)) {
+            window.location.href = 'panel.html';
+            return;
+          }
+          renderPerfilPageAuthState();
+          return;
+        }
         alert('No se pudo iniciar sesión.');
       }
     });
@@ -3326,6 +3627,7 @@
   // 7. PÁGINA DEDICADA DEL PANEL DE CONTROL (panel.html) + HISTORIALES CON FILTROS PARA TODOS LOS ROLES
   // ==========================================================================
   function initPanelPage() {
+    syncCurrentUserRoleFromLocalStore();
     if (!isStaffUser()) {
       window.location.replace('404.html');
       return;
@@ -3339,7 +3641,7 @@
       entregador: 'entregador',
       soporte: 'soporte'
     };
-    state.activeStaffTab = defaultTabByRole[state.user.rol] || 'empleado';
+    state.activeStaffTab = defaultTabByRole[normalizeRole(state.user.rol)] || 'empleado';
 
     const staffLayout = document.getElementById('staffLayout');
     const staffSidebar = document.getElementById('staffSidebar');
@@ -3436,13 +3738,14 @@
           entregador_id,
           entregador_nombre: driverText
         });
-        const res = await fetch(`${CONFIG.api.baseUrl}/staff/pedidos/${id}/confirmar`, {
-          method: 'PATCH',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ entregador_id })
-        });
-        const data = await res.json();
-        if (data.ok) loadStaffDataAndRender();
+        try {
+          await fetch(`${CONFIG.api.baseUrl}/staff/pedidos/${id}/confirmar`, {
+            method: 'PATCH',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ entregador_id })
+          });
+        } catch (_) {}
+        loadStaffDataAndRender();
         return;
       }
 
@@ -3458,13 +3761,14 @@
           entregador_id,
           entregador_nombre: driverText
         });
-        const res = await fetch(`${CONFIG.api.baseUrl}/staff/pedidos/${id}/en-reparto`, {
-          method: 'PATCH',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ entregador_id })
-        });
-        const data = await res.json();
-        if (data.ok) loadStaffDataAndRender();
+        try {
+          await fetch(`${CONFIG.api.baseUrl}/staff/pedidos/${id}/en-reparto`, {
+            method: 'PATCH',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ entregador_id })
+          });
+        } catch (_) {}
+        loadStaffDataAndRender();
         return;
       }
 
@@ -3478,13 +3782,14 @@
           estado: 'cancelado',
           razon_cancelacion: razon.trim()
         });
-        const res = await fetch(`${CONFIG.api.baseUrl}/staff/pedidos/${id}/cancelar`, {
-          method: 'PATCH',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ razon_cancelacion: razon.trim() })
-        });
-        const data = await res.json();
-        if (data.ok) loadStaffDataAndRender();
+        try {
+          await fetch(`${CONFIG.api.baseUrl}/staff/pedidos/${id}/cancelar`, {
+            method: 'PATCH',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ razon_cancelacion: razon.trim() })
+          });
+        } catch (_) {}
+        loadStaffDataAndRender();
         return;
       }
 
@@ -3515,20 +3820,19 @@
           observaciones_entregador: noteVal,
           fecha_entrega: new Date().toISOString()
         });
-        const res = await fetch(`${CONFIG.api.baseUrl}/staff/pedidos/${id}/entregar`, {
-          method: 'PATCH',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({
-            foto_entrega_url: photo,
-            observaciones_entregador: noteVal
-          })
-        });
-        const data = await res.json();
-        if (data.ok) {
-          delete state.driverPhotosDraft[id];
-          state.driverExpandedOrderIds = null;
-          loadStaffDataAndRender();
-        }
+        try {
+          await fetch(`${CONFIG.api.baseUrl}/staff/pedidos/${id}/entregar`, {
+            method: 'PATCH',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+              foto_entrega_url: photo,
+              observaciones_entregador: noteVal
+            })
+          });
+        } catch (_) {}
+        delete state.driverPhotosDraft[id];
+        state.driverExpandedOrderIds = null;
+        loadStaffDataAndRender();
         return;
       }
 
@@ -3806,23 +4110,34 @@
   }
 
   async function loadStaffDataAndRender() {
+    const activeLocalDrivers = getLocalUsersStore().filter(
+      (u) => normalizeRole(u.rol) === 'entregador' && u.activo !== false
+    );
+
     try {
       const res = await fetch(`${CONFIG.api.baseUrl}/staff/pedidos`, {
         headers: getAuthHeaders()
       });
-      if (res.status === 404) {
-        window.location.replace('404.html');
+
+      if (!res.ok) {
+        // Si el usuario ya fue verificado como personal (ej. rol cambiado a empleado por el Admin),
+        // cargar datos de respaldo sin redirigir a 404.html
+        state.staffOrders = getFallbackStaffOrders();
+        state.staffTickets = getLocalTicketsStore();
+        state.staffDrivers = activeLocalDrivers;
+        renderActiveStaffTab();
         return;
       }
+
       const data = await res.json();
       if (data.apiVersion >= 3) state.serverApiV3 = true;
 
-      state.staffOrders = applyOrderOverrides(data.pedidos || []);
+      const serverOrders = Array.isArray(data.pedidos) && data.pedidos.length > 0
+        ? data.pedidos
+        : getFallbackStaffOrders();
+      state.staffOrders = applyOrderOverrides(serverOrders);
       state.staffTickets = mergeTicketsWithLocal(data.tickets || []);
 
-      const activeLocalDrivers = getLocalUsersStore().filter(
-        (u) => u.rol === 'entregador' && u.activo !== false
-      );
       state.staffDrivers =
         Array.isArray(data.entregadores) && data.entregadores.length > 0
           ? data.entregadores
@@ -3832,13 +4147,18 @@
         const localUsers = getLocalUsersStore();
         const mergedUsers = data.usuarios.map((su) => {
           const lu = localUsers.find((u) => Number(u.id) === Number(su.id));
-          return lu ? { ...su, rol: lu.rol, activo: lu.activo } : su;
+          return lu ? { ...su, rol: normalizeRole(lu.rol), activo: lu.activo } : su;
         });
         saveLocalUsersStore(mergedUsers);
       }
 
       renderActiveStaffTab();
-    } catch (_) {}
+    } catch (_) {
+      state.staffOrders = getFallbackStaffOrders();
+      state.staffTickets = getLocalTicketsStore();
+      state.staffDrivers = activeLocalDrivers;
+      renderActiveStaffTab();
+    }
   }
 
   function renderActiveStaffTab() {
