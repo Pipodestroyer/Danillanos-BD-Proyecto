@@ -2262,28 +2262,131 @@
       }
     });
 
-    document.getElementById('btnGoogleAuth')?.addEventListener('click', async () => {
+    // ========================================================================
+    // INTEGRACIÓN NATIVA GOOGLE IDENTITY SERVICES (GIS OAUTH 2.0)
+    // Client ID oficial de Danillanos para login y registro inmediato
+    // ========================================================================
+    const GOOGLE_CLIENT_ID =
+      CONFIG.auth?.googleClientId ||
+      '394071429874-5ev2n04b6j7akvqg0rtaene6461smr10.apps.googleusercontent.com';
+
+    let googleTokenClient = null;
+
+    async function handleGoogleLoginSuccess(googlePayload) {
+      try {
+        const res = await fetch(`${CONFIG.api.baseUrl}/auth/google`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(googlePayload)
+        });
+        const data = await res.json();
+        if (data.ok) {
+          const usersList = getLocalUsersStore();
+          if (data.user && !usersList.some((u) => u.email.toLowerCase() === data.user.email.toLowerCase())) {
+            usersList.push({ ...data.user, activo: true });
+            saveLocalUsersStore(usersList);
+          }
+          setSession(data.token, data.user, data.direcciones);
+          renderPerfilPageAuthState();
+        } else {
+          alert(data.message || 'Error al autenticar con Google');
+        }
+      } catch (err) {
+        alert('Error al conectar con el servidor.');
+      }
+    }
+
+    function initGoogleIdentityClient() {
+      if (typeof window.google === 'undefined') return;
+
+      // 1. Inicializar receptor de credenciales / One Tap
+      if (window.google.accounts?.id) {
+        try {
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: (response) => {
+              if (response && response.credential) {
+                handleGoogleLoginSuccess({ credential: response.credential });
+              }
+            },
+            auto_select: false,
+            cancel_on_tap_outside: true
+          });
+        } catch (_) {}
+      }
+
+      // 2. Inicializar cliente de token OAuth 2.0 (ventana emergente oficial de Google)
+      if (window.google.accounts?.oauth2) {
+        try {
+          googleTokenClient = window.google.accounts.oauth2.initTokenClient({
+            client_id: GOOGLE_CLIENT_ID,
+            scope: 'email profile openid',
+            callback: async (tokenResponse) => {
+              if (tokenResponse && tokenResponse.access_token) {
+                try {
+                  const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                    headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+                  });
+                  const profile = await userInfoRes.json();
+                  if (profile && profile.email) {
+                    handleGoogleLoginSuccess({
+                      email: profile.email,
+                      nombre_completo: profile.name || profile.given_name,
+                      google_id: profile.sub,
+                      avatar_url: profile.picture,
+                      access_token: tokenResponse.access_token
+                    });
+                  }
+                } catch (_) {
+                  alert('No se pudo obtener la información de tu perfil de Google.');
+                }
+              }
+            }
+          });
+        } catch (_) {}
+      }
+    }
+
+    if (typeof window.google !== 'undefined') {
+      initGoogleIdentityClient();
+    } else {
+      window.addEventListener('load', initGoogleIdentityClient);
+    }
+
+    document.getElementById('btnGoogleAuth')?.addEventListener('click', () => {
+      // 1. Flujo primario: Ventana emergente oficial de Google OAuth 2.0
+      if (googleTokenClient) {
+        googleTokenClient.requestAccessToken({ prompt: 'select_account' });
+        return;
+      }
+
+      // 2. Flujo secundario: Google One Tap si ya cargó id
+      if (window.google?.accounts?.id) {
+        window.google.accounts.id.prompt((notification) => {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            fallbackManualGooglePrompt();
+          }
+        });
+        return;
+      }
+
+      // 3. Flujo de contingencia si un bloqueador de anuncios o falta de internet impide cargar el SDK de Google
+      fallbackManualGooglePrompt();
+    });
+
+    async function fallbackManualGooglePrompt() {
       const googleEmail = prompt(
-        'Acceso con Google:\nIngresa tu correo electrónico:',
-        'cliente.villavicencio@gmail.com'
+        'Acceso con Google:\nIngresa tu correo de Gmail:',
+        'cliente.danillanos@gmail.com'
       );
       if (!googleEmail) return;
       const cleanName = googleEmail.split('@')[0].replace(/[._]/g, ' ');
-      const res = await fetch(`${CONFIG.api.baseUrl}/auth/google`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: googleEmail,
-          nombre_completo: cleanName.charAt(0).toUpperCase() + cleanName.slice(1),
-          google_id: `google_${Date.now()}`
-        })
+      handleGoogleLoginSuccess({
+        email: googleEmail,
+        nombre_completo: cleanName.charAt(0).toUpperCase() + cleanName.slice(1),
+        google_id: `google_${Date.now()}`
       });
-      const data = await res.json();
-      if (data.ok) {
-        setSession(data.token, data.user, data.direcciones);
-        renderPerfilPageAuthState();
-      }
-    });
+    }
 
     document.querySelectorAll('[data-demo-email]').forEach((chip) => {
       chip.addEventListener('click', () => {

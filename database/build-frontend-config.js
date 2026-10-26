@@ -35,6 +35,9 @@ const configObject = {
     baseUrl: '/api',
     carouselIntervalMs: 6000
   },
+  auth: {
+    googleClientId: '394071429874-5ev2n04b6j7akvqg0rtaene6461smr10.apps.googleusercontent.com'
+  },
   map: {
     // Coordenadas de Villavicencio y radio de cobertura de entrega inmediata el mismo día
     villavicencioCenter: { lat: 4.1420, lng: -73.6266 },

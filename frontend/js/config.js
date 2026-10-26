@@ -18,6 +18,9 @@ window.DANILLANOS_CONFIG = {
     "baseUrl": "/api",
     "carouselIntervalMs": 6000
   },
+  "auth": {
+    "googleClientId": "394071429874-5ev2n04b6j7akvqg0rtaene6461smr10.apps.googleusercontent.com"
+  },
   "map": {
     "villavicencioCenter": {
       "lat": 4.142,

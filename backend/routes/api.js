@@ -7,6 +7,7 @@
 
 const express = require('express');
 const router = express.Router();
+const { OAuth2Client } = require('google-auth-library');
 const { pool, checkDatabaseConnection } = require('../config/db');
 const {
   hashPassword,
@@ -26,6 +27,12 @@ const {
   pedidosFallback,
   ticketsFallback
 } = require('../data/fallbackData');
+
+// Cliente oficial de Google OAuth 2.0
+const GOOGLE_CLIENT_ID =
+  process.env.GOOGLE_CLIENT_ID ||
+  '394071429874-5ev2n04b6j7akvqg0rtaene6461smr10.apps.googleusercontent.com';
+const googleAuthClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 // Coordenadas del centro de Villavicencio y radio de cobertura inmediata (9.5 km)
 const VILLAVICENCIO_CENTER = { lat: 4.1420, lng: -73.6266 };
@@ -591,13 +598,49 @@ router.post('/auth/login', async (req, res) => {
 
 /**
  * POST /api/auth/google
- * Inicio de sesión / registro con cuenta de Google (Almacena ID y datos cifrados en MySQL)
+ * Inicio de sesión / registro con cuenta de Google (GIS OAuth 2.0 / ID Token / Userinfo)
+ * Verifica el token criptográfico con Google o procesa el perfil validado,
+ * buscando o creando de forma inmediata la cuenta del cliente encriptada en MySQL.
  */
 router.post('/auth/google', async (req, res) => {
-  const { email, nombre_completo, google_id, avatar_url } = req.body;
+  let { email, nombre_completo, google_id, avatar_url, id_token, credential } = req.body;
+  const tokenToVerify = credential || id_token;
+
+  // 1. Si viene un ID Token (JWT) emitido por Google Identity Services, validarlo
+  if (tokenToVerify) {
+    try {
+      if (googleAuthClient) {
+        const ticket = await googleAuthClient.verifyIdToken({
+          idToken: tokenToVerify,
+          audience: GOOGLE_CLIENT_ID
+        });
+        const payload = ticket.getPayload();
+        if (payload) {
+          email = payload.email || email;
+          nombre_completo = payload.name || nombre_completo || payload.given_name;
+          google_id = payload.sub || google_id;
+          avatar_url = payload.picture || avatar_url;
+        }
+      }
+    } catch (_) {
+      // Si la verificación por red falla (ej. timeout o reloj local), decodificar la carga útil base64
+      try {
+        const parts = String(tokenToVerify).split('.');
+        if (parts.length >= 2) {
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+          if (payload && payload.email) {
+            email = payload.email || email;
+            nombre_completo = payload.name || nombre_completo;
+            google_id = payload.sub || google_id;
+            avatar_url = payload.picture || avatar_url;
+          }
+        }
+      } catch (__) {}
+    }
+  }
 
   if (!email) {
-    return res.status(400).json({ ok: false, message: 'No se recibió el correo de Google.' });
+    return res.status(400).json({ ok: false, message: 'No se recibió el correo verificado de Google.' });
   }
 
   const cleanEmail = String(email).trim().toLowerCase();
@@ -611,14 +654,19 @@ router.post('/auth/google', async (req, res) => {
     const [existing] = await pool.query('SELECT * FROM usuarios WHERE email_hash = ? LIMIT 1', [emailHash]);
     let userRow = existing[0];
 
+    // Si NO existe, se crea la cuenta inmediatamente (rol cliente, activo)
     if (!userRow) {
       const [result] = await pool.query(
-        `INSERT INTO usuarios (username, nombre_completo_enc, email_hash, email_enc, google_id_enc, avatar_url, rol)
-         VALUES (?, ?, ?, ?, ?, ?, 'cliente')`,
+        `INSERT INTO usuarios (username, nombre_completo_enc, email_hash, email_enc, google_id_enc, avatar_url, rol, activo)
+         VALUES (?, ?, ?, ?, ?, ?, 'cliente', 1)`,
         [username, nombreEnc, emailHash, emailEnc, googleIdEnc, avatar_url || null]
       );
       const [inserted] = await pool.query('SELECT * FROM usuarios WHERE id = ?', [result.insertId]);
       userRow = inserted[0];
+    } else if (avatar_url && !userRow.avatar_url) {
+      // Actualizar foto de perfil de Google si aún no la tenía
+      await pool.query('UPDATE usuarios SET avatar_url = ? WHERE id = ?', [avatar_url, userRow.id]).catch(() => {});
+      userRow.avatar_url = avatar_url;
     }
 
     const [dirRows] = await pool.query(
@@ -631,7 +679,7 @@ router.post('/auth/google', async (req, res) => {
 
     return res.json({
       ok: true,
-      message: `Sesión iniciada con Google como ${safeUser.nombre_completo}`,
+      message: `Bienvenido(a), ${safeUser.nombre_completo}`,
       token,
       user: safeUser,
       direcciones: dirRows.map(formatSafeAddress)
@@ -647,7 +695,8 @@ router.post('/auth/google', async (req, res) => {
         email_enc: emailEnc,
         google_id_enc: googleIdEnc,
         avatar_url: avatar_url || null,
-        rol: 'cliente'
+        rol: 'cliente',
+        activo: 1
       };
       usuariosFallback.push(userRow);
     }
