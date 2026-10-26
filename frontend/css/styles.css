@@ -6625,3 +6625,324 @@ html[data-theme='dark'] .invoice-barcode-code {
     font-size: 0.78rem !important;
   }
 }
+
+
+/* ==========================================================================
+   ACTUALIZACIONES DE SOPORTE, TICKETS COLAPSABLES Y PUNTOS ROJOS DE NOTIFICACIÓN
+   ========================================================================== */
+
+/* Barra de Encabezado de la Tarjeta de Soporte */
+.support-card-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.support-card-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  color: var(--text-primary);
+}
+
+.btn-toggle-new-ticket {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.35rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.28);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-toggle-new-ticket:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(220, 38, 38, 0.38);
+}
+
+/* Menú Desplegable de Nuevo Ticket con PADDING GENEROSO */
+.new-ticket-dropdown-container {
+  margin-top: 1.5rem;
+  margin-bottom: 1.75rem;
+  background-color: var(--bg-surface-elevated, var(--bg-surface));
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-xl, 1.25rem);
+  padding: 2.25rem 2.5rem; /* PADDING GENEROSO */
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.4);
+  animation: slideDownTicketMenu 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (max-width: 640px) {
+  .new-ticket-dropdown-container {
+    padding: 1.25rem;
+    margin-top: 1rem;
+    margin-bottom: 1.25rem;
+  }
+}
+
+@keyframes slideDownTicketMenu {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.new-ticket-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding-bottom: 1.15rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.new-ticket-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.new-ticket-icon {
+  font-size: 2rem;
+  color: var(--brand-red);
+}
+
+.new-ticket-title {
+  margin: 0;
+  font-size: 1.3rem;
+  font-family: var(--font-heading);
+  color: var(--text-primary);
+}
+
+/* Tickets Colapsables para Asistente de Soporte */
+.ticket-minichat-card {
+  transition: all 0.2s ease;
+}
+
+.ticket-minichat-card.is-collapsed {
+  padding: 0.95rem 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+}
+
+.ticket-minichat-card.is-collapsed:hover {
+  border-color: var(--border-default);
+  background: var(--bg-surface-elevated);
+}
+
+.ticket-minichat-card.is-collapsed .ticket-minichat-header {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.ticket-minichat-header.clickable-header {
+  cursor: pointer;
+  user-select: none;
+}
+
+.ticket-minichat-header.clickable-header:focus-visible {
+  outline: 2px solid var(--brand-red);
+  border-radius: var(--radius-sm);
+}
+
+.btn-ticket-expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s, transform 0.15s;
+}
+
+.btn-ticket-expand:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-elevated);
+}
+
+/* Indicadores de Punto Rojo para Novedades */
+.ticket-unread-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: var(--brand-red, #ef4444);
+  display: inline-block;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.45);
+  animation: pulseRedDot 2s infinite ease-in-out;
+  flex-shrink: 0;
+}
+
+.notification-red-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: var(--brand-red, #ef4444);
+  display: inline-block;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.45);
+  animation: pulseRedDot 2s infinite ease-in-out;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.staff-nav-option .notification-red-dot {
+  margin-left: auto;
+}
+
+.order-novelty-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+  font-size: 0.74rem;
+  font-weight: 700;
+  animation: pulseRedDot 2.5s infinite ease-in-out;
+}
+
+
+/* ==========================================================================
+   HEADER CORNER LOGO & CHAT IMAGE ATTACHMENTS / COLLAPSIBLE STYLES
+   ========================================================================== */
+
+/* Logo empujado a la esquina izquierda en perfil */
+body[data-page="perfil"] .header-container {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+.header-brand-left {
+  display: flex;
+  align-items: center;
+  justify-self: start;
+}
+
+body[data-page="perfil"] .brand-text-wrapper,
+.header-brand-left .brand-text-wrapper {
+  align-items: flex-start !important;
+  text-align: left !important;
+}
+
+/* Botón y controles para adjuntar fotografías en minichat en vivo */
+.chat-attach-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.chat-attach-btn:hover {
+  background: var(--bg-surface-elevated);
+  color: var(--brand-red);
+  border-color: var(--border-default);
+  transform: scale(1.05);
+}
+
+.minichat-input-box-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.chat-draft-preview-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.85rem;
+  background: var(--bg-surface-elevated, #1f2533);
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-md);
+  margin-bottom: 0.35rem;
+  animation: slideDownFade 0.2s ease-out;
+}
+
+.chat-draft-preview-box {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+
+.chat-draft-preview-box img {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  border: 1px solid var(--border-default);
+}
+
+.chat-draft-remove-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--brand-red);
+  color: #ffffff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease;
+}
+
+.chat-draft-remove-btn .material-symbols-rounded {
+  font-size: 0.85rem;
+}
+
+.chat-draft-remove-btn:hover {
+  transform: scale(1.18);
+}
+
+.chat-draft-hint {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.chat-bubble-attachment {
+  margin-top: 0.55rem;
+}
+
+.chat-bubble-image {
+  max-width: 260px;
+  max-height: 200px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.chat-bubble-image:hover {
+  transform: scale(1.02);
+  opacity: 0.95;
+}

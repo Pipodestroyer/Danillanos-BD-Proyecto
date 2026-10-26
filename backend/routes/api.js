@@ -228,7 +228,7 @@ function normalizeStaffRole(roleVal) {
   const r = String(roleVal || '').trim().toLowerCase();
   if (['empleado', 'empleado_general', 'bodega'].includes(r)) return 'empleado';
   if (['entregador', 'repartidor', 'domiciliario'].includes(r)) return 'entregador';
-  if (['soporte', 'atencion'].includes(r)) return 'soporte';
+  if (['soporte', 'atencion', 'asistente'].includes(r)) return 'soporte';
   if (['admin', 'administrador'].includes(r)) return 'admin';
   return r || 'cliente';
 }
@@ -1633,17 +1633,18 @@ router.post('/soporte/:id/mensaje', async (req, res) => {
   }
 
   const ticketId = Number(req.params.id);
-  const { texto, estado } = req.body;
-  if (!texto || !String(texto).trim()) {
-    return res.status(400).json({ ok: false, message: 'Escribe un mensaje.' });
+  const { texto, estado, imagen_url } = req.body;
+  if ((!texto || !String(texto).trim()) && !imagen_url) {
+    return res.status(400).json({ ok: false, message: 'Escribe un mensaje o adjunta una fotografía.' });
   }
 
   const isStaff = ['soporte', 'admin', 'empleado'].includes(authUser.rol);
   const newMsg = {
     id: Date.now(),
-    autor: isStaff ? `${authUser.username} (Soporte)` : authUser.username,
+    autor: isStaff ? `${authUser.username} (Soporte)` : (authUser.nombre_completo || authUser.username),
     rol: isStaff ? 'soporte' : 'cliente',
-    texto: String(texto).trim(),
+    texto: texto ? String(texto).trim() : '',
+    imagen_url: imagen_url || null,
     fecha: new Date().toISOString()
   };
 
@@ -1683,6 +1684,43 @@ router.post('/soporte/:id/mensaje', async (req, res) => {
   return res.json({
     ok: true,
     ticket: formatSafeTicket(tk)
+  });
+});
+
+/**
+ * PATCH /api/mis-tickets/:id/cerrar
+ * Permite al usuario cliente cerrar su propio ticket de soporte
+ */
+router.patch('/mis-tickets/:id/cerrar', async (req, res) => {
+  const authUser = getAuthUserFromRequest(req);
+  if (!authUser) {
+    return res.status(401).json({ ok: false, message: 'Inicia sesión para gestionar tus tickets.' });
+  }
+
+  const ticketId = Number(req.params.id);
+  let tk = ticketsFallback.find((t) => Number(t.id) === ticketId);
+  if (tk) {
+    tk.estado = 'resuelto';
+    if (!Array.isArray(tk.mensajes)) tk.mensajes = formatSafeTicket(tk).mensajes;
+    tk.mensajes.push({
+      id: Date.now(),
+      autor: `${authUser.nombre_completo || authUser.username || 'Cliente'} (Cliente)`,
+      rol: 'cliente',
+      texto: 'El cliente ha marcado este ticket como cerrado y resuelto.',
+      fecha: new Date().toISOString()
+    });
+  }
+
+  try {
+    await pool.query(
+      'UPDATE tickets_soporte SET estado = "resuelto" WHERE id = ?',
+      [ticketId]
+    );
+  } catch (_) {}
+
+  return res.json({
+    ok: true,
+    message: `Ticket #${ticketId} cerrado con éxito por el cliente.`
   });
 });
 

@@ -28,26 +28,7 @@
         </a>
       </div>
 
-      <nav class="header-nav-left" aria-label="Navegación Principal">
-        <a href="index.html" class="nav-btn">
-          <span class="nav-btn-text">Catálogo</span>
-          <span class="material-symbols-rounded nav-btn-icon">storefront</span>
-        </a>
-        <a href="#mis-pedidos-section" class="nav-btn hidden" id="navMisPedidos" data-open-profile-tab="pedidos">
-          <span class="nav-btn-text">Pedidos Activos</span>
-          <span class="material-symbols-rounded nav-btn-icon">local_shipping</span>
-        </a>
-        <a href="#direcciones-mapa-section" class="nav-btn hidden" id="navMisDirecciones" data-open-profile-tab="direcciones">
-          <span class="nav-btn-text">Direcciones</span>
-          <span class="material-symbols-rounded nav-btn-icon">pin_drop</span>
-        </a>
-        <a href="#soporte-cliente" class="nav-btn hidden" id="navSoporteTab" data-open-profile-tab="soporte">
-          <span class="nav-btn-text">Soporte</span>
-          <span class="material-symbols-rounded nav-btn-icon">support_agent</span>
-        </a>
-      </nav>
-
-      <div class="header-brand-center">
+      <div class="header-brand-left">
         <a href="index.html" class="brand-link" id="brandLink">
           <div class="brand-text-wrapper">
             <span class="brand-name">DANILLANOS</span>
@@ -275,9 +256,9 @@
             <span class="material-symbols-rounded">dashboard_customize</span>
             <span>Panel Operativo</span>
           </a>
-          <a href="pagos.html" class="btn-secondary">
-            <span class="material-symbols-rounded">shopping_cart_checkout</span>
-            <span>Finalizar Compra</span>
+          <a href="index.html" class="btn-secondary" id="btnReturnHome">
+            <span class="material-symbols-rounded">storefront</span>
+            <span>Volver al Inicio</span>
           </a>
           <button type="button" class="btn-secondary" id="btnLogoutProfile">
             <span class="material-symbols-rounded">logout</span>
@@ -476,75 +457,102 @@
         </div>
       </div>
 
-      <div class="support-workspace-grid">
-        <!-- Columna Izquierda: Crear Nuevo Ticket con Filtro de Pedidos y Facturas -->
-        <div class="surface-card">
-          <h3>Nueva Solicitud de Soporte</h3>
-          <p class="card-helper-text">
-            Filtra y selecciona el pedido o factura sobre el cual necesitas atención:
-          </p>
-          <form id="customerSupportForm" class="modal-form support-inline-form">
-            <div class="form-group">
-              <label for="supOrderFilterInput">Filtrar Pedido o Factura Asociada</label>
-              <input
-                type="search"
-                id="supOrderFilterInput"
-                class="modal-input"
-                placeholder="Filtrar tus pedidos por #ID, factura FAC-DN, ciudad, monto o producto..."
-              />
-              <select id="supOrderId" class="modal-input" style="margin-top: 0.45rem;">
-                <option value="">Consulta general (Sin pedido específico)</option>
-              </select>
+      <div class="support-workspace-single">
+        <!-- Tarjeta Principal: Mis Tickets y Chat en Vivo -->
+        <div class="surface-card support-tickets-main-card">
+          <!-- Encabezado con Botón Arriba en la Esquina Derecha para Abrir el Menú de Nuevo Ticket -->
+          <div class="support-card-header-bar">
+            <div>
+              <h3 class="support-card-title">Mis Tickets y Chat en Vivo</h3>
+              <p class="card-helper-text">
+                Filtra tus tickets por asunto, número de pedido o estado y conversa en directo con Soporte:
+              </p>
             </div>
+            <button type="button" class="btn-primary btn-toggle-new-ticket" id="btnToggleNewTicket" aria-expanded="false" aria-controls="customerSupportFormWrapper">
+              <span class="material-symbols-rounded" id="btnToggleNewTicketIcon">add</span>
+              <span id="btnToggleNewTicketText">Nuevo Ticket</span>
+            </button>
+          </div>
 
-            <div class="form-group">
-              <label for="supSubject">Asunto *</label>
-              <input type="text" id="supSubject" class="modal-input" placeholder="Ej: Consulta sobre entrega o producto" required />
-            </div>
-
-            <div class="form-group">
-              <label for="supDesc">Mensaje inicial *</label>
-              <textarea id="supDesc" class="modal-input" rows="3" placeholder="Escribe tu mensaje para el equipo de Soporte..." required></textarea>
-            </div>
-
-            <div class="form-group">
-              <label>Fotografía Adjunta (Opcional)</label>
-              <div class="photo-upload-controls">
-                <label class="file-label-btn">
-                  <span class="material-symbols-rounded">add_photo_alternate</span>
-                  <span>Subir Foto</span>
-                  <input type="file" id="supImageInput" accept="image/*" class="hidden" />
-                </label>
-                <button type="button" class="btn-secondary" id="btnSimulateSupImage">
-                  <span class="material-symbols-rounded">photo_camera</span>
-                  <span>Foto de Ejemplo</span>
-                </button>
-                <button type="button" class="btn-secondary hidden" id="btnClearSupImage">
-                  <span class="material-symbols-rounded">delete</span>
-                  <span>Quitar</span>
+          <!-- Menú Desplegable / Desplegado para Crear Nuevo Ticket con PADDING GENEROSO (Oculto por defecto) -->
+          <div class="new-ticket-dropdown-container hidden" id="customerSupportFormWrapper">
+            <div class="new-ticket-dropdown-inner">
+              <div class="new-ticket-header-row">
+                <div class="new-ticket-title-wrap">
+                  <span class="material-symbols-rounded new-ticket-icon">support_agent</span>
+                  <div>
+                    <h3 class="new-ticket-title">Nueva Solicitud de Soporte</h3>
+                    <p class="card-helper-text">
+                      Filtra y selecciona el pedido o factura sobre el cual necesitas atención:
+                    </p>
+                  </div>
+                </div>
+                <button type="button" class="icon-close-btn" id="btnCloseNewTicketBtn" aria-label="Cerrar menú de nuevo ticket">
+                  <span class="material-symbols-rounded">close</span>
                 </button>
               </div>
-              <div id="supImagePreviewWrap" class="hidden" style="margin-top:0.65rem;">
-                <img id="supImagePreview" src="" alt="Evidencia adjunta" class="delivery-photo-preview" />
-              </div>
-            </div>
 
-            <div class="support-submit-row">
-              <button type="submit" class="btn-primary btn-full">
-                <span class="material-symbols-rounded">send</span>
-                <span>Abrir Ticket de Soporte</span>
-              </button>
-            </div>
-          </form>
-        </div>
+              <form id="customerSupportForm" class="modal-form support-inline-form" style="margin-top: 1.25rem;">
+                <div class="form-group">
+                  <label for="supOrderFilterInput">Filtrar Pedido o Factura Asociada</label>
+                  <input
+                    type="search"
+                    id="supOrderFilterInput"
+                    class="modal-input"
+                    placeholder="Filtrar tus pedidos por #ID, factura FAC-DN, ciudad, monto o producto..."
+                  />
+                  <select id="supOrderId" class="modal-input" style="margin-top: 0.45rem;">
+                    <option value="">Consulta general (Sin pedido específico)</option>
+                  </select>
+                </div>
 
-        <!-- Columna Derecha: Mis Tickets Abiertos y MiniChat con Filtro -->
-        <div class="surface-card">
-          <h3>Mis Tickets y Chat en Vivo</h3>
-          <p class="card-helper-text">
-            Filtra tus tickets por asunto, número de pedido o estado y conversa en directo con Soporte:
-          </p>
-          <div class="orders-filter-toolbar compact-filter-toolbar" style="margin-top: 0.75rem; margin-bottom: 0.85rem;">
+                <div class="form-group">
+                  <label for="supSubject">Asunto *</label>
+                  <input type="text" id="supSubject" class="modal-input" placeholder="Ej: Consulta sobre entrega o producto" required />
+                </div>
+
+                <div class="form-group">
+                  <label for="supDesc">Mensaje inicial *</label>
+                  <textarea id="supDesc" class="modal-input" rows="3" placeholder="Escribe tu mensaje para el equipo de Soporte..." required></textarea>
+                </div>
+
+                <div class="form-group">
+                  <label>Fotografía Adjunta (Opcional)</label>
+                  <div class="photo-upload-controls">
+                    <label class="file-label-btn">
+                      <span class="material-symbols-rounded">add_photo_alternate</span>
+                      <span>Subir Foto</span>
+                      <input type="file" id="supImageInput" accept="image/*" class="hidden" />
+                    </label>
+                    <button type="button" class="btn-secondary" id="btnSimulateSupImage">
+                      <span class="material-symbols-rounded">photo_camera</span>
+                      <span>Foto de Ejemplo</span>
+                    </button>
+                    <button type="button" class="btn-secondary hidden" id="btnClearSupImage">
+                      <span class="material-symbols-rounded">delete</span>
+                      <span>Quitar</span>
+                    </button>
+                  </div>
+                  <div id="supImagePreviewWrap" class="hidden" style="margin-top:0.65rem;">
+                    <img id="supImagePreview" src="" alt="Evidencia adjunta" class="delivery-photo-preview" />
+                  </div>
+                </div>
+
+                <div class="support-submit-row" style="display:flex; gap:0.75rem; justify-content:flex-end;">
+                  <button type="button" class="btn-secondary" id="btnCancelNewTicket">
+                    <span>Cancelar</span>
+                  </button>
+                  <button type="submit" class="btn-primary">
+                    <span class="material-symbols-rounded">send</span>
+                    <span>Abrir Ticket de Soporte</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Filtros de Tickets y Búsqueda -->
+          <div class="orders-filter-toolbar compact-filter-toolbar" style="margin-top: 1.15rem; margin-bottom: 0.85rem;">
             <div class="filter-search-box">
               <span class="material-symbols-rounded">search</span>
               <input
@@ -560,6 +568,7 @@
               <option value="resuelto">Resueltos</option>
             </select>
           </div>
+
           <div class="customer-tickets-list" id="customerTicketsListContainer"></div>
         </div>
       </div>

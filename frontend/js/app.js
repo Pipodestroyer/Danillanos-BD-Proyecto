@@ -52,6 +52,10 @@
     customerExpandedOrderIds: null, // Set de IDs de pedidos del cliente desplegados
     activeProfileTab: 'pedidos',
     customerTickets: [],
+    customerExpandedTicketIds: new Set(),
+    custChatDrafts: {},
+    staffChatDrafts: {},
+    expandedStaffTickets: new Set(),
     staffDrivers: [],
     staffUsers: [],
     adminCatalogQuery: '',
@@ -112,7 +116,7 @@
     const r = String(roleVal || '').trim().toLowerCase();
     if (['empleado', 'empleado_general', 'bodega'].includes(r)) return 'empleado';
     if (['entregador', 'repartidor', 'domiciliario'].includes(r)) return 'entregador';
-    if (['soporte', 'atencion'].includes(r)) return 'soporte';
+    if (['soporte', 'atencion', 'asistente'].includes(r)) return 'soporte';
     if (['admin', 'administrador'].includes(r)) return 'admin';
     return r || 'cliente';
   }
@@ -380,6 +384,177 @@
     `;
   }
 
+  // ==========================================================================
+  // GESTOR DE NOVEDADES Y PUNTOS ROJOS DE NOTIFICACIÓN MULTIFUNCIÓN
+  // ==========================================================================
+  const NOTIF_STORAGE_KEY = 'danillanos_seen_notifications_v2';
+
+  function getSeenNotifications() {
+    try {
+      const raw = localStorage.getItem(NOTIF_STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (_) {}
+    return {
+      seenTicketsClient: {},
+      seenTicketsStaff: {},
+      seenOrderStatuses: {},
+      seenEmployeeOrders: [],
+      seenDriverOrders: []
+    };
+  }
+
+  function saveSeenNotifications(seen) {
+    try {
+      localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(seen));
+    } catch (_) {}
+  }
+
+  function renderStaffNav() {
+    if (typeof renderStaffSidebar === 'function') {
+      try { renderStaffSidebar(); } catch (_) {}
+    }
+  }
+
+  function formatTicketStatus(estado) {
+    const s = String(estado || '').trim().toLowerCase();
+    if (s === 'en_revision') return 'En Revisión';
+    if (s === 'en_proceso') return 'En Proceso';
+    if (s === 'en_camino') return 'En Ruta';
+    if (s === 'resuelto') return 'Resuelto';
+    if (s === 'abierto') return 'Abierto';
+    if (s === 'pendiente') return 'Pendiente';
+    return s.replace(/_/g, ' ').toUpperCase();
+  }
+
+  function getTicketStatusClass(estado) {
+    const s = String(estado || '').trim().toLowerCase();
+    if (s === 'resuelto') return 'status-entregado';
+    if (s === 'en_revision' || s === 'en_proceso' || s === 'en_camino') return 'status-en_proceso';
+    return 'status-pendiente';
+  }
+
+  function markTicketSeenByClient(ticketId, messages) {
+    const seen = getSeenNotifications();
+    if (!seen.seenTicketsClient) seen.seenTicketsClient = {};
+    const msgs = Array.isArray(messages) ? messages : [];
+    let maxId = 0;
+    msgs.forEach((m) => {
+      const mId = Number(m.id || 0);
+      if (mId > maxId) maxId = mId;
+    });
+    seen.seenTicketsClient[ticketId] = maxId || Date.now();
+    saveSeenNotifications(seen);
+    syncUserNotificationDots();
+  }
+
+  function markTicketSeenByStaff(ticketId, messages) {
+    const seen = getSeenNotifications();
+    if (!seen.seenTicketsStaff) seen.seenTicketsStaff = {};
+    const msgs = Array.isArray(messages) ? messages : [];
+    let maxId = 0;
+    msgs.forEach((m) => {
+      const mId = Number(m.id || 0);
+      if (mId > maxId) maxId = mId;
+    });
+    seen.seenTicketsStaff[ticketId] = maxId || Date.now();
+    saveSeenNotifications(seen);
+    syncUserNotificationDots();
+    renderStaffNav();
+  }
+
+  function markOrderStatusSeen(orderId, currentStatus) {
+    const seen = getSeenNotifications();
+    if (!seen.seenOrderStatuses) seen.seenOrderStatuses = {};
+    seen.seenOrderStatuses[orderId] = currentStatus || 'visto';
+    saveSeenNotifications(seen);
+    syncUserNotificationDots();
+  }
+
+  function markEmployeeOrderSeen(orderId) {
+    const seen = getSeenNotifications();
+    if (!Array.isArray(seen.seenEmployeeOrders)) seen.seenEmployeeOrders = [];
+    if (!seen.seenEmployeeOrders.includes(Number(orderId))) {
+      seen.seenEmployeeOrders.push(Number(orderId));
+      saveSeenNotifications(seen);
+      syncUserNotificationDots();
+      renderStaffNav();
+    }
+  }
+
+  function markDriverOrderSeen(orderId) {
+    const seen = getSeenNotifications();
+    if (!Array.isArray(seen.seenDriverOrders)) seen.seenDriverOrders = [];
+    if (!seen.seenDriverOrders.includes(Number(orderId))) {
+      seen.seenDriverOrders.push(Number(orderId));
+      saveSeenNotifications(seen);
+      syncUserNotificationDots();
+      renderStaffNav();
+    }
+  }
+
+  function hasTicketUnreadForClient(tk) {
+    if (!tk) return false;
+    const seen = getSeenNotifications();
+    const lastSeen = Number((seen.seenTicketsClient && seen.seenTicketsClient[tk.id]) || 0);
+    const msgs = Array.isArray(tk.mensajes) ? tk.mensajes : [];
+    return msgs.some((m) => {
+      const isStaffMsg = m.rol === 'soporte' || m.rol === 'admin';
+      const mId = Number(m.id || 0);
+      return isStaffMsg && (!lastSeen || mId > lastSeen);
+    });
+  }
+
+  function hasTicketUnreadForStaff(tk) {
+    if (!tk) return false;
+    const seen = getSeenNotifications();
+    const lastSeen = Number((seen.seenTicketsStaff && seen.seenTicketsStaff[tk.id]) || 0);
+    const msgs = Array.isArray(tk.mensajes) ? tk.mensajes : [];
+    return msgs.some((m) => {
+      const isClientMsg = m.rol === 'cliente';
+      const mId = Number(m.id || 0);
+      return isClientMsg && (!lastSeen || mId > lastSeen);
+    });
+  }
+
+  function hasCustomerOrderNovelty(ord) {
+    if (!ord) return false;
+    const seen = getSeenNotifications();
+    const seenStatuses = seen.seenOrderStatuses || {};
+    const lastSeenState = seenStatuses[ord.id];
+    if (!lastSeenState) {
+      return true;
+    }
+    return lastSeenState !== ord.estado;
+  }
+
+  function hasUnreadEmployeeOrders() {
+    const seen = getSeenNotifications();
+    const seenEmp = Array.isArray(seen.seenEmployeeOrders) ? seen.seenEmployeeOrders : [];
+    const orders = state.staffOrders || [];
+    return orders.some((o) => o.estado === 'pendiente' && !seenEmp.includes(Number(o.id)));
+  }
+
+  function hasUnreadDriverOrders() {
+    const seen = getSeenNotifications();
+    const seenDrv = Array.isArray(seen.seenDriverOrders) ? seen.seenDriverOrders : [];
+    const orders = state.staffOrders || [];
+    const myId = state.user?.id ? Number(state.user.id) : null;
+    const myName = (state.user?.nombre_completo || '').toLowerCase();
+
+    return orders.some((o) => {
+      const isAssigned =
+        (myId && Number(o.entregador_id) === myId) ||
+        (myName && (o.entregador_nombre || '').toLowerCase().includes(myName));
+      const isActiveRoute = ['en_camino', 'en_proceso'].includes(o.estado);
+      return isAssigned && isActiveRoute && !seenDrv.includes(Number(o.id));
+    });
+  }
+
+  function hasUnreadStaffTickets() {
+    const tickets = state.staffTickets || [];
+    return tickets.some((tk) => hasTicketUnreadForStaff(tk));
+  }
+
   function syncUserNotificationDots() {
     const statusDot = document.getElementById('userStatusDot');
     const tabPedidosDot = document.getElementById('tabPedidosDot');
@@ -395,34 +570,67 @@
       return;
     }
 
-    const activeOrders = (state.customerOrders || []).filter((o) =>
-      ['pendiente', 'en_proceso', 'en_camino'].includes(o.estado)
-    );
-    const activeTickets = (state.customerTickets || []).filter((t) => t.estado === 'abierto');
+    const role = normalizeRole(state.user.rol);
+    let hasNotification = false;
+    let notifTitle = '';
 
-    const hasActiveOrders = activeOrders.length > 0;
-    const hasActiveTickets = activeTickets.length > 0;
-    const hasNotification = hasActiveOrders || hasActiveTickets;
+    if (role === 'cliente') {
+      const customerOrders = state.customerOrders || [];
+      const customerTickets = state.customerTickets || [];
+
+      // Novedades en pedidos (cambio de estado o entrega)
+      const orderNovelties = customerOrders.filter((o) => hasCustomerOrderNovelty(o));
+      // Mensajes de ticket no leídos
+      const ticketNovelties = customerTickets.filter((t) => hasTicketUnreadForClient(t));
+
+      const hasOrdersNotif = orderNovelties.length > 0;
+      const hasTicketsNotif = ticketNovelties.length > 0;
+      hasNotification = hasOrdersNotif || hasTicketsNotif;
+
+      if (tabPedidosDot) {
+        tabPedidosDot.classList.toggle('hidden', !hasOrdersNotif);
+      }
+      if (tabSoporteDot) {
+        tabSoporteDot.classList.toggle('hidden', !hasTicketsNotif);
+      }
+
+      if (hasOrdersNotif && hasTicketsNotif) {
+        notifTitle = 'Tienes novedades en tus pedidos y respuestas nuevas de soporte';
+      } else if (hasOrdersNotif) {
+        notifTitle = `Novedad: Tienes ${orderNovelties.length} actualización(es) en tus despachos`;
+      } else if (hasTicketsNotif) {
+        notifTitle = `Novedad: Tienes ${ticketNovelties.length} respuesta(s) nueva(s) en tus tickets de soporte`;
+      }
+    } else if (role === 'empleado') {
+      const hasPendingNew = hasUnreadEmployeeOrders();
+      hasNotification = hasPendingNew;
+      if (hasPendingNew) notifTitle = 'Novedad: Hay nuevos pedidos en bodega por confirmar';
+    } else if (role === 'entregador') {
+      const hasAssigned = hasUnreadDriverOrders();
+      hasNotification = hasAssigned;
+      if (hasAssigned) notifTitle = 'Novedad: Tienes nuevos pedidos asignados a tu ruta';
+    } else if (role === 'soporte') {
+      const hasTickets = hasUnreadStaffTickets();
+      hasNotification = hasTickets;
+      if (hasTickets) notifTitle = 'Novedad: Tienes nuevos mensajes de clientes en tickets de soporte';
+    } else if (role === 'admin') {
+      const hasPendingNew = hasUnreadEmployeeOrders();
+      const hasAssigned = hasUnreadDriverOrders();
+      const hasTickets = hasUnreadStaffTickets();
+      hasNotification = hasPendingNew || hasAssigned || hasTickets;
+      if (hasNotification) notifTitle = 'Novedades operativas en el panel de control';
+    }
 
     if (statusDot) {
       if (hasNotification) {
         statusDot.classList.remove('hidden');
         statusDot.classList.add('has-notification-red');
-        statusDot.title = hasActiveOrders
-          ? `Tienes ${activeOrders.length} despacho(s) en seguimiento en tiempo real`
-          : 'Tienes tickets de soporte activos';
+        statusDot.title = notifTitle;
       } else {
         statusDot.classList.add('hidden');
         statusDot.classList.remove('has-notification-red');
         statusDot.title = '';
       }
-    }
-
-    if (tabPedidosDot) {
-      tabPedidosDot.classList.toggle('hidden', !hasActiveOrders);
-    }
-    if (tabSoporteDot) {
-      tabSoporteDot.classList.toggle('hidden', !hasActiveTickets);
     }
   }
 
@@ -2803,6 +3011,38 @@
 
     btnClearSupImage?.addEventListener('click', () => setSupportCustomerPhoto(null));
 
+    // Desplegable de Nuevo Ticket en Ventana de Soporte (con botón en la esquina superior derecha y padding generoso)
+    const btnToggleNewTicket = document.getElementById('btnToggleNewTicket');
+    const formWrapper = document.getElementById('customerSupportFormWrapper');
+    const btnCloseNewTicket = document.getElementById('btnCloseNewTicketBtn');
+    const btnCancelNewTicket = document.getElementById('btnCancelNewTicket');
+    const toggleIcon = document.getElementById('btnToggleNewTicketIcon');
+    const toggleText = document.getElementById('btnToggleNewTicketText');
+
+    function toggleNewTicketMenu(forceOpen) {
+      if (!formWrapper) return;
+      const willOpen =
+        typeof forceOpen === 'boolean'
+          ? forceOpen
+          : formWrapper.classList.contains('hidden');
+      if (willOpen) {
+        formWrapper.classList.remove('hidden');
+        if (btnToggleNewTicket) btnToggleNewTicket.setAttribute('aria-expanded', 'true');
+        if (toggleIcon) toggleIcon.textContent = 'close';
+        if (toggleText) toggleText.textContent = 'Ocultar Formulario';
+        document.getElementById('supSubject')?.focus();
+      } else {
+        formWrapper.classList.add('hidden');
+        if (btnToggleNewTicket) btnToggleNewTicket.setAttribute('aria-expanded', 'false');
+        if (toggleIcon) toggleIcon.textContent = 'add';
+        if (toggleText) toggleText.textContent = 'Nuevo Ticket';
+      }
+    }
+
+    btnToggleNewTicket?.addEventListener('click', () => toggleNewTicketMenu());
+    btnCloseNewTicket?.addEventListener('click', () => toggleNewTicketMenu(false));
+    btnCancelNewTicket?.addEventListener('click', () => toggleNewTicketMenu(false));
+
     document.getElementById('customerSupportForm')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const pedido_id = document.getElementById('supOrderId').value || null;
@@ -2844,10 +3084,13 @@
         };
         localTickets.unshift(createdTicket);
         saveLocalTicketsStore(localTickets);
+        markTicketSeenByClient(newTkId, createdTicket.mensajes);
         e.target.reset();
         setSupportCustomerPhoto(null);
         populateCustomerSupportOrderSelect('');
+        toggleNewTicketMenu(false);
         loadCustomerSupportTickets();
+        alert('Tu ticket de soporte ha sido abierto exitosamente.');
       }
     });
   }
@@ -3201,7 +3444,7 @@
                                  <span>${ord.creado_en ? new Date(ord.creado_en).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Finalizado'}</span>
                                </span>`
                             : `<span class="direct-stage-badge ${isCancelled ? 'is-cancelled' : ''}">
-                                 ${isActiveSection && !isCancelled ? '<span class="order-live-pulse-dot" aria-hidden="true"></span>' : ''}
+                                 ${!isCancelled && hasCustomerOrderNovelty(ord) ? `<span class="order-live-pulse-dot" id="orderPulseDot_${ord.id}" title="Novedad en tu despacho"></span>` : ''}
                                  <span class="material-symbols-rounded" style="font-size:1.05rem;">${meta.icon}</span>
                                  <span>${meta.badge}</span>
                                </span>
@@ -3450,6 +3693,14 @@
             card.classList.add('is-expanded');
             headerBtn.setAttribute('aria-expanded', 'true');
             state.customerExpandedOrderIds.add(ordId);
+
+            // Desactivar el punto de notificación integrado al expandir el envío
+            const targetOrd = (state.customerOrders || []).find((o) => Number(o.id) === ordId);
+            if (targetOrd) {
+              markOrderStatusSeen(ordId, targetOrd.estado);
+              const dot = card.querySelector('.order-live-pulse-dot');
+              if (dot) dot.remove();
+            }
           }
         }
         return;
@@ -3464,7 +3715,39 @@
   /**
    * Ventana 4 del Cliente: Mis Tickets Abiertos y MiniChat con Soporte (Cero 404s)
    */
-  async function loadCustomerSupportTickets() {
+    async function closeTicketAsCustomer(ticketId) {
+    const tkId = Number(ticketId);
+    const localList = getLocalTicketsStore();
+    const targetTk = localList.find((t) => Number(t.id) === tkId);
+    if (targetTk) {
+      targetTk.estado = 'resuelto';
+      if (!Array.isArray(targetTk.mensajes)) targetTk.mensajes = [];
+      targetTk.mensajes.push({
+        id: Date.now(),
+        autor: `${state.user?.nombre_completo || 'Cliente'} (Cliente)`,
+        rol: 'cliente',
+        texto: 'El cliente ha finalizado y cerrado este ticket de soporte.',
+        fecha: new Date().toISOString()
+      });
+      saveLocalTicketsStore(localList);
+      markTicketSeenByClient(tkId, targetTk.mensajes);
+    }
+
+    if (state.serverApiV3) {
+      try {
+        await fetch(`${CONFIG.api.baseUrl}/mis-tickets/${tkId}/cerrar`, {
+          method: 'PATCH',
+          headers: getAuthHeaders()
+        });
+      } catch (_) {}
+    }
+
+    await loadCustomerSupportTickets();
+    syncUserNotificationDots();
+    alert('Has cerrado el ticket correctamente.');
+  }
+
+async function loadCustomerSupportTickets() {
     const container = document.getElementById('customerTicketsListContainer');
     const badge = document.getElementById('tabTicketsCount');
     if (!container || !state.user) return;
@@ -3495,6 +3778,13 @@
     const allTickets = state.customerTickets || [];
     if (badge) badge.textContent = String(allTickets.length);
 
+    if (!state.customerExpandedTicketIds) {
+      state.customerExpandedTicketIds = new Set();
+      if (allTickets.length > 0) {
+        state.customerExpandedTicketIds.add(Number(allTickets[0].id));
+      }
+    }
+
     const q = (document.getElementById('custTicketSearchInput')?.value || '').trim().toLowerCase();
     const statusFilter = document.getElementById('custTicketStatusFilter')?.value || 'todos';
 
@@ -3518,11 +3808,30 @@
 
     container.innerHTML = filtered
       .map((tk) => {
+        const isExpanded = state.customerExpandedTicketIds.has(Number(tk.id));
         const msgs = tk.mensajes || [];
+        const hasUnread = hasTicketUnreadForClient(tk);
+        const draftPhoto = state.custChatDrafts && state.custChatDrafts[tk.id];
+
         return `
-          <article class="ticket-minichat-card">
-            <div class="ticket-minichat-header">
-              <div>
+          <article class="ticket-minichat-card ${isExpanded ? 'is-expanded' : 'is-collapsed'}" id="custTicketCard_${tk.id}" data-cust-ticket-card="${tk.id}">
+            <div
+              class="ticket-minichat-header clickable-header"
+              data-toggle-cust-ticket="${tk.id}"
+              role="button"
+              tabindex="0"
+              title="Haz clic para ${isExpanded ? 'colapsar' : 'desplegar'} este chat"
+            >
+              <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+                <button
+                  type="button"
+                  class="btn-ticket-expand"
+                  data-toggle-cust-ticket="${tk.id}"
+                  aria-label="${isExpanded ? 'Colapsar chat' : 'Desplegar chat'}"
+                >
+                  <span class="material-symbols-rounded">${isExpanded ? 'expand_less' : 'expand_more'}</span>
+                </button>
+                ${hasUnread ? '<span class="ticket-unread-dot" title="Mensaje nuevo de Soporte sin leer"></span>' : ''}
                 <strong>Ticket #${tk.id}: ${tk.asunto}</strong>
                 ${
                   tk.pedido_id
@@ -3530,53 +3839,164 @@
                     : ''
                 }
               </div>
-              <span class="order-status-pill status-${tk.estado === 'resuelto' ? 'entregado' : 'en_proceso'}">${tk.estado.toUpperCase()}</span>
+              <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+                <span class="order-status-pill ${getTicketStatusClass(tk.estado)}">${formatTicketStatus(tk.estado)}</span>
+                ${
+                  tk.estado !== 'resuelto'
+                    ? `<button type="button" class="btn-secondary btn-sm" data-cust-resolve-ticket="${tk.id}" title="Cerrar y marcar como resuelto este ticket">
+                         <span class="material-symbols-rounded" style="font-size:0.95rem;">check_circle</span>
+                         <span>Cerrar Ticket</span>
+                       </button>`
+                    : ''
+                }
+              </div>
             </div>
 
-            ${
-              tk.imagen_cliente_url
-                ? `<div>
-                     <img src="${tk.imagen_cliente_url}" alt="Adjunto ticket #${tk.id}" class="delivery-photo-preview" style="max-height:120px;" />
-                   </div>`
-                : ''
-            }
+            <div class="ticket-collapsible-body ${isExpanded ? '' : 'hidden'}" id="custTicketBody_${tk.id}" style="margin-top:0.85rem;">
+              ${
+                tk.imagen_cliente_url
+                  ? `<div class="detail-box" style="margin-bottom:0.75rem;">
+                       <span class="detail-box-label">Fotografía de Solicitud Inicial</span>
+                       <img src="${tk.imagen_cliente_url}" alt="Adjunto ticket #${tk.id}" class="delivery-photo-preview" style="max-height:120px; margin-top:0.35rem;" />
+                     </div>`
+                  : ''
+              }
 
-            <div class="minichat-messages-box" id="custChatBox_${tk.id}">
-              ${msgs
-                .map(
-                  (m) => `
-                <div class="minichat-bubble is-${m.rol === 'soporte' ? 'soporte' : 'cliente'}">
-                  <div class="minichat-bubble-meta">${m.autor}</div>
-                  <div>${m.texto}</div>
-                </div>
-              `
-                )
-                .join('')}
-            </div>
+              <div class="minichat-messages-box" id="custChatBox_${tk.id}">
+                ${msgs
+                  .map(
+                    (m) => `
+                  <div class="minichat-bubble is-${m.rol === 'soporte' ? 'soporte' : 'cliente'}">
+                    <div class="minichat-bubble-meta">${m.autor}</div>
+                    ${m.texto ? `<div>${m.texto}</div>` : ''}
+                    ${
+                      m.imagen_url
+                        ? `<div class="chat-bubble-attachment">
+                             <img src="${m.imagen_url}" alt="Foto adjunta" class="chat-bubble-image" onclick="window.open(this.src)" title="Ver imagen en tamaño completo" />
+                           </div>`
+                        : ''
+                    }
+                  </div>
+                `
+                  )
+                  .join('')}
+              </div>
 
-            <div class="minichat-input-row">
-              <input
-                type="text"
-                class="modal-input"
-                id="custChatInput_${tk.id}"
-                placeholder="Escribe un mensaje para Soporte..."
-              />
-              <button type="button" class="btn-primary" data-send-cust-chat="${tk.id}" style="padding:0.62rem 1rem;">
-                <span class="material-symbols-rounded">send</span>
-              </button>
+              ${
+                tk.estado !== 'resuelto'
+                  ? `<div class="minichat-input-box-wrapper" style="margin-top:0.85rem;">
+                       <div class="chat-draft-preview-strip ${draftPhoto ? '' : 'hidden'}" id="custChatDraftStrip_${tk.id}">
+                         <div class="chat-draft-preview-box">
+                           <img src="${draftPhoto || ''}" id="custChatDraftImg_${tk.id}" alt="Foto adjunta" />
+                           <button type="button" class="chat-draft-remove-btn" data-remove-cust-draft="${tk.id}" title="Quitar fotografía">
+                             <span class="material-symbols-rounded">close</span>
+                           </button>
+                         </div>
+                         <span class="chat-draft-hint">Fotografía lista para enviar con tu mensaje</span>
+                       </div>
+
+                       <div class="minichat-input-row">
+                         <label class="chat-attach-btn" title="Adjuntar imagen o foto">
+                           <span class="material-symbols-rounded">add_photo_alternate</span>
+                           <input type="file" accept="image/*" class="hidden" data-cust-attach-input="${tk.id}" />
+                         </label>
+                         <input
+                           type="text"
+                           class="modal-input"
+                           id="custChatInput_${tk.id}"
+                           placeholder="Escribe un mensaje para Soporte..."
+                         />
+                         <button type="button" class="btn-primary" data-send-cust-chat="${tk.id}" style="padding:0.62rem 1.15rem;">
+                           <span class="material-symbols-rounded">send</span>
+                         </button>
+                       </div>
+                     </div>`
+                  : `<div class="detail-box" style="padding:0.55rem 0.85rem; font-size:0.83rem; color:var(--text-muted); text-align:center; margin-top:0.85rem;">
+                       <span>Este ticket fue cerrado y resuelto. Si necesitas asistencia sobre un nuevo caso, puedes abrir un nuevo ticket arriba.</span>
+                     </div>`
+              }
             </div>
           </article>
         `;
       })
       .join('');
 
+    container.onchange = (e) => {
+      const fileInput = e.target.closest('[data-cust-attach-input]');
+      if (fileInput && fileInput.files && fileInput.files[0]) {
+        const tkId = Number(fileInput.getAttribute('data-cust-attach-input'));
+        const reader = new FileReader();
+        reader.onload = () => {
+          state.custChatDrafts = state.custChatDrafts || {};
+          state.custChatDrafts[tkId] = reader.result;
+          const strip = document.getElementById(`custChatDraftStrip_${tkId}`);
+          const img = document.getElementById(`custChatDraftImg_${tkId}`);
+          if (strip && img) {
+            img.src = reader.result;
+            strip.classList.remove('hidden');
+          }
+        };
+        reader.readAsDataURL(fileInput.files[0]);
+      }
+    };
+
     container.onclick = async (e) => {
+      // Alternar colapso del chat en vivo por parte del usuario
+      const toggleBtn = e.target.closest('[data-toggle-cust-ticket]');
+      if (toggleBtn && !e.target.closest('[data-cust-resolve-ticket]')) {
+        const id = Number(toggleBtn.getAttribute('data-toggle-cust-ticket'));
+        if (!state.customerExpandedTicketIds) state.customerExpandedTicketIds = new Set();
+        if (state.customerExpandedTicketIds.has(id)) {
+          state.customerExpandedTicketIds.delete(id);
+        } else {
+          state.customerExpandedTicketIds.add(id);
+          const tkObj = (state.customerTickets || []).find((t) => Number(t.id) === id);
+          if (tkObj) markTicketSeenByClient(id, tkObj.mensajes);
+        }
+        renderCustomerSupportTicketsList();
+        return;
+      }
+
+      // Quitar foto adjunta en borrador
+      const removeDraftBtn = e.target.closest('[data-remove-cust-draft]');
+      if (removeDraftBtn) {
+        const tkId = Number(removeDraftBtn.getAttribute('data-remove-cust-draft'));
+        if (state.custChatDrafts) delete state.custChatDrafts[tkId];
+        const strip = document.getElementById(`custChatDraftStrip_${tkId}`);
+        if (strip) strip.classList.add('hidden');
+        return;
+      }
+
+      // Si el cliente interactúa con el ticket, marcamos como visto para quitar el punto rojo
+      const cardEl = e.target.closest('[data-cust-ticket-card]');
+      if (cardEl) {
+        const cardTkId = Number(cardEl.getAttribute('data-cust-ticket-card'));
+        const tkObj = (state.customerTickets || []).find((t) => Number(t.id) === cardTkId);
+        if (tkObj && hasTicketUnreadForClient(tkObj)) {
+          markTicketSeenByClient(cardTkId, tkObj.mensajes);
+          const dot = cardEl.querySelector('.ticket-unread-dot');
+          dot?.remove();
+        }
+      }
+
+      // Cerrar ticket por parte del cliente
+      const resolveBtn = e.target.closest('[data-cust-resolve-ticket]');
+      if (resolveBtn) {
+        const tkId = Number(resolveBtn.getAttribute('data-cust-resolve-ticket'));
+        if (confirm('¿Estás seguro de que deseas cerrar y dar por resuelto este ticket de soporte?')) {
+          await closeTicketAsCustomer(tkId);
+        }
+        return;
+      }
+
+      // Enviar mensaje en el chat con texto y/o foto
       const sendBtn = e.target.closest('[data-send-cust-chat]');
       if (!sendBtn) return;
       const tkId = Number(sendBtn.getAttribute('data-send-cust-chat'));
       const inp = document.getElementById(`custChatInput_${tkId}`);
-      if (!inp || !inp.value.trim()) return;
-      const textMsg = inp.value.trim();
+      const textMsg = inp ? inp.value.trim() : '';
+      const draftPhoto = state.custChatDrafts && state.custChatDrafts[tkId];
+      if (!textMsg && !draftPhoto) return;
 
       const localList = getLocalTicketsStore();
       const targetTk = localList.find((t) => Number(t.id) === tkId);
@@ -3587,17 +4007,21 @@
           autor: state.user?.nombre_completo || 'Cliente',
           rol: 'cliente',
           texto: textMsg,
+          imagen_url: draftPhoto || null,
           fecha: new Date().toISOString()
         });
         saveLocalTicketsStore(localList);
+        markTicketSeenByClient(tkId, targetTk.mensajes);
       }
+      if (state.custChatDrafts) delete state.custChatDrafts[tkId];
+      if (inp) inp.value = '';
 
       if (state.serverApiV3) {
         try {
           await fetch(`${CONFIG.api.baseUrl}/soporte/${tkId}/mensaje`, {
             method: 'POST',
             headers: getAuthHeaders(),
-            body: JSON.stringify({ texto: textMsg })
+            body: JSON.stringify({ texto: textMsg, imagen_url: draftPhoto || null })
           });
         } catch (_) {}
       }
@@ -4215,8 +4639,39 @@
       document.getElementById(id)?.addEventListener('click', loadStaffDataAndRender);
     });
 
+    // Botón para expandir o colapsar todos los tickets del Asistente
+    document.getElementById('btnToggleAllAssistantTickets')?.addEventListener('click', () => {
+      if (!state.expandedStaffTickets) state.expandedStaffTickets = new Set();
+      const allTkIds = (state.staffTickets || []).map((t) => Number(t.id));
+      if (state.expandedStaffTickets.size >= allTkIds.length && allTkIds.length > 0) {
+        state.expandedStaffTickets.clear();
+      } else {
+        allTkIds.forEach((id) => {
+          state.expandedStaffTickets.add(id);
+          const tkObj = (state.staffTickets || []).find((t) => Number(t.id) === id);
+          if (tkObj) markTicketSeenByStaff(id, tkObj.mensajes);
+        });
+      }
+      renderSoportePanel();
+    });
+
     const workspace = document.getElementById('staffWorkspace');
     workspace?.addEventListener('click', async (e) => {
+      // Alternar colapso de ticket para Asistente de Soporte
+      const toggleTicketEl = e.target.closest('[data-toggle-staff-ticket]');
+      if (toggleTicketEl && !e.target.closest('[data-staff-view-invoice]')) {
+        const id = Number(toggleTicketEl.getAttribute('data-toggle-staff-ticket'));
+        if (!state.expandedStaffTickets) state.expandedStaffTickets = new Set();
+        if (state.expandedStaffTickets.has(id)) {
+          state.expandedStaffTickets.delete(id);
+        } else {
+          state.expandedStaffTickets.add(id);
+          const tkObj = (state.staffTickets || []).find((t) => Number(t.id) === id);
+          if (tkObj) markTicketSeenByStaff(id, tkObj.mensajes);
+        }
+        renderSoportePanel();
+        return;
+      }
       // Abrir factura electrónica desde cualquier tarjeta del panel
       const viewInvBtn = e.target.closest('[data-staff-view-invoice]');
       if (viewInvBtn) {
@@ -4251,6 +4706,7 @@
           state.driverExpandedOrderIds.clear();
           state.driverExpandedOrderIds.add(ordId);
         }
+        markDriverOrderSeen(ordId);
         renderEntregadorPanel();
         return;
       }
@@ -4259,6 +4715,7 @@
       const confirmBtn = e.target.closest('[data-emp-confirm]');
       if (confirmBtn) {
         const id = Number(confirmBtn.getAttribute('data-emp-confirm'));
+        markEmployeeOrderSeen(id);
         const driverSelect = document.getElementById(`assignDriverSelect_${id}`);
         const entregador_id = driverSelect && driverSelect.value ? Number(driverSelect.value) : null;
         const driverText = driverSelect?.options[driverSelect.selectedIndex]?.text || 'Diego Alejandro Vargas';
@@ -4282,6 +4739,7 @@
       const dispatchBtn = e.target.closest('[data-emp-dispatch]');
       if (dispatchBtn) {
         const id = Number(dispatchBtn.getAttribute('data-emp-dispatch'));
+        markEmployeeOrderSeen(id);
         const driverSelect = document.getElementById(`assignDriverSelect_${id}`);
         const entregador_id = driverSelect && driverSelect.value ? Number(driverSelect.value) : null;
         const driverText = driverSelect?.options[driverSelect.selectedIndex]?.text || 'Diego Alejandro Vargas';
@@ -4365,13 +4823,24 @@
         return;
       }
 
+      // Quitar foto adjunta en borrador para staff
+      const removeStaffDraftBtn = e.target.closest('[data-remove-staff-draft]');
+      if (removeStaffDraftBtn) {
+        const id = Number(removeStaffDraftBtn.getAttribute('data-remove-staff-draft'));
+        if (state.staffChatDrafts) delete state.staffChatDrafts[id];
+        const strip = document.getElementById(`staffChatDraftStrip_${id}`);
+        if (strip) strip.classList.add('hidden');
+        return;
+      }
+
       // Enviar mensaje en el MiniChat de Soporte (Cero 404s)
       const sendSupportChatBtn = e.target.closest('[data-staff-send-chat]');
       if (sendSupportChatBtn) {
         const id = Number(sendSupportChatBtn.getAttribute('data-staff-send-chat'));
         const chatInput = document.getElementById(`staffTicketChatInput_${id}`);
-        if (!chatInput || !chatInput.value.trim()) return;
-        const msgText = chatInput.value.trim();
+        const msgText = chatInput ? chatInput.value.trim() : '';
+        const draftPhoto = state.staffChatDrafts && state.staffChatDrafts[id];
+        if (!msgText && !draftPhoto) return;
 
         const localList = getLocalTicketsStore();
         const tk = localList.find((t) => Number(t.id) === id);
@@ -4382,19 +4851,23 @@
             autor: `${state.user?.nombre_completo || 'Soporte'} (Soporte)`,
             rol: 'soporte',
             texto: msgText,
+            imagen_url: draftPhoto || null,
             fecha: new Date().toISOString()
           });
-          tk.respuesta_soporte = msgText;
+          tk.respuesta_soporte = msgText || 'Foto adjunta por Soporte';
           if (tk.estado === 'abierto') tk.estado = 'en_revision';
           saveLocalTicketsStore(localList);
+          markTicketSeenByStaff(id, tk.mensajes);
         }
+        if (state.staffChatDrafts) delete state.staffChatDrafts[id];
+        if (chatInput) chatInput.value = '';
 
         if (state.serverApiV3) {
           try {
             await fetch(`${CONFIG.api.baseUrl}/soporte/${id}/mensaje`, {
               method: 'POST',
               headers: getAuthHeaders(),
-              body: JSON.stringify({ texto: msgText })
+              body: JSON.stringify({ texto: msgText, imagen_url: draftPhoto || null })
             });
           } catch (_) {}
         } else {
@@ -4433,6 +4906,7 @@
           }
           tk.estado = 'resuelto';
           saveLocalTicketsStore(localList);
+          markTicketSeenByStaff(id, tk.mensajes);
         }
 
         const res = await fetch(`${CONFIG.api.baseUrl}/staff/tickets/${id}`, {
@@ -4505,6 +4979,24 @@
     });
 
     workspace?.addEventListener('change', async (e) => {
+      const staffChatFileInput = e.target.closest('[data-staff-attach-input]');
+      if (staffChatFileInput && staffChatFileInput.files && staffChatFileInput.files[0]) {
+        const tkId = Number(staffChatFileInput.getAttribute('data-staff-attach-input'));
+        const reader = new FileReader();
+        reader.onload = () => {
+          state.staffChatDrafts = state.staffChatDrafts || {};
+          state.staffChatDrafts[tkId] = reader.result;
+          const strip = document.getElementById(`staffChatDraftStrip_${tkId}`);
+          const img = document.getElementById(`staffChatDraftImg_${tkId}`);
+          if (strip && img) {
+            img.src = reader.result;
+            strip.classList.remove('hidden');
+          }
+        };
+        reader.readAsDataURL(staffChatFileInput.files[0]);
+        return;
+      }
+
       const fileInput = e.target.closest('[data-driver-photo-input]');
       if (fileInput && fileInput.files && fileInput.files[0]) {
         const orderId = Number(fileInput.getAttribute('data-driver-photo-input'));
@@ -4624,16 +5116,28 @@
 
     document.getElementById('staffNavList').innerHTML = options
       .map(
-        (opt) => `
-        <button
-          type="button"
-          class="staff-nav-option ${state.activeStaffTab === opt.id ? 'active' : ''}"
-          data-staff-tab="${opt.id}"
-        >
-          <span class="material-symbols-rounded">${opt.icon}</span>
-          <span>${opt.label}</span>
-        </button>
-      `
+        (opt) => {
+          let dotHtml = '';
+          if (opt.id === 'empleado' && hasUnreadEmployeeOrders()) {
+            dotHtml = '<span class="notification-red-dot" title="Nuevos pedidos en bodega por confirmar"></span>';
+          } else if (opt.id === 'entregador' && hasUnreadDriverOrders()) {
+            dotHtml = '<span class="notification-red-dot" title="Nuevos pedidos asignados a tu ruta"></span>';
+          } else if (opt.id === 'soporte' && hasUnreadStaffTickets()) {
+            dotHtml = '<span class="notification-red-dot" title="Nuevos mensajes de clientes en soporte"></span>';
+          }
+
+          return `
+            <button
+              type="button"
+              class="staff-nav-option ${state.activeStaffTab === opt.id ? 'active' : ''}"
+              data-staff-tab="${opt.id}"
+            >
+              <span class="material-symbols-rounded">${opt.icon}</span>
+              <span>${opt.label}</span>
+              ${dotHtml}
+            </button>
+          `;
+        }
       )
       .join('');
   }
@@ -5328,6 +5832,11 @@
             <article class="staff-order-card">
               <div class="staff-order-top">
                 <div style="display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap;">
+                  ${
+                    hasEmployeeOrderNovelty(ord)
+                      ? '<span class="order-novelty-tag" title="Nuevo pedido pendiente por confirmar en bodega"><span class="ticket-unread-dot"></span> Nuevo Pedido</span>'
+                      : ''
+                  }
                   <span class="order-id-badge">Pedido #${ord.id} — ${formatCurrency(ord.total)}</span>
                   <span class="invoice-number-badge-inline">${getInvoiceCode(ord.id)}</span>
                   <span style="font-size:0.8rem; color:var(--text-secondary);">
@@ -5594,7 +6103,11 @@
               >
                 <div>
                   <div class="driver-vstop-title">
-                    Parada ${ord.stopNumber} • Pedido #${ord.id} (${getInvoiceCode(ord.id)}) — ${ord.nombre_recibe}
+                    ${
+                      hasDriverOrderNovelty(ord)
+                        ? '<span class="order-novelty-tag" title="Nuevo pedido asignado a tu ruta de entrega"><span class="ticket-unread-dot"></span> Asignado a tu ruta</span> '
+                        : ''
+                    }Parada ${ord.stopNumber} • Pedido #${ord.id} (${getInvoiceCode(ord.id)}) — ${ord.nombre_recibe}
                   </div>
                   <div class="driver-vstop-sub">
                     ${ord.direccion_entrega} (${ord.municipio}) • ${ord.telefono_cliente}
@@ -5715,16 +6228,37 @@
       tkBadge.textContent = `Mostrando ${filteredTickets.length} de ${state.staffTickets.length} tickets`;
     }
 
+    if (!state.expandedStaffTickets) state.expandedStaffTickets = new Set();
+
     document.getElementById('soporteTicketsContainer').innerHTML =
       filteredTickets.length === 0
         ? `<div class="detail-box"><p>No hay tickets que coincidan con el filtro seleccionado.</p></div>`
         : filteredTickets
             .map((tk) => {
+              const isExpanded = state.expandedStaffTickets.has(Number(tk.id));
               const msgs = tk.mensajes || [];
+              const hasUnread = hasTicketUnreadForStaff(tk);
+
+              const draftPhoto = state.staffChatDrafts && state.staffChatDrafts[tk.id];
               return `
-                <article class="ticket-minichat-card">
-                  <div class="ticket-minichat-header">
-                    <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                <article class="ticket-minichat-card ${isExpanded ? 'is-expanded' : 'is-collapsed'}" id="staffTicketCard_${tk.id}">
+                  <div
+                    class="ticket-minichat-header clickable-header"
+                    data-toggle-staff-ticket="${tk.id}"
+                    role="button"
+                    tabindex="0"
+                    title="Haz clic para ${isExpanded ? 'colapsar' : 'desplegar'} el ticket"
+                  >
+                    <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+                      <button
+                        type="button"
+                        class="btn-ticket-expand"
+                        data-toggle-staff-ticket="${tk.id}"
+                        aria-label="${isExpanded ? 'Colapsar ticket' : 'Desplegar ticket'}"
+                      >
+                        <span class="material-symbols-rounded">${isExpanded ? 'expand_less' : 'expand_more'}</span>
+                      </button>
+                      ${hasUnread ? '<span class="ticket-unread-dot" title="Nuevo mensaje del cliente sin leer"></span>' : ''}
                       <strong>Ticket #${tk.id}: ${tk.asunto}</strong>
                       ${
                         tk.pedido_id
@@ -5735,46 +6269,77 @@
                           : ''
                       }
                     </div>
-                    <span class="order-status-pill status-${tk.estado === 'resuelto' ? 'entregado' : 'pendiente'}">${tk.estado.toUpperCase()}</span>
+                    <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+                      <span class="order-status-pill ${getTicketStatusClass(tk.estado)}">${formatTicketStatus(tk.estado)}</span>
+                    </div>
                   </div>
 
-                  ${
-                    tk.imagen_cliente_url
-                      ? `<div class="detail-box">
-                           <span class="detail-box-label">Fotografía Adjunta por el Cliente</span>
-                           <img src="${tk.imagen_cliente_url}" alt="Adjunto ticket #${tk.id}" class="delivery-photo-preview" style="margin-top:0.45rem;" />
-                         </div>`
-                      : ''
-                  }
+                  <div class="ticket-collapsible-body ${isExpanded ? '' : 'hidden'}" id="staffTicketBody_${tk.id}" style="margin-top:0.85rem;">
+                    ${
+                      tk.imagen_cliente_url
+                        ? `<div class="detail-box" style="margin-bottom:0.75rem;">
+                             <span class="detail-box-label">Fotografía de Solicitud Inicial</span>
+                             <img src="${tk.imagen_cliente_url}" alt="Adjunto ticket #${tk.id}" class="delivery-photo-preview" style="margin-top:0.35rem; max-height:140px;" />
+                           </div>`
+                        : ''
+                    }
 
-                  <div class="minichat-messages-box">
-                    ${msgs
-                      .map(
-                        (m) => `
-                      <div class="minichat-bubble is-${m.rol === 'soporte' ? 'soporte' : 'cliente'}">
-                        <div class="minichat-bubble-meta">${m.autor}</div>
-                        <div>${m.texto}</div>
+                    <div class="minichat-messages-box">
+                      ${msgs
+                        .map(
+                          (m) => `
+                        <div class="minichat-bubble is-${m.rol === 'soporte' ? 'soporte' : 'cliente'}">
+                          <div class="minichat-bubble-meta">${m.autor}</div>
+                          ${m.texto ? `<div>${m.texto}</div>` : ''}
+                          ${
+                            m.imagen_url
+                              ? `<div class="chat-bubble-attachment">
+                                   <img src="${m.imagen_url}" alt="Foto adjunta" class="chat-bubble-image" onclick="window.open(this.src)" title="Ver imagen en tamaño completo" />
+                                 </div>`
+                              : ''
+                          }
+                        </div>
+                      `
+                        )
+                        .join('')}
+                    </div>
+
+                    <div class="minichat-input-box-wrapper" style="margin-top:0.85rem;">
+                      <div class="chat-draft-preview-strip ${draftPhoto ? '' : 'hidden'}" id="staffChatDraftStrip_${tk.id}">
+                        <div class="chat-draft-preview-box">
+                          <img src="${draftPhoto || ''}" id="staffChatDraftImg_${tk.id}" alt="Foto adjunta" />
+                          <button type="button" class="chat-draft-remove-btn" data-remove-staff-draft="${tk.id}" title="Quitar imagen">
+                            <span class="material-symbols-rounded">close</span>
+                          </button>
+                        </div>
+                        <span class="chat-draft-hint">Fotografía adjunta para el cliente</span>
                       </div>
-                    `
-                      )
-                      .join('')}
-                  </div>
 
-                  <div class="minichat-input-row">
-                    <input
-                      type="text"
-                      class="modal-input"
-                      id="staffTicketChatInput_${tk.id}"
-                      placeholder="Escribe una respuesta en el chat para el cliente..."
-                    />
-                    <button type="button" class="btn-primary" data-staff-send-chat="${tk.id}">
-                      <span class="material-symbols-rounded">send</span>
-                      <span>Enviar</span>
-                    </button>
-                    <button type="button" class="btn-confirm-order" data-resolve-ticket="${tk.id}">
-                      <span class="material-symbols-rounded">check_circle</span>
-                      <span>Resolver</span>
-                    </button>
+                      <div class="minichat-input-row">
+                        <label class="chat-attach-btn" title="Adjuntar imagen o foto">
+                          <span class="material-symbols-rounded">add_photo_alternate</span>
+                          <input type="file" accept="image/*" class="hidden" data-staff-attach-input="${tk.id}" />
+                        </label>
+                        <input
+                          type="text"
+                          class="modal-input"
+                          id="staffTicketChatInput_${tk.id}"
+                          placeholder="Escribe una respuesta en el chat para el cliente..."
+                        />
+                        <button type="button" class="btn-primary" data-staff-send-chat="${tk.id}" style="padding:0.62rem 1.15rem;">
+                          <span class="material-symbols-rounded">send</span>
+                          <span>Enviar</span>
+                        </button>
+                        ${
+                          tk.estado !== 'resuelto'
+                            ? `<button type="button" class="btn-confirm-order" data-resolve-ticket="${tk.id}">
+                                 <span class="material-symbols-rounded">check_circle</span>
+                                 <span>Resolver</span>
+                               </button>`
+                            : ''
+                        }
+                      </div>
+                    </div>
                   </div>
                 </article>
               `;

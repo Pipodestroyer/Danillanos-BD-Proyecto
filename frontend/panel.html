@@ -534,8 +534,17 @@
           <div class="role-history-header" style="margin-bottom: 0.75rem;">
             <div>
               <h3 class="subsection-heading">Tickets de Clientes y Mini-Chat en Vivo</h3>
+              <p class="card-helper-text" style="margin: 0.2rem 0 0 0; font-size: 0.85rem;">
+                Los tickets se muestran colapsados para una vista ágil. Haz clic sobre cada ticket para desplegar su chat.
+              </p>
             </div>
-            <div class="filter-results-meta" id="soporteTicketsSummaryBadge"></div>
+            <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+              <button type="button" class="btn-secondary btn-sm" id="btnToggleAllAssistantTickets" style="padding:0.4rem 0.8rem; font-size:0.85rem;">
+                <span class="material-symbols-rounded" style="font-size:1.1rem;">unfold_more</span>
+                <span>Expandir / Colapsar</span>
+              </button>
+              <div class="filter-results-meta" id="soporteTicketsSummaryBadge"></div>
+            </div>
           </div>
 
           <div class="orders-filter-toolbar compact-filter-toolbar" style="margin-bottom: 1.15rem;">
