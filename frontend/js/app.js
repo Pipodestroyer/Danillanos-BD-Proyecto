@@ -2255,115 +2255,6 @@
     return buildThermalPaperReceiptHtml(ord);
   }
 
-    return `
-      <div class="emulated-thermal-receipt" aria-label="Factura electrónica papel térmico">
-        <div class="thermal-sawtooth top" aria-hidden="true">
-          <svg viewBox="0 0 100 8" preserveAspectRatio="none"><polygon points="${topTeeth}" /></svg>
-        </div>
-        <div class="thermal-receipt-body">
-          <div class="thermal-header-center">
-            <div class="thermal-store-name">DANILLANOS S.A.S.</div>
-            <div class="thermal-store-sub">DISTRIBUIDORA AGROPECUARIA & CÁRNICOS DEL META</div>
-            <div class="thermal-store-sub">NIT: 900.842.190-4 • IVA RÉGIMEN SIMPLE</div>
-            <div class="thermal-store-sub">Cra 32 # 24-18, Villavicencio - Meta</div>
-            <div class="thermal-store-sub">PBX: (608) 662-4411 • WhatsApp: 310 234 5678</div>
-          </div>
-
-          <div class="thermal-divider-dashed">--------------------------------------------------------</div>
-
-          <div class="thermal-meta-row">
-            <div class="thermal-meta-col">
-              <div><strong>FACTURA:</strong> ${invCode}</div>
-              <div><strong>PEDIDO:</strong> #${ord.id}</div>
-              <div><strong>FECHA:</strong> ${dateStr}</div>
-            </div>
-            <div class="thermal-meta-col thermal-text-right">
-              <div><strong>MEDIO PAGO:</strong> ${(ord.metodo_pago || 'efectivo').toUpperCase()}</div>
-              <div><strong>ESTADO:</strong> ${ord.estado === 'cancelado' ? 'CANCELADO' : 'ENTREGADO'}</div>
-              <div><strong>REF:</strong> ${ord.referencia_pago || ('DN-' + ord.id)}</div>
-            </div>
-          </div>
-
-          <div class="thermal-divider-dashed">--------------------------------------------------------</div>
-
-          <div class="thermal-customer-box">
-            <div><strong>ADQUIRENTE:</strong> ${ord.nombre_recibe || (state.user ? state.user.nombre_completo : 'Consumidor Final')}</div>
-            <div><strong>DOCUMENTO / NIT:</strong> ${state.user && state.user.numero_documento ? `${state.user.tipo_documento || 'CC'} ${state.user.numero_documento}` : '222222222222 (Consumidor Final)'}</div>
-            <div><strong>DIRECCIÓN DE ENTREGA:</strong> ${ord.direccion_entrega} (${ord.municipio || 'Villavicencio'})</div>
-            ${ord.entregador_nombre ? `<div><strong>ENTREGADOR RESPONSABLE:</strong> ${ord.entregador_nombre}</div>` : ''}
-          </div>
-
-          <div class="thermal-divider-dashed">--------------------------------------------------------</div>
-
-          <div class="thermal-items-header">
-            <span class="col-cant">CANT</span>
-            <span class="col-desc">DESCRIPCIÓN DEL ARTÍCULO</span>
-            <span class="col-unit">VR.UNIT</span>
-            <span class="col-total">TOTAL</span>
-          </div>
-          <div class="thermal-divider-dotted">........................................................</div>
-
-          <div class="thermal-items-list">
-            ${items
-              .map((it) => {
-                const qty = Number(it.cantidad || 1);
-                const unit = Number(it.precio_unitario ?? it.precio ?? 0);
-                const sub = Number(it.subtotal ?? qty * unit);
-                const name = (it.nombre_producto || it.nombre || 'Producto').toUpperCase();
-                return `
-                  <div class="thermal-item-row">
-                    <span class="col-cant">${qty}x</span>
-                    <span class="col-desc">${name}</span>
-                    <span class="col-unit">${formatCurrency(unit)}</span>
-                    <span class="col-total">${formatCurrency(sub)}</span>
-                  </div>
-                `;
-              })
-              .join('')}
-          </div>
-
-          <div class="thermal-divider-dashed">--------------------------------------------------------</div>
-
-          <div class="thermal-totals-table">
-            <div class="thermal-total-line">
-              <span>SUBTOTAL PRODUCTOS:</span>
-              <strong>${formatCurrency(ord.total)}</strong>
-            </div>
-            <div class="thermal-total-line">
-              <span>IVA (19% / EXENTO LEY AGRO):</span>
-              <span>$0</span>
-            </div>
-            <div class="thermal-total-line thermal-big-total">
-              <span>TOTAL FACTURADO:</span>
-              <strong>${formatCurrency(ord.total)}</strong>
-            </div>
-          </div>
-
-          <div class="thermal-divider-dashed">--------------------------------------------------------</div>
-
-          <div class="thermal-barcode-box">
-            <div class="thermal-simulated-barcode" aria-hidden="true">
-              <span></span><span></span><span></span><span></span><span></span><span></span>
-              <span></span><span></span><span></span><span></span><span></span><span></span>
-              <span></span><span></span><span></span><span></span><span></span><span></span>
-              <span></span><span></span><span></span><span></span><span></span><span></span>
-              <span></span><span></span><span></span><span></span><span></span><span></span>
-            </div>
-            <div class="thermal-cufe-code">${cufeHash}</div>
-            <div class="thermal-resolution-text">
-              RESOLUCIÓN DIAN ELECTRÓNICA N° 18764000123 DE 2026-01-15<br/>
-              RANGO AUTORIZADO: FAC-DN-000001 HASTA FAC-DN-999999<br/>
-              ¡GRACIAS POR SU COMPRA EN DANILLANOS!
-            </div>
-          </div>
-        </div>
-        <div class="thermal-sawtooth bottom" aria-hidden="true">
-          <svg viewBox="0 0 100 8" preserveAspectRatio="none"><polygon points="${bottomTeeth}" /></svg>
-        </div>
-      </div>
-    `;
-  }
-
   function openInvoiceModalByOrder(ord) {
     if (!ord) return;
     const backdrop = document.getElementById('invoiceModalBackdrop');
@@ -4818,6 +4709,9 @@
   /**
    * Renderizador compartido de Historial de Pedidos y Facturas Colapsable para Admin, Empleado, Entregador y Soporte
    */
+  /**
+   * Renderizador compartido de Historial de Pedidos y Facturas Colapsable para Admin, Empleado, Entregador y Soporte
+   */
   function renderCollapsibleStaffOrdersList(list, containerId, emptyMessage) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -4829,7 +4723,7 @@
 
     const stageLabels = {
       pendiente: { icon: 'pending_actions', text: '1. Por Confirmar', pill: 'status-pendiente' },
-      en_proceso: { icon: 'warehouse', text: '2. Aceptado en Bodega', pill: 'status-en_proceso' },
+      en_proceso: { icon: 'warehouse', text: '2. En Proceso', pill: 'status-en_proceso' },
       en_camino: { icon: 'local_shipping', text: '3. En Ruta de Reparto', pill: 'status-en_camino' },
       entregado: { icon: 'verified', text: '4. Entregado', pill: 'status-entregado' },
       cancelado: { icon: 'cancel', text: 'Cancelado', pill: 'status-cancelado' }
@@ -4840,6 +4734,8 @@
         const isExpanded = state.staffHistoryExpandedIds.has(ord.id);
         const st = stageLabels[ord.estado] || stageLabels.pendiente;
         const invCode = getInvoiceCode(ord.id);
+        const pagoDesc = (ord.metodo_pago || 'efectivo').toUpperCase();
+        const entregaSub = ord.tiempo_entrega_estimado || 'Envío el mismo día';
 
         return `
           <article class="customer-order-accordion ${isExpanded ? 'is-expanded' : ''}">
@@ -4850,21 +4746,23 @@
               aria-expanded="${isExpanded ? 'true' : 'false'}"
             >
               <div class="customer-order-header-left">
-                <div class="customer-order-title-row">
-                  <span class="order-id-badge">Pedido #${ord.id} — ${formatCurrency(ord.total)}</span>
+                <div class="customer-order-title-row" style="align-items:center; gap:0.65rem;">
+                  <span class="order-id-badge" style="font-size:0.92rem; font-weight:800;">#${ord.id}</span>
+                  <span style="font-size:0.9rem; font-weight:800; color:var(--text-primary);">${formatCurrency(ord.total)}</span>
                   <span class="invoice-number-badge-inline">
                     <span class="material-symbols-rounded" style="font-size:0.9rem;">receipt_long</span>
                     ${invCode}
                   </span>
-                  <span class="order-status-pill ${st.pill}">${st.text}</span>
                 </div>
-                <div class="customer-order-meta-line">
-                  Cliente: <strong>${ord.nombre_recibe}</strong> (${ord.telefono_cliente}) • ${ord.direccion_entrega} (${ord.municipio}) • Pago: <strong>${(ord.metodo_pago || 'efectivo').toUpperCase()}</strong>
-                  ${ord.entregador_nombre ? ` • Enviador: <strong>${ord.entregador_nombre}</strong>` : ''}
+                <div class="customer-order-meta-line" style="margin-top:0.35rem; font-size:0.83rem; color:var(--text-secondary);">
+                  <span>${pagoDesc}</span>
+                  <span>•</span>
+                  <span>${entregaSub}</span>
                 </div>
               </div>
 
-              <div class="customer-order-direct-stage">
+              <div class="customer-order-direct-stage" style="display:flex; align-items:center; gap:0.75rem;">
+                <span class="order-status-pill ${st.pill}">${st.text}</span>
                 <span class="customer-order-chevron">
                   <span class="material-symbols-rounded">expand_more</span>
                 </span>
@@ -4872,67 +4770,83 @@
             </button>
 
             <div class="customer-order-body">
-              <div class="staff-order-details-grid" style="margin-top:0.75rem;">
-                <div class="detail-box">
-                  <span class="detail-box-label">Destinatario y Contacto</span>
-                  <strong>${ord.nombre_recibe}</strong> • ${ord.telefono_cliente}
+              <div class="customer-order-body-content" style="padding:1.25rem 1.65rem 1.65rem;">
+                <div class="staff-order-details-grid">
+                  <div class="detail-box">
+                    <span class="detail-box-label">Destinatario</span>
+                    <strong style="font-size:0.95rem; color:var(--text-primary);">${ord.nombre_recibe}</strong>
+                    <span class="detail-box-sub">${ord.telefono_cliente || 'Sin teléfono'}</span>
+                  </div>
+
+                  <div class="detail-box">
+                    <span class="detail-box-label">Dirección de Entrega</span>
+                    <strong style="font-size:0.95rem; color:var(--text-primary);">${ord.direccion_entrega}</strong>
+                    <span class="detail-box-sub">${ord.barrio ? ord.barrio + ' • ' : ''}${ord.municipio || 'Villavicencio'}</span>
+                  </div>
+
+                  <div class="detail-box">
+                    <span class="detail-box-label">${ord.notas_entrega || ord.instrucciones_entrega ? 'Nota del Cliente' : 'Facturación y Pago'}</span>
+                    ${
+                      ord.notas_entrega || ord.instrucciones_entrega
+                        ? `<strong style="font-size:0.9rem; color:var(--text-primary);">${ord.notas_entrega || ord.instrucciones_entrega}</strong>
+                           <span class="detail-box-sub">${invCode} • ${pagoDesc}</span>`
+                        : `<strong style="font-size:0.92rem; color:var(--text-primary);">${invCode} • ${pagoDesc}</strong>
+                           <span class="detail-box-sub">Total factura: ${formatCurrency(ord.total)}${ord.reembolso_estado === 'reembolsado' ? ' (Reembolsado)' : ''}</span>`
+                    }
+                  </div>
                 </div>
-                <div class="detail-box">
-                  <span class="detail-box-label">Dirección y Municipio</span>
-                  <strong>${ord.direccion_entrega}</strong> (${ord.municipio})
+
+                ${
+                  ord.entregador_nombre
+                    ? `<div class="detail-box" style="margin-top:1rem;">
+                         <span class="detail-box-label">Repartidor Responsable</span>
+                         <strong style="font-size:0.92rem; color:var(--text-primary);">${ord.entregador_nombre}</strong>
+                       </div>`
+                    : ''
+                }
+
+                ${
+                  ord.razon_cancelacion
+                    ? `<div class="detail-box" style="margin-top:1rem; border:1px solid rgba(239,68,68,0.4); background:rgba(239,68,68,0.06);">
+                         <span class="detail-box-label" style="color:#ef4444;">Motivo de Cancelación</span>
+                         <strong style="color:#ef4444; font-size:0.92rem;">${ord.razon_cancelacion}</strong>
+                       </div>`
+                    : ''
+                }
+
+                ${
+                  ord.foto_entrega_url
+                    ? `<div class="detail-box" style="margin-top:1rem;">
+                         <span class="detail-box-label">Evidencia Fotográfica de Entrega (${ord.observaciones_entregador || 'Verificado'})</span>
+                         <img src="${ord.foto_entrega_url}" alt="Entrega #${ord.id}" class="delivery-photo-preview" style="margin-top:0.5rem; border-radius:12px; max-height:220px; object-fit:cover;" />
+                       </div>`
+                    : ''
+                }
+
+                <div class="order-items-chips" style="margin-top:1.15rem; gap:0.65rem;">
+                  ${(ord.items || [])
+                    .map((i) => `<span class="order-item-chip" style="padding:0.42rem 0.85rem; font-size:0.82rem;">${i.cantidad}x ${i.nombre_producto}</span>`)
+                    .join('')}
                 </div>
-                <div class="detail-box">
-                  <span class="detail-box-label">Facturación y Medio de Pago</span>
-                  <strong>${invCode}</strong> • ${(ord.metodo_pago || 'efectivo').toUpperCase()}
-                  ${
-                    ord.reembolso_estado === 'reembolsado'
-                      ? `<span style="color:#4ade80; font-weight:800; margin-left:0.35rem;">(Reembolsado)</span>`
-                      : ''
-                  }
-                </div>
-              </div>
 
-              ${
-                ord.razon_cancelacion
-                  ? `<div class="detail-box" style="margin-top:0.75rem; border:1px solid rgba(239,68,68,0.4);">
-                       <span class="detail-box-label">Motivo de Cancelación</span>
-                       <strong>${ord.razon_cancelacion}</strong>
-                     </div>`
-                  : ''
-              }
-
-              ${
-                ord.foto_entrega_url
-                  ? `<div class="detail-box" style="margin-top:0.75rem;">
-                       <span class="detail-box-label">Evidencia Fotográfica de Entrega (${ord.observaciones_entregador || 'Verificado'})</span>
-                       <img src="${ord.foto_entrega_url}" alt="Entrega #${ord.id}" class="delivery-photo-preview" style="margin-top:0.45rem;" />
-                     </div>`
-                  : ''
-              }
-
-              <div class="order-items-chips" style="margin-top:0.75rem;">
-                ${(ord.items || [])
-                  .map((i) => `<span class="order-item-chip">${i.cantidad}x ${i.nombre_producto}</span>`)
-                  .join('')}
-              </div>
-
-              <div class="customer-order-actions-bar">
-                <span style="font-size:0.78rem; color:var(--text-secondary);">
-                  Estimado registrado: <strong>${ord.tiempo_entrega_estimado || 'Ruta programada'}</strong>
-                </span>
-                <div class="customer-order-actions-btns">
-                  <button type="button" class="btn-secondary" data-staff-view-invoice="${ord.id}">
-                    <span class="material-symbols-rounded">receipt_long</span>
-                    <span>Ver Factura Gráfica</span>
-                  </button>
-                  ${
-                    ord.estado !== 'entregado' && ord.estado !== 'cancelado'
-                      ? `<button type="button" class="btn-cancel-order" data-emp-cancel="${ord.id}">
-                           <span class="material-symbols-rounded">cancel</span>
-                           <span>Cancelar Pedido</span>
-                         </button>`
-                      : ''
-                  }
+                <div class="customer-order-actions-bar" style="margin-top:1.25rem; padding-top:1rem; border-top:1px solid var(--border-subtle);">
+                  <span style="font-size:0.82rem; color:var(--text-secondary);">
+                    Entrega estimada: <strong>${ord.tiempo_entrega_estimado || 'Ruta programada'}</strong>
+                  </span>
+                  <div class="customer-order-actions-btns">
+                    <button type="button" class="btn-secondary" data-staff-view-invoice="${ord.id}">
+                      <span class="material-symbols-rounded">receipt_long</span>
+                      <span>Ver Factura Gráfica</span>
+                    </button>
+                    ${
+                      ord.estado !== 'entregado' && ord.estado !== 'cancelado'
+                        ? `<button type="button" class="btn-cancel-order" data-emp-cancel="${ord.id}">
+                             <span class="material-symbols-rounded">cancel</span>
+                             <span>Cancelar Pedido</span>
+                           </button>`
+                        : ''
+                    }
+                  </div>
                 </div>
               </div>
             </div>
@@ -5021,6 +4935,86 @@
 
       document.getElementById('adminCatalogFormCard')?.classList.add('hidden');
       renderAdminCatalogoPanel();
+    });
+
+    // Formulario de Administrador para Vincular Correo Electrónico como Empleado
+    const newEmpForm = document.getElementById('adminNewEmployeeForm');
+    const newEmpMsg = document.getElementById('adminNewEmpMsg');
+    newEmpForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const emailInput = document.getElementById('adminNewEmpEmail');
+      const nameInput = document.getElementById('adminNewEmpName');
+      const roleSelect = document.getElementById('adminNewEmpRole');
+      const submitBtn = document.getElementById('btnAdminAddEmployee');
+
+      const email = (emailInput?.value || '').trim().toLowerCase();
+      const nombre = (nameInput?.value || '').trim();
+      const rol = roleSelect?.value || 'empleado';
+
+      if (!email || !email.includes('@')) {
+        if (newEmpMsg) {
+          newEmpMsg.style.display = 'block';
+          newEmpMsg.style.color = '#ef4444';
+          newEmpMsg.textContent = '❌ Por favor ingresa un correo electrónico válido.';
+        }
+        return;
+      }
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.7';
+      }
+
+      const usersList = getLocalUsersStore();
+      const existingUser = usersList.find((u) => (u.email || '').toLowerCase() === email);
+      if (existingUser) {
+        existingUser.rol = rol;
+        existingUser.activo = true;
+        if (nombre) existingUser.nombre_completo = nombre;
+      } else {
+        const nextId = usersList.reduce((max, u) => Math.max(max, Number(u.id) || 0), 0) + 1;
+        usersList.unshift({
+          id: nextId,
+          email,
+          nombre_completo: nombre || email.split('@')[0],
+          rol,
+          activo: true,
+          telefono: 'N/A',
+          empresa: 'Danillanos'
+        });
+      }
+      saveLocalUsersStore(usersList);
+
+      if (state.serverApiV3) {
+        try {
+          await fetch(`${CONFIG.api.baseUrl}/staff/usuarios`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+              email,
+              nombre_completo: nombre,
+              rol
+            })
+          });
+        } catch (_) {}
+      }
+
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+      }
+
+      if (newEmpMsg) {
+        newEmpMsg.style.display = 'block';
+        newEmpMsg.style.color = '#16a34a';
+        newEmpMsg.textContent = `✔ Empleado (${email}) vinculado exitosamente con rol ${rol.toUpperCase()}.`;
+        setTimeout(() => {
+          if (newEmpMsg) newEmpMsg.style.display = 'none';
+        }, 4500);
+      }
+
+      newEmpForm.reset();
+      loadAdminUsersAndRender();
     });
   }
 
