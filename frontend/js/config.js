@@ -178,7 +178,7 @@ window.DANILLANOS_CONFIG = {
       "titulo": "Papas Francesas, Criollas, Nuggets y Pulpas 100% Fruta",
       "descripcion": "Cadena de frío garantizada. Surte tu negocio de comidas rápidas con los mejores precios del Meta.",
       "precio_destacado": 17500,
-      "imagen_url": "https://images.unsplash.com/photo-1576107232684-1279f3908594?auto=format&fit=crop&w=1600&q=80",
+      "imagen_url": "https://images.unsplash.com/photo-1601599967100-f16100982063?auto=format&fit=crop&w=1600&q=80",
       "texto_boton": "Comprar ahora",
       "tipo_accion": "buy_now",
       "orden": 2
