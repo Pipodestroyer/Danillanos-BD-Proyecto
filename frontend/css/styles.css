@@ -7123,6 +7123,8 @@ body[data-page="perfil"] .brand-text-wrapper,
   flex: 1;
   white-space: normal;
   word-break: break-word;
+  background: transparent !important;
+  background-color: transparent !important;
   color: inherit !important;
 }
 
@@ -7462,40 +7464,69 @@ html[data-theme='light'] .custom-select-label {
 }
 
 [data-theme="light"] .custom-select-option,
-html[data-theme='light'] .custom-select-option,
-[data-theme="light"] .custom-select-option .custom-select-option-text,
-html[data-theme='light'] .custom-select-option .custom-select-option-text {
+html[data-theme='light'] .custom-select-option {
   color: #14171f !important;
+  background-color: transparent;
 }
 
+[data-theme="light"] .custom-select-option-text,
+html[data-theme='light'] .custom-select-option-text,
+[data-theme="light"] .custom-select-option .custom-select-option-text,
+html[data-theme='light'] .custom-select-option .custom-select-option-text {
+  color: inherit !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Hover: ilumina únicamente la fila completa, sin ningún recuadro interior */
 [data-theme="light"] .custom-select-option:hover,
 html[data-theme='light'] .custom-select-option:hover,
 [data-theme="light"] .custom-select-option:focus,
-html[data-theme='light'] .custom-select-option:focus,
-[data-theme="light"] .custom-select-option:hover .custom-select-option-text,
-html[data-theme='light'] .custom-select-option:hover .custom-select-option-text,
-[data-theme="light"] .custom-select-option:focus .custom-select-option-text,
-html[data-theme='light'] .custom-select-option:focus .custom-select-option-text {
+html[data-theme='light'] .custom-select-option:focus {
   background-color: #e5e9f2 !important;
   color: #000000 !important;
   font-weight: 700 !important;
 }
 
+[data-theme="light"] .custom-select-option:hover .custom-select-option-text,
+html[data-theme='light'] .custom-select-option:hover .custom-select-option-text,
+[data-theme="light"] .custom-select-option:focus .custom-select-option-text,
+html[data-theme='light'] .custom-select-option:focus .custom-select-option-text {
+  color: #000000 !important;
+  font-weight: 700 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Opción seleccionada: fondo en toda la pastilla con bordes redondeados, texto rojo sin recuadro interno */
 [data-theme="light"] .custom-select-option.is-selected,
-html[data-theme='light'] .custom-select-option.is-selected,
-[data-theme="light"] .custom-select-option.is-selected .custom-select-option-text,
-html[data-theme='light'] .custom-select-option.is-selected .custom-select-option-text {
+html[data-theme='light'] .custom-select-option.is-selected {
   background-color: rgba(224, 26, 44, 0.1) !important;
   color: #dc2626 !important;
   font-weight: 700 !important;
 }
 
+[data-theme="light"] .custom-select-option.is-selected .custom-select-option-text,
+html[data-theme='light'] .custom-select-option.is-selected .custom-select-option-text {
+  color: #dc2626 !important;
+  font-weight: 700 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Opción seleccionada en hover */
 [data-theme="light"] .custom-select-option.is-selected:hover,
-html[data-theme='light'] .custom-select-option.is-selected:hover,
-[data-theme="light"] .custom-select-option.is-selected:hover .custom-select-option-text,
-html[data-theme='light'] .custom-select-option.is-selected:hover .custom-select-option-text {
+html[data-theme='light'] .custom-select-option.is-selected:hover {
   background-color: rgba(224, 26, 44, 0.16) !important;
   color: #b91c1c !important;
+}
+
+[data-theme="light"] .custom-select-option.is-selected:hover .custom-select-option-text,
+html[data-theme='light'] .custom-select-option.is-selected:hover .custom-select-option-text {
+  color: #b91c1c !important;
+  font-weight: 700 !important;
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 /* ==========================================================================
