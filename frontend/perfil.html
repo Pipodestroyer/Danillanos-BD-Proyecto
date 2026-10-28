@@ -113,29 +113,12 @@
     <section class="page-block" id="cuenta-section">
       <div class="wide-auth-container" id="guestAuthContainer">
         <div class="wide-auth-info">
-          <span class="section-eyebrow">
-            <span class="material-symbols-rounded">verified</span>
-            DANILLANOS CÁRNICOS Y CONGELADOS
-          </span>
           <h1 class="page-hero-title">Bienvenido a tu Cuenta</h1>
           <p class="page-hero-desc">
             Accede a precios mayoristas y al detal, programa despachos en Villavicencio y todo el Meta, y gestiona tus pedidos en línea.
           </p>
 
-          <!-- Acceso rápido de demostración -->
-          <div class="demo-roles-box" style="margin-top: 1.5rem;">
-            <div class="demo-roles-title">
-              <span class="material-symbols-rounded">bolt</span>
-              <span>Acceso Rápido por Perfil:</span>
-            </div>
-            <div class="demo-roles-chips">
-              <button type="button" class="role-chip" data-demo-email="cliente@danillanos.com">Cliente</button>
-              <button type="button" class="role-chip" data-demo-email="empleado@danillanos.com">Empleado</button>
-              <button type="button" class="role-chip" data-demo-email="entregador@danillanos.com">Entregador</button>
-              <button type="button" class="role-chip" data-demo-email="soporte@danillanos.com">Soporte</button>
-              <button type="button" class="role-chip" data-demo-email="admin@danillanos.com">Administrador</button>
-            </div>
-          </div>
+          
         </div>
 
         <div class="wide-auth-card" id="wideAuthCard">
@@ -245,7 +228,6 @@
         <div class="logged-profile-left">
           <div class="logged-avatar-large" id="loggedAvatarLarge">C</div>
           <div class="logged-profile-text-box">
-            <span class="section-eyebrow">CLIENTE DANILLANOS</span>
             <h1 class="page-hero-title" id="loggedUserName">Nombre de Usuario</h1>
             <p class="page-hero-desc" id="loggedUserEmail">correo@danillanos.com</p>
             <p class="logged-user-extra" id="loggedUserExtra"></p>
@@ -298,10 +280,6 @@
     <section class="page-block hidden" id="mis-pedidos-section" data-profile-window="pedidos">
       <div class="block-header">
         <div>
-          <span class="section-eyebrow">
-            <span class="material-symbols-rounded">local_shipping</span>
-            DESPACHOS ACTIVOS
-          </span>
           <h2 class="section-title">Pedidos en Progreso</h2>
           <p class="section-subtitle">
             Sigue el avance de tu pedido en tiempo real. Puedes cancelarlo mientras no haya salido a reparto o contactar a Soporte.
@@ -316,21 +294,18 @@
     <section class="page-block hidden" id="direcciones-mapa-section" data-profile-window="direcciones">
       <div class="block-header">
         <div>
-          <span class="section-eyebrow">
-            <span class="material-symbols-rounded">pin_drop</span>
-            COBERTURA EN VILLAVICENCIO Y EL META
-          </span>
           <h2 class="section-title">Mis Direcciones y Empresa</h2>
           <p class="section-subtitle">
-            Selecciona tu ubicación en el mapa para agilizar tus entregas.
+            Gestiona tus datos comerciales de facturación y registra tus puntos de entrega.
           </p>
         </div>
       </div>
 
-      <!-- Tarjeta de Empresa y Datos Comerciales -->
-      <div class="surface-card company-summary-card" id="companySummaryCard" style="margin-bottom: 1.5rem;"></div>
+      <!-- Tarjeta de Empresa y Datos Comerciales Modificables Inline -->
+      <div class="surface-card company-summary-card" id="companySummaryCard" style="margin-bottom: 1.5rem; padding: 1.15rem 1.45rem;"></div>
 
-      <div class="wide-map-workspace">
+      <!-- Menú Desplegable Animado de Registro de Direcciones con Mapa -->
+      <div class="wide-map-workspace hidden" id="addressRegistrationWorkspace" style="margin-bottom: 1.5rem;">
         <div class="wide-map-column">
           <div class="meta-municipalities-bar" id="metaMunicipalitiesBar"></div>
           <div class="address-map-canvas wide-canvas" id="addressMapCanvas"></div>
@@ -345,8 +320,13 @@
         </div>
 
         <div class="wide-addresses-column">
-          <div class="surface-card">
-            <h3>Registrar Dirección</h3>
+          <div class="surface-card" style="padding: 1.35rem 1.5rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+              <h3 style="margin:0;">Registrar Nueva Dirección</h3>
+              <button type="button" class="icon-close-btn" id="btnCloseAddressWorkspace" title="Cerrar registro">
+                <span class="material-symbols-rounded">close</span>
+              </button>
+            </div>
             <p class="card-helper-text">
               Haz clic en tu ubicación en el mapa o ingresa los datos de tu sede:
             </p>
@@ -381,12 +361,18 @@
               </button>
             </form>
           </div>
+        </div>
+      </div>
 
-          <div class="surface-card" style="margin-top: 1.25rem;">
-            <h3>Direcciones Guardadas (<span id="savedAddressesCountText">0 de 5</span>)</h3>
-            <div class="saved-addresses-list" id="savedAddressesList"></div>
+      <!-- Debajo de todo: Lista de Direcciones Registradas -->
+      <div class="surface-card saved-addresses-card" id="savedAddressesCard" style="margin-top: 1.5rem; padding: 1.4rem 1.65rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:1.15rem;">
+          <div>
+            <h3 style="margin:0; font-family:'Outfit',sans-serif; font-size:1.18rem; font-weight:800;">Direcciones Guardadas (<span id="savedAddressesCountText">0 de 5</span>)</h3>
+            <p style="font-size:0.8rem; color:var(--text-secondary); margin:2px 0 0;">Tus sedes y domicilios guardados para despachos rápidos</p>
           </div>
         </div>
+        <div class="saved-addresses-list" id="savedAddressesList"></div>
       </div>
     </section>
 
@@ -394,10 +380,6 @@
     <section class="page-block hidden" id="historial-compras-section" data-profile-window="historial">
       <div class="block-header">
         <div>
-          <span class="section-eyebrow">
-            <span class="material-symbols-rounded">receipt_long</span>
-            REGISTRO COMERCIAL Y FACTURACIÓN
-          </span>
           <h2 class="section-title">Historial de Compras y Facturas</h2>
           <p class="section-subtitle">
             Filtra y consulta tus pedidos entregados, cancelados y comprobantes electrónicos.
@@ -446,10 +428,6 @@
     <section class="page-block hidden" id="soporte-cliente" data-profile-window="soporte">
       <div class="block-header">
         <div>
-          <span class="section-eyebrow">
-            <span class="material-symbols-rounded">support_agent</span>
-            ATENCIÓN PERSONALIZADA
-          </span>
           <h2 class="section-title">Centro de Soporte y Mis Tickets</h2>
           <p class="section-subtitle">
             Selecciona o filtra tu pedido o factura, adjunta evidencia si lo requieres y conversa con nuestro equipo.
@@ -576,59 +554,7 @@
 
   </main>
 
-  <!-- MODAL DE EDICIÓN DE PERFIL Y DATOS DE FACTURACIÓN COMERCIAL -->
-  <div class="modal-backdrop hidden" id="editProfileModalBackdrop">
-    <div class="modal-card surface-card edit-profile-dialog">
-      <div class="modal-header">
-        <div class="modal-title-wrap">
-          <span class="material-symbols-rounded modal-title-icon" style="color:var(--brand-red);">badge</span>
-          <div>
-            <h3 class="modal-title">Editar Información de la Cuenta</h3>
-            <p class="modal-subtitle">Modifica tus datos comerciales para pedidos y facturación electrónica.</p>
-          </div>
-        </div>
-        <button type="button" class="icon-close-btn" id="btnCloseEditProfileModal" aria-label="Cerrar modal">
-          <span class="material-symbols-rounded">close</span>
-        </button>
-      </div>
-      <form id="editProfileForm" class="modal-form">
-        <div class="form-group">
-          <label for="editProfileNombre">Nombre Completo / Titular *</label>
-          <input type="text" id="editProfileNombre" class="modal-input" placeholder="Nombre completo o titular" required />
-        </div>
-        <div class="form-group">
-          <label for="editProfileEmpresa">Empresa / Negocio (Opcional)</label>
-          <input type="text" id="editProfileEmpresa" class="modal-input" placeholder="Ej: Restaurante El Asador S.A.S." />
-        </div>
-        <div class="form-row-2">
-          <div class="form-group">
-            <label for="editProfileTipoDoc">Tipo de Documento</label>
-            <select id="editProfileTipoDoc" class="modal-input">
-              <option value="CC">Cédula de Ciudadanía (CC)</option>
-              <option value="NIT">NIT (Empresas)</option>
-              <option value="CE">Cédula de Extranjería (CE)</option>
-              <option value="PP">Pasaporte</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="editProfileNumDoc">Número de Identificación</label>
-            <input type="text" id="editProfileNumDoc" class="modal-input" placeholder="Ej: 1121890456" />
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="editProfileTelefono">Teléfono de Contacto Principal *</label>
-          <input type="tel" id="editProfileTelefono" class="modal-input" placeholder="Ej: 310 234 5678" required />
-        </div>
-        <div class="modal-actions-row" style="display:flex; justify-content:flex-end; gap:0.75rem; margin-top:1.25rem;">
-          <button type="button" class="btn-secondary" id="btnCancelEditProfile">Cancelar</button>
-          <button type="submit" class="btn-primary" id="btnSaveProfile">
-            <span class="material-symbols-rounded">save</span>
-            <span>Guardar Cambios</span>
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
+  
 
   <!-- MODAL VISOR DE FACTURA ELECTRÓNICA GRÁFICA -->
   <div class="invoice-modal-backdrop hidden" id="invoiceModalBackdrop">

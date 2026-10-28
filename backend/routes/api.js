@@ -806,23 +806,45 @@ router.patch('/auth/perfil', async (req, res) => {
       user: safeUser
     });
   } catch (error) {
-    // Si la BD externa no está activa, actualizamos el fallback en memoria
-    const memUser = usuariosFallback.find((u) => Number(u.id) === Number(authUser.id));
-    if (memUser) {
+    // Si la BD externa no está activa o el usuario no existe en MySQL, actualizamos el fallback en memoria
+    let memUser = usuariosFallback.find((u) =>
+      Number(u.id) === Number(authUser.id) ||
+      (authUser.email && u.email_enc && decryptData(u.email_enc) === authUser.email) ||
+      (authUser.username && u.username === authUser.username)
+    );
+
+    if (!memUser) {
+      memUser = {
+        id: authUser.id || Date.now(),
+        username: authUser.username || cleanNombre,
+        nombre_completo_enc: nombreEnc,
+        nombres_enc: encryptData(cleanNombre.split(" ")[0] || cleanNombre),
+        apellidos_enc: encryptData(cleanNombre.split(" ").slice(1).join(" ") || ""),
+        empresa_enc: empresaEnc,
+        tipo_documento: cleanTipoDoc,
+        numero_documento_enc: numDocEnc,
+        email_hash: authUser.email ? hashLookup(authUser.email) : hashLookup(`${authUser.username || "user"}@danillanos.com`),
+        email_enc: authUser.email ? encryptData(authUser.email) : encryptData(`${authUser.username || "user"}@danillanos.com`),
+        telefono_enc: telEnc,
+        avatar_url: authUser.avatar_url || null,
+        rol: authUser.rol || "cliente",
+        activo: 1
+      };
+      usuariosFallback.push(memUser);
+    } else {
       memUser.nombre_completo_enc = nombreEnc;
       memUser.empresa_enc = empresaEnc;
       memUser.tipo_documento = cleanTipoDoc;
       memUser.numero_documento_enc = numDocEnc;
       memUser.telefono_enc = telEnc;
-      return res.json({
-        ok: true,
-        source: 'fallback',
-        message: 'Información de perfil actualizada exitosamente.',
-        user: formatSafeUser(memUser)
-      });
     }
 
-    return res.status(500).json({ ok: false, error: 'No se pudo actualizar la información del perfil.' });
+    return res.json({
+      ok: true,
+      source: 'fallback',
+      message: 'Información de perfil actualizada exitosamente.',
+      user: formatSafeUser(memUser)
+    });
   }
 });
 

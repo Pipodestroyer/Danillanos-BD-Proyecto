@@ -131,7 +131,6 @@
         <div class="staff-view-section hidden" id="panelViewAdmin">
           <div class="staff-panel-header">
             <div>
-              <span class="staff-eyebrow">GERENCIA DANILLANOS</span>
               <h2>Resumen de Ventas y Operación</h2>
             </div>
             <button type="button" class="btn-refresh-staff" id="btnAdminRefresh">
@@ -159,7 +158,6 @@
           <div class="role-history-block" id="adminOrdersHistorySection">
             <div class="role-history-header">
               <div>
-                <span class="staff-eyebrow">AUDITORÍA Y REGISTRO COMERCIAL</span>
                 <h3>Historial General de Pedidos y Facturas</h3>
               </div>
               <div class="filter-results-meta" id="adminOrdersSummaryBadge"></div>
@@ -210,7 +208,6 @@
         <div class="staff-view-section hidden" id="panelViewCatalogo">
           <div class="staff-panel-header">
             <div>
-              <span class="staff-eyebrow">ADMINISTRACIÓN COMERCIAL</span>
               <h2>Gestión de Catálogo (<span id="adminCatalogTotalBadge">0</span> productos)</h2>
             </div>
             <button type="button" class="btn-primary" id="btnOpenNewProductForm">
@@ -301,24 +298,32 @@
         <div class="staff-view-section hidden" id="panelViewUsuarios">
           <div class="staff-panel-header">
             <div>
-              <span class="staff-eyebrow">CONTROL DE PERSONAL Y ACCESOS</span>
               <h2>Cuentas de Empleados y Asignación de Roles</h2>
             </div>
+            <button type="button" class="btn-primary" id="btnOpenNewEmployeeForm">
+              <span class="material-symbols-rounded">person_add</span>
+              <span>Nuevo Empleado</span>
+            </button>
           </div>
 
-          <!-- Formulario rápido para añadir nuevos empleados por correo -->
-          <div class="surface-card admin-new-employee-card" style="margin-bottom: 1.5rem; padding: 1.35rem 1.65rem;">
-            <div style="display:flex; align-items:center; gap:0.65rem; margin-bottom: 0.85rem;">
-              <span class="material-symbols-rounded" style="color:var(--brand-red); font-size:1.6rem;">person_add</span>
-              <div>
-                <h3 style="font-family:'Outfit',sans-serif; font-size:1.15rem; font-weight:800; margin:0;">Añadir Nuevo Empleado por Correo Electrónico</h3>
-                <p style="font-size:0.8rem; color:var(--text-secondary); margin:2px 0 0;">
-                  Vincule el correo o cuenta de Google del empleado para otorgarle acceso inmediato con su rol correspondiente.
-                </p>
+          <!-- Formulario para vincular nuevos empleados por correo (desplegable) -->
+          <div class="surface-card admin-new-employee-card hidden" id="adminEmployeeFormCard" style="margin-bottom: 1.5rem; padding: 1.35rem 1.65rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
+              <div style="display:flex; align-items:center; gap:0.65rem;">
+                <span class="material-symbols-rounded" style="color:var(--brand-red); font-size:1.6rem;">person_add</span>
+                <div>
+                  <h3 style="font-family:'Outfit',sans-serif; font-size:1.15rem; font-weight:800; margin:0;">Vincular Nuevo Empleado</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary); margin:2px 0 0;">
+                    Vincule el correo o cuenta de Google del empleado para otorgarle acceso inmediato con su rol correspondiente.
+                  </p>
+                </div>
               </div>
+              <button type="button" class="icon-close-btn" id="btnCloseEmployeeForm" title="Cerrar formulario">
+                <span class="material-symbols-rounded">close</span>
+              </button>
             </div>
 
-            <form id="adminNewEmployeeForm" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) auto; gap:0.75rem; align-items:end;">
+            <form id="adminNewEmployeeForm" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) auto auto; gap:0.75rem; align-items:end;">
               <div class="form-group">
                 <label for="adminNewEmpEmail" style="font-size:0.78rem; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">
                   Correo Electrónico (o Cuenta de Google) *
@@ -360,8 +365,12 @@
                 <span class="material-symbols-rounded">person_add</span>
                 <span>Vincular Empleado</span>
               </button>
+
+              <button type="button" class="btn-secondary" id="btnCancelEmployeeForm" style="height:46px; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; padding:0 1.1rem;">
+                <span>Cancelar</span>
+              </button>
             </form>
-            <div id="adminNewEmpMsg" style="font-size:0.82rem; margin-top:0.65rem; display:none;"></div>
+            <div id="adminNewEmpMsg" style="display:none; margin-top:0.65rem; font-size:0.85rem; font-weight:600;"></div>
           </div>
 
           <div class="staff-orders-list" id="adminUsersListContainer"></div>
@@ -373,7 +382,6 @@
         <div class="staff-view-section hidden" id="panelViewEmpleado">
           <div class="staff-panel-header">
             <div>
-              <span class="staff-eyebrow">DESPACHO Y BODEGA</span>
               <h2>Pedidos por Confirmar y Asignación de Entregador</h2>
             </div>
             <button type="button" class="btn-refresh-staff" id="btnEmpleadoRefresh">
@@ -406,7 +414,6 @@
           <div class="role-history-block" id="empleadoHistorySection">
             <div class="role-history-header">
               <div>
-                <span class="staff-eyebrow">REGISTRO DE BODEGA</span>
                 <h3>Historial de Pedidos Aceptados y Facturas</h3>
               </div>
               <div class="filter-results-meta" id="empHistorySummaryBadge"></div>
@@ -456,7 +463,6 @@
         <div class="staff-view-section hidden" id="panelViewEntregador">
           <div class="staff-panel-header">
             <div>
-              <span class="staff-eyebrow">LOGÍSTICA DE REPARTO</span>
               <h2>Ruta Activa y Entregas del Día</h2>
             </div>
             <button type="button" class="btn-refresh-staff" id="btnEntregadorRefresh">
@@ -481,7 +487,6 @@
           <div class="role-history-block" id="driverHistorySection">
             <div class="role-history-header">
               <div>
-                <span class="staff-eyebrow">ENTREGAS COMPLETADAS</span>
                 <h3>Historial de Pedidos Entregados y Comprobantes</h3>
               </div>
               <div class="filter-results-meta" id="driverHistorySummaryBadge"></div>
@@ -521,7 +526,6 @@
         <div class="staff-view-section hidden" id="panelViewSoporte">
           <div class="staff-panel-header">
             <div>
-              <span class="staff-eyebrow">ATENCIÓN AL CLIENTE Y AUDITORÍA</span>
               <h2>Centro de Tickets, Facturas y Pedidos</h2>
             </div>
             <button type="button" class="btn-refresh-staff" id="btnSoporteRefresh">
@@ -570,7 +574,6 @@
           <div class="role-history-block" id="soporteOrdersHistorySection">
             <div class="role-history-header">
               <div>
-                <span class="staff-eyebrow">CONSULTA RÁPIDA DE PEDIDOS Y FACTURAS</span>
                 <h3>Historial de Pedidos, Facturas, Evidencias y Reembolsos</h3>
               </div>
               <div class="filter-results-meta" id="soporteOrdersSummaryBadge"></div>

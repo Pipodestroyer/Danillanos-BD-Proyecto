@@ -221,67 +221,15 @@ function generateSchemaSql() {
   const seedUsers = [
     {
       id: 1,
-      username: 'Restaurante El Llanerazo',
-      nombre_completo: 'Carlos Andrés Méndez (Cliente)',
-      nombres: 'Carlos Andrés',
-      apellidos: 'Méndez',
-      empresa: 'Restaurante El Llanerazo',
+      username: 'Administrador Danillanos',
+      nombre_completo: 'Administrador General Danillanos',
+      nombres: 'Administrador',
+      apellidos: 'Danillanos',
+      empresa: 'Danillanos Cárnicos y Congelados S.A.S.',
       tipo_documento: 'NIT',
-      numero_documento: '901452881-2',
-      email: 'cliente@danillanos.com',
-      telefono: '3114567890',
-      rol: 'cliente'
-    },
-    {
-      id: 2,
-      username: 'Laura Gómez',
-      nombre_completo: 'Laura Marcela Gómez Rojas',
-      nombres: 'Laura Marcela',
-      apellidos: 'Gómez Rojas',
-      empresa: 'Danillanos S.A.S.',
-      tipo_documento: 'CC',
-      numero_documento: '1121889012',
-      email: 'empleado@danillanos.com',
-      telefono: '3129876543',
-      rol: 'empleado'
-    },
-    {
-      id: 3,
-      username: 'Diego Vargas',
-      nombre_completo: 'Diego Alejandro Vargas Castro',
-      nombres: 'Diego Alejandro',
-      apellidos: 'Vargas Castro',
-      empresa: 'Danillanos S.A.S.',
-      tipo_documento: 'CC',
-      numero_documento: '1121904511',
-      email: 'entregador@danillanos.com',
-      telefono: '3145558899',
-      rol: 'entregador'
-    },
-    {
-      id: 4,
-      username: 'Sofía Martínez',
-      nombre_completo: 'Sofía Martínez Atención Soporte',
-      nombres: 'Sofía',
-      apellidos: 'Martínez',
-      empresa: 'Danillanos S.A.S.',
-      tipo_documento: 'CC',
-      numero_documento: '1121940123',
-      email: 'soporte@danillanos.com',
-      telefono: '3152223344',
-      rol: 'soporte'
-    },
-    {
-      id: 5,
-      username: 'Gerencia Danillanos',
-      nombre_completo: 'Juan Fernando Galindo (Administrador)',
-      nombres: 'Juan Fernando',
-      apellidos: 'Galindo',
-      empresa: 'Danillanos S.A.S.',
-      tipo_documento: 'CC',
-      numero_documento: '1121800999',
+      numero_documento: '900000000-1',
       email: 'admin@danillanos.com',
-      telefono: '3101112233',
+      telefono: '3109998877',
       rol: 'admin'
     }
   ];
@@ -295,14 +243,8 @@ function generateSchemaSql() {
   );
 
   // Insertar Direcciones de Ejemplo para el Cliente 1 (En Villavicencio y en Acacías - Meta)
-  const dirValues = [
-    `  (1, 1, 'Restaurante Principal', ${sqlEscape(encryptData('Av. 40 # 26C - 15 Barrio Siete de Agosto'))}, 'Frente al parque', 'Villavicencio', 'Meta', 4.1392000, -73.6351000, 1, 'Envío el mismo día (Villavicencio)', 1)`,
-    `  (2, 1, 'Sucursal Primavera', ${sqlEscape(encryptData('Calle 35 # 41 - 20 Barrio Barzal Alto'))}, 'Local 2 Esquina', 'Villavicencio', 'Meta', 4.1468000, -73.6412000, 1, 'Envío el mismo día (Villavicencio)', 0)`,
-    `  (3, 1, 'Sede Campestre Acacías', ${sqlEscape(encryptData('Carrera 23 # 14 - 08 Centro Acacías'))}, 'Bodega Roja', 'Acacías', 'Meta', 3.9869000, -73.7579000, 0, 'Llega el 00 de octubre', 0)`
-  ];
-  lines.push(
-    `INSERT INTO usuario_direcciones (id, usuario_id, etiqueta, direccion_enc, barrio_referencia, municipio, departamento, lat, lng, es_villavicencio, tiempo_entrega_estimado, es_principal) VALUES\n${dirValues.join(',\n')};\n`
-  );
+  const dirValues = [];
+  // Sin direcciones semilla (bd limpia para clientes reales)
 
   // Insertar Pedidos de Ejemplo en distintos estados para demostrar todos los paneles de inmediato
   const samplePhotoSvg =
@@ -317,48 +259,12 @@ function generateSchemaSql() {
       `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320" viewBox="0 0 480 320"><rect width="480" height="320" fill="#181c24"/><rect x="24" y="24" width="432" height="272" rx="16" fill="#232834" stroke="#f59e0b" stroke-width="3"/><text x="240" y="120" fill="#ffffff" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="middle">FOTO ENVIADA POR EL CLIENTE</text><text x="240" y="160" fill="#fbbf24" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">Lote #2026-10 • Consulta Fecha de Vencimiento</text><text x="240" y="195" fill="#9ca5b4" font-family="sans-serif" font-size="14" text-anchor="middle">Adjunto desde el Centro de Soporte Danillanos</text></svg>`
     );
 
-  const pedidosValues = [
-    // Pedido 1: Pendiente (Punto 1: Recibido - Para que el Empleado General pueda confirmarlo o cancelarlo)
-    `  (1, 1, ${sqlEscape(encryptData('Carlos Andrés Méndez'))}, ${sqlEscape(encryptData('3114567890'))}, ${sqlEscape(encryptData('Av. 40 # 26C - 15 Barrio Siete de Agosto'))}, 'Villavicencio', 4.1392000, -73.6351000, 1, 'Envío el mismo día (Villavicencio)', 'tarjeta', 'PAY-TC-98231', 122900.00, 'pendiente', 'Por favor entregar por la entrada de proveedores antes de las 4pm.', NULL, 'no_aplica', NULL, NULL, NULL, NULL, NULL)`,
-    // Pedido 2: Pendiente fuera de Villavicencio (Acacías - Meta -> Llega el 00 de octubre)
-    `  (2, 1, ${sqlEscape(encryptData('Administrador Sede Acacías'))}, ${sqlEscape(encryptData('3105559922'))}, ${sqlEscape(encryptData('Carrera 23 # 14 - 08 Centro Acacías'))}, 'Acacías', 3.9869000, -73.7579000, 0, 'Llega el 00 de octubre', 'pse', 'PSE-BAN-44120', 148500.00, 'pendiente', 'Llamar 15 minutos antes de llegar al municipio.', NULL, 'no_aplica', NULL, NULL, NULL, NULL, NULL)`,
-    // Pedido 3: En Camino / En Reparto (Punto 3: En Reparto - Parada actual del Entregador)
-    `  (3, 1, ${sqlEscape(encryptData('Chef Mauricio Rincón - Burger House'))}, ${sqlEscape(encryptData('3158887766'))}, ${sqlEscape(encryptData('Calle 35 # 41 - 20 Barrio Barzal Alto'))}, 'Villavicencio', 4.1468000, -73.6412000, 1, 'Envío el mismo día (Villavicencio)', 'nequi', 'NEQ-31588877', 96400.00, 'en_camino', 'Timbrar en el segundo piso, cocina principal.', NULL, 'no_aplica', 3, NULL, NULL, NOW(), NULL)`,
-    // Pedido 4: En Proceso (Punto 2: Confirmado en Bodega - Segunda parada en el mapa del Entregador)
-    `  (4, 1, ${sqlEscape(encryptData('Asadero Brasa Llanera - Porfía'))}, ${sqlEscape(encryptData('3184441100'))}, ${sqlEscape(encryptData('Calle 51 Sur # 43 - 10 Ciudad Porfía'))}, 'Villavicencio', 4.0985000, -73.6682000, 1, 'Envío el mismo día (Villavicencio)', 'efectivo', 'EFE-CONTRAENTREGA', 168000.00, 'en_proceso', 'Pagan en efectivo exacto al recibir las costillas.', NULL, 'no_aplica', 3, NULL, NULL, NOW(), NULL)`,
-    // Pedido 5: Entregado con Foto tomada por el Entregador (Punto 4: Entregado - Visible en Soporte)
-    `  (5, 1, ${sqlEscape(encryptData('Pizzería & Rápidas La Grama'))}, ${sqlEscape(encryptData('3207771234'))}, ${sqlEscape(encryptData('Calle 44 # 30 - 18 Barrio La Grama'))}, 'Villavicencio', 4.1562000, -73.6385000, 1, 'Envío el mismo día (Villavicencio)', 'bancolombia', 'BCO-QR-77510', 89300.00, 'entregado', 'Dejar en recepción con sello.', NULL, 'no_aplica', 3, 'Entregado a tiempo y verificada temperatura con el encargado.', ${sqlEscape(samplePhotoSvg)}, NOW(), NOW())`
-  ];
-  lines.push(
-    `INSERT INTO pedidos (id, usuario_id, nombre_recibe_enc, telefono_cliente_enc, direccion_entrega_enc, municipio, lat, lng, es_villavicencio, tiempo_entrega_estimado, metodo_pago, referencia_pago, total, estado, observaciones_cliente, razon_cancelacion, reembolso_estado, entregador_id, observaciones_entregador, foto_entrega_url, fecha_confirmacion, fecha_entrega) VALUES\n${pedidosValues.join(',\n')};\n`
-  );
+  const pedidosValues = [];
+  // Sin pedidos semilla (bd limpia para clientes reales)
 
   // Items de los pedidos semilla
-  const itemsValues = [
-    `  (1, 24, 'HB LLANERO CAJA X30UNID 85GR', 1, 51400.00, 51400.00)`,
-    `  (1, 52, 'PAPA FRANCESA IMPORTADA X 2.5 KG', 2, 17500.00, 35000.00)`,
-    `  (1, 106, 'SALSA BBQ X GALON RIO GRANDE', 1, 28500.00, 28500.00)`,
-    `  (1, 188, 'ICOPOR J1 X20 UNIDADES', 1, 8000.00, 8000.00)`,
-
-    `  (2, 17, 'COSTILLA CARAMELO 3 KILOS', 1, 84000.00, 84000.00)`,
-    `  (2, 159, 'ALIMENTEK MAYO TOCINETA X900 GR', 2, 19000.00, 38000.00)`,
-    `  (2, 6, 'CHORIZO CUNCIA X 10', 1, 26500.00, 26500.00)`,
-
-    `  (3, 21, 'HAMB. LLANERA X 10 UND X 90 GRS (cuadrada)', 2, 20200.00, 40400.00)`,
-    `  (3, 40, 'PAN HAMBURGUESA ARTESANAL BIMBO X 10 UND', 2, 12900.00, 25800.00)`,
-    `  (3, 165, 'ALIMENTEK QUESO CHEDDAR X900 GR', 1, 17700.00, 17700.00)`,
-    `  (3, 31, 'SALCHICHA DEL RANCHO X 15 UND', 1, 12500.00, 12500.00)`,
-
-    `  (4, 17, 'COSTILLA CARAMELO 3 KILOS', 2, 84000.00, 168000.00)`,
-
-    `  (5, 62, 'NUGGETS X60 UNIDADES', 1, 36900.00, 36900.00)`,
-    `  (5, 52, 'PAPA FRANCESA IMPORTADA X 2.5 KG', 2, 17500.00, 35000.00)`,
-    `  (5, 137, 'SALSA ROSADA SALSABOR KILO', 1, 7700.00, 7700.00)`,
-    `  (5, 204, 'OBLEA MEDIANA', 1, 9700.00, 9700.00)`
-  ];
-  lines.push(
-    `INSERT INTO pedido_items (pedido_id, producto_id, nombre_producto, cantidad, precio_unitario, subtotal) VALUES\n${itemsValues.join(',\n')};\n`
-  );
+  const itemsValues = [];
+  // Sin items semilla
 
   // Ticket de ejemplo para el rol Soporte (con imagen adjunta del cliente)
   lines.push(

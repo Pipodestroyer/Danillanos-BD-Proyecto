@@ -14,6 +14,32 @@
   const CONFIG = window.DANILLANOS_CONFIG;
   const CURRENT_PAGE = document.body.getAttribute('data-page') || 'store';
 
+    // Limpieza proactiva de cuentas semilla obsoletas (dejar solo 1 cuenta de administrador)
+  try {
+    const legacyEmails = [
+      'cliente@danillanos.com',
+      'empleado@danillanos.com',
+      'entregador@danillanos.com',
+      'entregador2@danillanos.com',
+      'soporte@danillanos.com'
+    ];
+    const rawStoredU =
+      sessionStorage.getItem('danillanos_user') ||
+      localStorage.getItem('danillanos_user');
+    if (rawStoredU) {
+      const uObj = JSON.parse(rawStoredU);
+      if (uObj && legacyEmails.includes(uObj.email)) {
+        sessionStorage.removeItem('danillanos_token');
+        sessionStorage.removeItem('danillanos_user');
+        localStorage.removeItem('danillanos_token');
+        localStorage.removeItem('danillanos_user');
+        localStorage.removeItem('danillanos_users_store');
+        localStorage.removeItem('danillanos_tickets_store');
+        localStorage.removeItem('danillanos_orders_overrides');
+      }
+    }
+  } catch (_) {}
+
   const state = {
     theme: localStorage.getItem('danillanos_theme') || 'dark',
     token:
@@ -233,6 +259,7 @@
 
     renderSharedHeaderAuthUI();
     initMobileHamburgerDrawer();
+    enhanceAllCustomSelects();
     initAutocompleteSearchBar();
     initSharedCartDrawer();
   }
@@ -732,28 +759,28 @@
             <span class="material-symbols-rounded dropdown-item-icon">badge</span>
             <div class="dropdown-item-content">
               <span class="dropdown-item-title">Mi Perfil y Cuenta</span>
-              <span class="dropdown-item-desc">Datos encriptados con AES-256</span>
+              <span class="dropdown-item-desc">Información y seguridad de tu cuenta</span>
             </div>
           </a>
           <a href="perfil.html#direcciones-mapa-section" class="dropdown-item">
             <span class="material-symbols-rounded dropdown-item-icon">add_location_alt</span>
             <div class="dropdown-item-content">
               <span class="dropdown-item-title">Mis Direcciones (${state.direcciones.length}/5)</span>
-              <span class="dropdown-item-desc">Mapa interactivo con autorelleno</span>
+              <span class="dropdown-item-desc">Gestión de direcciones y entregas</span>
             </div>
           </a>
           <a href="perfil.html#mis-pedidos-section" class="dropdown-item">
             <span class="material-symbols-rounded dropdown-item-icon">local_shipping</span>
             <div class="dropdown-item-content">
               <span class="dropdown-item-title">Mis Pedidos en Progreso</span>
-              <span class="dropdown-item-desc">Línea de progreso de 4 etapas</span>
+              <span class="dropdown-item-desc">Seguimiento de pedidos en tiempo real</span>
             </div>
           </a>
           <button type="button" class="dropdown-item" id="headerLogoutBtn">
             <span class="material-symbols-rounded dropdown-item-icon">logout</span>
             <div class="dropdown-item-content">
               <span class="dropdown-item-title">Cerrar Sesión</span>
-              <span class="dropdown-item-desc">Volver a modo visitante</span>
+              <span class="dropdown-item-desc">Cerrar sesión de forma segura</span>
             </div>
           </button>
         `;
@@ -1006,6 +1033,7 @@
           Inicia sesión o crea tu cuenta para gestionar tus direcciones y realizar pedidos.
         </div>
       `;
+    enhanceAllCustomSelects(box);
       if (checkoutBtn) checkoutBtn.setAttribute('href', 'perfil.html#cuenta-section');
       if (checkoutText) checkoutText.textContent = 'Iniciar Sesión para Hacer Pedido';
       return;
@@ -1076,6 +1104,28 @@
     const badge = document.getElementById('cartBadge');
     const subtotalEl = document.getElementById('cartSubtotalValue');
     const container = document.getElementById('cartItemsContainer');
+    const checkoutBtn = document.getElementById('btnGoToCheckoutPage');
+    const checkoutText = document.getElementById('checkoutBtnText');
+    const isCartEmpty = !Array.isArray(state.cart) || state.cart.length === 0;
+
+    if (checkoutBtn) {
+      if (isCartEmpty) {
+        checkoutBtn.classList.add('is-disabled');
+        checkoutBtn.setAttribute('aria-disabled', 'true');
+        checkoutBtn.removeAttribute('href');
+        if (checkoutText) checkoutText.textContent = 'Carrito Vacío';
+      } else {
+        checkoutBtn.classList.remove('is-disabled');
+        checkoutBtn.removeAttribute('aria-disabled');
+        if (!state.user) {
+          checkoutBtn.setAttribute('href', 'perfil.html#cuenta-section');
+          if (checkoutText) checkoutText.textContent = 'Iniciar Sesión para Pagar';
+        } else {
+          checkoutBtn.setAttribute('href', 'pagos.html');
+          if (checkoutText) checkoutText.textContent = 'Continuar a la Página de Pagos';
+        }
+      }
+    }
 
     if (badge) badge.textContent = String(totalUnits);
     if (subtotalEl) subtotalEl.textContent = formatCurrency(subtotal);
@@ -1931,74 +1981,14 @@
   const DEFAULT_STAFF_USERS = [
     {
       id: 1,
-      username: 'Carlos Andrés Méndez',
-      nombre_completo: 'Carlos Andrés Méndez (Cliente)',
-      empresa: 'Restaurante El Corral Llanero',
+      username: 'Administrador Danillanos',
+      nombre_completo: 'Administrador General Danillanos',
+      empresa: 'Danillanos Cárnicos y Congelados S.A.S.',
       tipo_documento: 'NIT',
-      numero_documento: '900412890-1',
-      email: 'cliente@danillanos.com',
-      telefono: '3114567890',
-      rol: 'cliente',
-      activo: true
-    },
-    {
-      id: 2,
-      username: 'Laura Valentina Gómez',
-      nombre_completo: 'Laura Valentina Gómez (Empleado General)',
-      empresa: 'Danillanos Sede Principal',
-      tipo_documento: 'CC',
-      numero_documento: '1121884512',
-      email: 'empleado@danillanos.com',
-      telefono: '3129876543',
-      rol: 'empleado',
-      activo: true
-    },
-    {
-      id: 3,
-      username: 'Diego Alejandro Vargas',
-      nombre_completo: 'Diego Alejandro Vargas (Entregador)',
-      empresa: 'Logística Danillanos',
-      tipo_documento: 'CC',
-      numero_documento: '1121902341',
-      email: 'entregador@danillanos.com',
-      telefono: '3142223344',
-      rol: 'entregador',
-      activo: true
-    },
-    {
-      id: 4,
-      username: 'Camila Andrea Pardo',
-      nombre_completo: 'Camila Andrea Pardo (Soporte)',
-      empresa: 'Centro de Soporte Danillanos',
-      tipo_documento: 'CC',
-      numero_documento: '1121776120',
-      email: 'soporte@danillanos.com',
-      telefono: '3156667788',
-      rol: 'soporte',
-      activo: true
-    },
-    {
-      id: 5,
-      username: 'Juan Fernando Galindo',
-      nombre_completo: 'Juan Fernando Galindo (Administrador)',
-      empresa: 'Gerencia Danillanos',
-      tipo_documento: 'CC',
-      numero_documento: '1121550987',
+      numero_documento: '900000000-1',
       email: 'admin@danillanos.com',
       telefono: '3109998877',
       rol: 'admin',
-      activo: true
-    },
-    {
-      id: 6,
-      username: 'Andrés Felipe Castro',
-      nombre_completo: 'Andrés Felipe Castro (Entregador Ruta Norte)',
-      empresa: 'Logística Danillanos',
-      tipo_documento: 'CC',
-      numero_documento: '1121945610',
-      email: 'entregador2@danillanos.com',
-      telefono: '3164455667',
-      rol: 'entregador',
       activo: true
     }
   ];
@@ -2008,7 +1998,16 @@
       const raw = localStorage.getItem('danillanos_users_store');
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        const hasLegacySeeds =
+          Array.isArray(parsed) &&
+          parsed.some(
+            (u) =>
+              u.email === 'cliente@danillanos.com' ||
+              u.email === 'empleado@danillanos.com' ||
+              u.email === 'entregador@danillanos.com' ||
+              u.email === 'soporte@danillanos.com'
+          );
+        if (!hasLegacySeeds && Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch (_) {}
     localStorage.setItem('danillanos_users_store', JSON.stringify(DEFAULT_STAFF_USERS));
@@ -2042,169 +2041,7 @@
     });
   }
 
-  const DEFAULT_STAFF_ORDERS = [
-    {
-      id: 1,
-      usuario_id: 1,
-      nombre_recibe: 'Carlos Andrés Méndez (Restaurante La Brasa Llanera)',
-      telefono_cliente: '3102345678',
-      direccion_entrega: 'Calle 38 # 32-14 Barrio Centro',
-      municipio: 'Villavicencio',
-      lat: 4.1482,
-      lng: -73.6352,
-      es_villavicencio: true,
-      tiempo_entrega_estimado: 'Envío el mismo día (Villavicencio)',
-      metodo_pago: 'pse',
-      referencia_pago: 'PSE-984412',
-      total: 412000,
-      estado: 'pendiente',
-      observaciones_cliente: 'Entregar por la entrada de cocina antes de las 4:00 PM.',
-      razon_cancelacion: null,
-      reembolso_estado: 'no_aplica',
-      entregador_id: 3,
-      entregador_nombre: 'Diego Alejandro Vargas',
-      creado_en: '2026-10-25T13:10:00.000Z',
-      items: [
-        {
-          producto_id: 49,
-          nombre_producto: 'PAPA FRANCESA 9X9 CONGELADA CAJA X 10 KILOS',
-          cantidad: 2,
-          precio_unitario: 105000,
-          subtotal: 210000
-        },
-        {
-          producto_id: 13,
-          nombre_producto: 'COSTILLA AHUMADA DE CERDO POR KILO',
-          cantidad: 4,
-          precio_unitario: 25000,
-          subtotal: 100000
-        },
-        {
-          producto_id: 131,
-          nombre_producto: 'SALSA DE TOMATE RIO GRANDE PAQUETE X 4000 GR',
-          cantidad: 6,
-          precio_unitario: 17000,
-          subtotal: 102000
-        }
-      ]
-    },
-    {
-      id: 2,
-      usuario_id: 1,
-      nombre_recibe: 'Carlos Andrés Méndez (Sucursal Acacías)',
-      telefono_cliente: '3102345678',
-      direccion_entrega: 'Carrera 17 # 12-40 Centro Acacías',
-      municipio: 'Acacías',
-      lat: 3.9879,
-      lng: -73.7597,
-      es_villavicencio: false,
-      tiempo_entrega_estimado: 'Llega el 00 de octubre',
-      metodo_pago: 'tarjeta',
-      referencia_pago: 'CARD-550192',
-      total: 245000,
-      estado: 'en_camino',
-      observaciones_cliente: 'Llamar 10 minutos antes de llegar.',
-      razon_cancelacion: null,
-      reembolso_estado: 'no_aplica',
-      entregador_id: 3,
-      entregador_nombre: 'Diego Alejandro Vargas',
-      creado_en: '2026-10-25T11:45:00.000Z',
-      items: [
-        {
-          producto_id: 5,
-          nombre_producto: 'CHORIZO SANTARROSANO PAQUETE X 10 UNID',
-          cantidad: 10,
-          precio_unitario: 16500,
-          subtotal: 165000
-        },
-        {
-          producto_id: 62,
-          nombre_producto: 'PULPA DE MARACUYA X 1000 GR',
-          cantidad: 8,
-          precio_unitario: 10000,
-          subtotal: 80000
-        }
-      ]
-    },
-    {
-      id: 3,
-      usuario_id: 1,
-      nombre_recibe: 'Asadero y Parrilla El Corral Llanero',
-      telefono_cliente: '3158891122',
-      direccion_entrega: 'Av. 40 # 24A-71 Sector Llanocentro',
-      municipio: 'Villavicencio',
-      lat: 4.1338,
-      lng: -73.6371,
-      es_villavicencio: true,
-      tiempo_entrega_estimado: 'Envío el mismo día (Villavicencio)',
-      metodo_pago: 'nequi',
-      referencia_pago: 'NEQ-332190',
-      total: 318000,
-      estado: 'en_proceso',
-      observaciones_cliente: 'Dejar en recepción de mercancías.',
-      razon_cancelacion: null,
-      reembolso_estado: 'no_aplica',
-      entregador_id: 3,
-      entregador_nombre: 'Diego Alejandro Vargas',
-      creado_en: '2026-10-25T10:15:00.000Z',
-      items: [
-        {
-          producto_id: 1,
-          nombre_producto: 'CARNE DE HAMBURGUESA ESPECIAL X 10 UNID',
-          cantidad: 12,
-          precio_unitario: 18500,
-          subtotal: 222000
-        },
-        {
-          producto_id: 145,
-          nombre_producto: 'PAN HAMBURGUESA ARTESANAL PAQUETE X 12',
-          cantidad: 12,
-          precio_unitario: 8000,
-          subtotal: 96000
-        }
-      ]
-    },
-    {
-      id: 4,
-      usuario_id: 1,
-      nombre_recibe: 'Restaurante Los Capachos',
-      telefono_cliente: '3204459900',
-      direccion_entrega: 'Km 4 Vía Acacías',
-      municipio: 'Villavicencio',
-      lat: 4.1195,
-      lng: -73.6512,
-      es_villavicencio: true,
-      tiempo_entrega_estimado: 'Envío el mismo día (Villavicencio)',
-      metodo_pago: 'bancolombia',
-      referencia_pago: 'BCO-771029',
-      total: 195000,
-      estado: 'entregado',
-      observaciones_cliente: 'Pedido mensual de salsas e icopores.',
-      observaciones_entregador: 'Entregado y recibido a satisfacción por jefe de bodega.',
-      razon_cancelacion: null,
-      reembolso_estado: 'no_aplica',
-      entregador_id: 3,
-      entregador_nombre: 'Diego Alejandro Vargas',
-      fecha_entrega: '2026-10-25T09:40:00.000Z',
-      creado_en: '2026-10-24T16:20:00.000Z',
-      items: [
-        {
-          producto_id: 131,
-          nombre_producto: 'SALSA DE TOMATE RIO GRANDE PAQUETE X 4000 GR',
-          cantidad: 5,
-          precio_unitario: 17000,
-          subtotal: 85000
-        },
-        {
-          producto_id: 180,
-          nombre_producto: 'PORTACOMIDA ICOPOR J1 PAQUETE X 200 UNID',
-          cantidad: 2,
-          precio_unitario: 55000,
-          subtotal: 110000
-        }
-      ]
-    }
-  ];
+  const DEFAULT_STAFF_ORDERS = [];
 
   function getLocalCreatedOrders() {
     try {
@@ -2238,39 +2075,18 @@
       const raw = localStorage.getItem('danillanos_tickets_store');
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
+        const hasLegacyTicket =
+          Array.isArray(parsed) &&
+          parsed.some(
+            (t) =>
+              (t.asunto && t.asunto.includes('Acacías')) ||
+              (Array.isArray(t.mensajes) && t.mensajes.some((m) => m.autor && m.autor.includes('Carlos')))
+          );
+        if (!hasLegacyTicket && Array.isArray(parsed)) return parsed;
       }
     } catch (_) {}
-    return [
-      {
-        id: 1,
-        pedido_id: 2,
-        usuario_id: 1,
-        tipo: 'entrega',
-        asunto: 'Confirmación de hora de llegada a Acacías',
-        descripcion: 'Quisiera confirmar a qué hora pasa el camión refrigerado por nuestro restaurante.',
-        imagen_cliente_url: null,
-        estado: 'en_revision',
-        respuesta_soporte: 'Hola Carlos, la ruta del Meta sale a las 8:00 AM y estima llegar a Acacías a las 9:30 AM.',
-        mensajes: [
-          {
-            id: 101,
-            autor: 'Carlos Andrés Méndez',
-            rol: 'cliente',
-            texto: 'Quisiera confirmar a qué hora pasa el camión refrigerado por nuestro restaurante.',
-            fecha: '2026-10-25T14:20:00.000Z'
-          },
-          {
-            id: 102,
-            autor: 'Camila Andrea Pardo (Soporte)',
-            rol: 'soporte',
-            texto: 'Hola Carlos, la ruta del Meta sale a las 8:00 AM y estima llegar a Acacías a las 9:30 AM.',
-            fecha: '2026-10-25T14:26:00.000Z'
-          }
-        ],
-        creado_en: '2026-10-25T14:20:00.000Z'
-      }
-    ];
+    localStorage.setItem('danillanos_tickets_store', JSON.stringify([]));
+    return [];
   }
 
   function saveLocalTicketsStore(list) {
@@ -2492,13 +2308,22 @@
     backdrop.classList.remove('hidden');
   }
 
+    function closeModalWithAnimation(backdrop) {
+    if (!backdrop || backdrop.classList.contains('hidden')) return;
+    backdrop.classList.add('is-closing');
+    setTimeout(() => {
+      backdrop.classList.remove('is-closing');
+      backdrop.classList.add('hidden');
+    }, 220);
+  }
+
   function initSharedInvoiceModalEvents() {
     const backdrop = document.getElementById('invoiceModalBackdrop');
     const closeBtn = document.getElementById('btnCloseInvoiceModal');
     if (!backdrop) return;
-    closeBtn?.addEventListener('click', () => backdrop.classList.add('hidden'));
+    closeBtn?.addEventListener('click', () => closeModalWithAnimation(backdrop));
     backdrop.addEventListener('click', (e) => {
-      if (e.target === backdrop) backdrop.classList.add('hidden');
+      if (e.target === backdrop) closeModalWithAnimation(backdrop);
     });
   }
 
@@ -2927,23 +2752,108 @@
       if (e.target === editProfileBackdrop) closeEditProfileModal();
     });
 
-    document.getElementById('companySummaryCard')?.addEventListener('click', (e) => {
-      if (e.target.closest('#btnOpenEditProfileModal')) {
-        openEditProfileModal();
-      }
-    });
+    function toggleAddAddressSection(forceOpen = null) {
+      const ws = document.getElementById('addressRegistrationWorkspace');
+      const btnText = document.getElementById('toggleAddAddressBtnText');
+      const btn = document.getElementById('btnToggleAddAddressSection');
+      if (!ws) return;
 
-    editProfileForm?.addEventListener('submit', async (e) => {
-      e.preventDefault();
+      const shouldOpen = forceOpen !== null ? forceOpen : ws.classList.contains('hidden');
+      if (shouldOpen) {
+        ws.classList.remove('hidden');
+        if (btnText) btnText.textContent = 'Cerrar Registro';
+        if (btn) btn.classList.add('is-active');
+        setupInteractiveCoverageMap('addressMapCanvas');
+        setTimeout(() => {
+          state.maps.addressMap?.invalidateSize();
+          ws.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 150);
+      } else {
+        ws.classList.add('hidden');
+        if (btnText) btnText.textContent = 'Añadir Dirección';
+        if (btn) btn.classList.remove('is-active');
+      }
+    }
+
+    function setProfileEditingState(isEditing) {
+      const pencilBtn = document.getElementById('btnToggleProfileEdit');
+      const pencilIcon = document.getElementById('btnToggleProfileEditIcon');
+      const cancelBtn = document.getElementById('btnCancelProfileEdit');
+      const staticGrid = document.getElementById('companyStaticGrid');
+      const editForm = document.getElementById('inlineProfileForm');
+
+      if (!pencilBtn || !staticGrid || !editForm) return;
+
+      if (isEditing) {
+        pencilBtn.classList.add('is-editing');
+        pencilBtn.setAttribute('title', 'Guardar Cambios');
+        if (pencilIcon) pencilIcon.textContent = 'save';
+        staticGrid.classList.add('hidden');
+        editForm.classList.remove('hidden');
+        if (cancelBtn) cancelBtn.classList.remove('hidden');
+        const firstInput = document.getElementById('inlineProfileNombre');
+        if (firstInput) firstInput.focus();
+      } else {
+        pencilBtn.classList.remove('is-editing');
+        pencilBtn.setAttribute('title', 'Editar información comercial');
+        if (pencilIcon) pencilIcon.textContent = 'edit';
+        editForm.classList.add('hidden');
+        staticGrid.classList.remove('hidden');
+        if (cancelBtn) cancelBtn.classList.add('hidden');
+      }
+    }
+
+    function cancelInlineProfileChanges() {
       if (!state.user) return;
+      const nomInput = document.getElementById('inlineProfileNombre');
+      const empInput = document.getElementById('inlineProfileEmpresa');
+      const tipoInput = document.getElementById('inlineProfileTipoDoc');
+      const numInput = document.getElementById('inlineProfileNumDoc');
+      const telInput = document.getElementById('inlineProfileTelefono');
+
+      if (nomInput) nomInput.value = state.user.nombre_completo || state.user.username || '';
+      if (empInput) empInput.value = state.user.empresa || '';
+      if (tipoInput) tipoInput.value = state.user.tipo_documento || 'CC';
+      if (numInput) numInput.value = state.user.numero_documento || '';
+      if (telInput) telInput.value = state.user.telefono || '';
+
+      const msgEl = document.getElementById('inlineProfileSaveMsg');
+      if (msgEl) msgEl.style.display = 'none';
+
+      setProfileEditingState(false);
+    }
+
+    async function saveInlineProfileChanges() {
+      if (!state.user) return;
+      const nomInput = document.getElementById('inlineProfileNombre');
+      const empInput = document.getElementById('inlineProfileEmpresa');
+      const tipoInput = document.getElementById('inlineProfileTipoDoc');
+      const numInput = document.getElementById('inlineProfileNumDoc');
+      const telInput = document.getElementById('inlineProfileTelefono');
+      const msgEl = document.getElementById('inlineProfileSaveMsg');
+      const saveBtn = document.getElementById('btnToggleProfileEdit');
 
       const payload = {
-        nombre_completo: document.getElementById('editProfileNombre')?.value.trim() || state.user.nombre_completo,
-        empresa: document.getElementById('editProfileEmpresa')?.value.trim() || '',
-        tipo_documento: document.getElementById('editProfileTipoDoc')?.value || 'CC',
-        numero_documento: document.getElementById('editProfileNumDoc')?.value.trim() || '',
-        telefono: document.getElementById('editProfileTelefono')?.value.trim() || ''
+        nombre_completo: nomInput ? nomInput.value.trim() : state.user.nombre_completo,
+        empresa: empInput ? empInput.value.trim() : '',
+        tipo_documento: tipoInput ? tipoInput.value : 'CC',
+        numero_documento: numInput ? numInput.value.trim() : '',
+        telefono: telInput ? telInput.value.trim() : ''
       };
+
+      if (!payload.nombre_completo) {
+        if (msgEl) {
+          msgEl.style.display = 'block';
+          msgEl.style.color = '#ef4444';
+          msgEl.textContent = '❌ El nombre del titular es requerido.';
+        }
+        return;
+      }
+
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.style.opacity = '0.7';
+      }
 
       try {
         const res = await fetch(`${CONFIG.api.baseUrl}/auth/perfil`, {
@@ -2961,17 +2871,78 @@
         state.user = { ...state.user, ...payload };
       }
 
-      localStorage.setItem(CONFIG.storageKeys.user, JSON.stringify(state.user));
+      localStorage.setItem('danillanos_user', JSON.stringify(state.user));
+      sessionStorage.setItem('danillanos_user', JSON.stringify(state.user));
+
       const usersList = getLocalUsersStore();
       const idx = usersList.findIndex((u) => Number(u.id) === Number(state.user.id));
       if (idx !== -1) {
         usersList[idx] = { ...usersList[idx], ...state.user };
         saveLocalUsersStore(usersList);
       }
-      closeEditProfileModal();
-      renderPerfilPageAuthState();
+
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.style.opacity = '1';
+      }
+
+      const loggedName = document.getElementById('loggedUserName');
+      if (loggedName) loggedName.textContent = state.user.nombre_completo;
+      const extraEl = document.getElementById('loggedUserExtra');
+      if (extraEl) {
+        const docPart = state.user.numero_documento ? `${state.user.tipo_documento || 'CC'}: ${state.user.numero_documento}` : '';
+        const empPart = state.user.empresa ? ` • Empresa: ${state.user.empresa}` : '';
+        extraEl.textContent = `${docPart}${empPart}`;
+      }
       renderSharedHeaderAuthUI();
-      alert('Información comercial y de facturación actualizada exitosamente.');
+
+      // Update static bold elements
+      const sNom = document.getElementById('staticProfileNombre');
+      if (sNom) sNom.textContent = state.user.nombre_completo || state.user.username || 'No registrado';
+      const sEmp = document.getElementById('staticProfileEmpresa');
+      if (sEmp) sEmp.textContent = state.user.empresa || 'Cuenta Personal / Hogar';
+      const sDoc = document.getElementById('staticProfileDocumento');
+      if (sDoc) sDoc.textContent = state.user.numero_documento ? `${state.user.tipo_documento || 'CC'}: ${state.user.numero_documento}` : 'No registrado';
+      const sTel = document.getElementById('staticProfileTelefono');
+      if (sTel) sTel.textContent = state.user.telefono || 'No registrado';
+
+      // Morph pencil button back to compact circle and show static grid
+      setProfileEditingState(false);
+
+      if (msgEl) {
+        msgEl.style.display = 'block';
+        msgEl.style.color = '#16a34a';
+        msgEl.textContent = '✔ Datos comerciales y de cuenta guardados correctamente.';
+        setTimeout(() => {
+          if (msgEl) msgEl.style.display = 'none';
+        }, 4000);
+      }
+    }
+
+    document.getElementById('companySummaryCard')?.addEventListener('click', (e) => {
+      const pencilBtn = e.target.closest('#btnToggleProfileEdit');
+      if (pencilBtn) {
+        if (pencilBtn.classList.contains('is-editing')) {
+          saveInlineProfileChanges();
+        } else {
+          setProfileEditingState(true);
+        }
+      } else if (e.target.closest('#btnCancelProfileEdit')) {
+        cancelInlineProfileChanges();
+      } else if (e.target.closest('#btnToggleAddAddressSection')) {
+        toggleAddAddressSection();
+      }
+    });
+
+    document.getElementById('companySummaryCard')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target.closest('#inlineProfileForm input')) {
+        e.preventDefault();
+        saveInlineProfileChanges();
+      }
+    });
+
+    document.getElementById('btnCloseAddressWorkspace')?.addEventListener('click', () => {
+      toggleAddAddressSection(false);
     });
 
     // Eventos de filtrado en Historial de Compras del Cliente
@@ -3166,38 +3137,118 @@
       const companyCard = document.getElementById('companySummaryCard');
       if (companyCard) {
         companyCard.innerHTML = `
-          <div class="company-card-header">
-            <div class="company-card-header-left">
-              <span class="material-symbols-rounded" style="color:var(--brand-red); font-size:1.5rem;">verified_user</span>
+          <div class="company-card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom:0.45rem;">
+            <div class="company-card-header-left" style="display:flex; align-items:center; gap:0.65rem;">
+              <span class="material-symbols-rounded" style="color:var(--brand-red); font-size:1.6rem;">verified_user</span>
               <div>
-                <strong style="font-size:1.05rem; display:block;">Información Comercial y Facturación</strong>
-                <span style="font-size:0.8rem; color:var(--text-muted);">Datos registrados para tus pedidos y comprobantes electrónicos</span>
+                <strong style="font-size:1.1rem; display:block; font-weight:800;">Información Comercial y Facturación</strong>
               </div>
             </div>
-            <button type="button" class="btn-secondary btn-sm" id="btnOpenEditProfileModal">
-              <span class="material-symbols-rounded" style="font-size:1.05rem;">edit</span>
-              <span>Editar Información</span>
-            </button>
-          </div>
-          <div class="company-summary-grid">
-            <div>
-              <span class="detail-box-label">Titular de la Cuenta</span>
-              <strong>${state.user.nombre_completo}</strong>
-            </div>
-            <div>
-              <span class="detail-box-label">Empresa / Negocio</span>
-              <strong>${state.user.empresa || 'Cuenta Personal / Hogar'}</strong>
-            </div>
-            <div>
-              <span class="detail-box-label">Identificación</span>
-              <strong>${state.user.tipo_documento || 'CC'} ${state.user.numero_documento || 'No registrado'}</strong>
-            </div>
-            <div>
-              <span class="detail-box-label">Contacto Principal</span>
-              <strong>${state.user.telefono || 'No registrado'}</strong>
+            <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+              <button type="button" class="btn-secondary" id="btnToggleAddAddressSection" style="padding:0.58rem 1.25rem; font-size:0.86rem; display:inline-flex; align-items:center; gap:0.45rem;">
+                <span class="material-symbols-rounded" style="font-size:1.15rem;">add_location_alt</span>
+                <span id="toggleAddAddressBtnText">Añadir Dirección</span>
+              </button>
+              <button type="button" class="btn-profile-pencil-round" id="btnToggleProfileEdit" title="Editar información comercial" aria-label="Editar o Guardar datos comerciales">
+                <span class="material-symbols-rounded" id="btnToggleProfileEditIcon" style="font-size:1.2rem;">edit</span>
+                <span class="btn-pencil-label">Guardar Cambios</span>
+              </button>
+              <button type="button" class="btn-profile-cancel-edit hidden" id="btnCancelProfileEdit" title="Cancelar edición" aria-label="Cancelar edición">
+                <span class="material-symbols-rounded" style="font-size:1.15rem;">close</span>
+              </button>
             </div>
           </div>
+
+          <div id="companyStaticGrid" class="company-inline-edit-grid" style="margin-top:0.35rem;">
+            <div style="background:var(--bg-elevated); padding:0.75rem 1rem; border-radius:var(--radius-md); border:1px solid var(--border-strong);">
+              <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Titular de la Cuenta</span>
+              <strong id="staticProfileNombre" style="font-size:0.96rem; color:var(--text-primary); font-weight:800; display:block; word-break:break-word;">
+                ${state.user.nombre_completo || state.user.username || 'No registrado'}
+              </strong>
+            </div>
+            <div style="background:var(--bg-elevated); padding:0.75rem 1rem; border-radius:var(--radius-md); border:1px solid var(--border-strong);">
+              <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Empresa / Negocio</span>
+              <strong id="staticProfileEmpresa" style="font-size:0.96rem; color:var(--text-primary); font-weight:800; display:block; word-break:break-word;">
+                ${state.user.empresa || 'Cuenta Personal / Hogar'}
+              </strong>
+            </div>
+            <div style="background:var(--bg-elevated); padding:0.75rem 1rem; border-radius:var(--radius-md); border:1px solid var(--border-strong);">
+              <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Documento de Identificación</span>
+              <strong id="staticProfileDocumento" style="font-size:0.96rem; color:var(--text-primary); font-weight:800; display:block; word-break:break-word;">
+                ${state.user.numero_documento ? `${state.user.tipo_documento || 'CC'}: ${state.user.numero_documento}` : 'No registrado'}
+              </strong>
+            </div>
+            <div style="background:var(--bg-elevated); padding:0.75rem 1rem; border-radius:var(--radius-md); border:1px solid var(--border-strong);">
+              <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Contacto Principal</span>
+              <strong id="staticProfileTelefono" style="font-size:0.96rem; color:var(--text-primary); font-weight:800; display:block; word-break:break-word;">
+                ${state.user.telefono || 'No registrado'}
+              </strong>
+            </div>
+          </div>
+
+          <form id="inlineProfileForm" class="company-inline-edit-grid hidden" onsubmit="return false;" style="margin-top:0.35rem;">
+            <div class="form-group" style="margin:0;">
+              <label for="inlineProfileNombre" style="font-size:0.78rem; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">
+                Titular de la Cuenta / Nombre *
+              </label>
+              <input
+                type="text"
+                id="inlineProfileNombre"
+                class="modal-input"
+                value="${state.user.nombre_completo || state.user.username || ''}"
+                placeholder="Nombre completo del titular"
+                required
+              />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label for="inlineProfileEmpresa" style="font-size:0.78rem; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">
+                Empresa / Negocio (Opcional)
+              </label>
+              <input
+                type="text"
+                id="inlineProfileEmpresa"
+                class="modal-input"
+                value="${state.user.empresa || ''}"
+                placeholder="Ej: Restaurante El Asador S.A.S."
+              />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label style="font-size:0.78rem; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">
+                Documento de Identificación
+              </label>
+              <div style="display:grid; grid-template-columns: 110px 1fr; gap:0.45rem;">
+                <select id="inlineProfileTipoDoc" class="modal-input" style="height:44px; padding:0 0.5rem; cursor:pointer;">
+                  <option value="CC" ${state.user.tipo_documento === 'CC' ? 'selected' : ''}>CC</option>
+                  <option value="NIT" ${state.user.tipo_documento === 'NIT' ? 'selected' : ''}>NIT</option>
+                  <option value="CE" ${state.user.tipo_documento === 'CE' ? 'selected' : ''}>CE</option>
+                  <option value="PP" ${state.user.tipo_documento === 'PP' ? 'selected' : ''}>Pasaporte</option>
+                </select>
+                <input
+                  type="text"
+                  id="inlineProfileNumDoc"
+                  class="modal-input"
+                  value="${state.user.numero_documento || ''}"
+                  placeholder="Número de identificación"
+                />
+              </div>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label for="inlineProfileTelefono" style="font-size:0.78rem; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">
+                Contacto Principal (Celular) *
+              </label>
+              <input
+                type="tel"
+                id="inlineProfileTelefono"
+                class="modal-input"
+                value="${state.user.telefono || ''}"
+                placeholder="Ej: 3101112233"
+                required
+              />
+            </div>
+          </form>
+          <div id="inlineProfileSaveMsg" style="display:none; margin-top:0.85rem; font-size:0.85rem; font-weight:700;"></div>
         `;
+        enhanceAllCustomSelects(companyCard);
       }
 
       const staffBtn = document.getElementById('btnGoToStaffPanel');
@@ -3926,7 +3977,7 @@ async function loadCustomerSupportTickets() {
                            id="custChatInput_${tk.id}"
                            placeholder="Escribe un mensaje para Soporte..."
                          />
-                         <button type="button" class="btn-primary" data-send-cust-chat="${tk.id}" style="padding:0.62rem 1.15rem;">
+                         <button type="button" class="chat-send-btn" data-send-cust-chat="${tk.id}" title="Enviar mensaje">
                            <span class="material-symbols-rounded">send</span>
                          </button>
                        </div>
@@ -4175,6 +4226,11 @@ async function loadCustomerSupportTickets() {
   }
 
   function initPagosPage() {
+    // Si no hay productos en el carrito, 404 a la página de pagos
+    if (!Array.isArray(state.cart) || state.cart.length === 0) {
+      window.location.replace('404.html');
+      return;
+    }
     const guestBlockCard = document.getElementById('checkoutGuestBlockCard');
     const checkoutForm = document.getElementById('checkoutGatewayForm');
 
@@ -4732,6 +4788,19 @@ async function loadCustomerSupportTickets() {
       }
 
       // Confirmar pedido en Bodega (con asignación de entregador)
+      const clickedOrderCard = e.target.closest('[data-emp-order-id]');
+      if (clickedOrderCard) {
+        const orderIdToMark = Number(clickedOrderCard.getAttribute('data-emp-order-id'));
+        if (orderIdToMark) {
+          const dot = clickedOrderCard.querySelector('.ticket-unread-dot');
+          if (dot) {
+            dot.classList.add('is-read');
+            setTimeout(() => dot.remove(), 250);
+          }
+          markEmployeeOrderSeen(orderIdToMark);
+        }
+      }
+
       const confirmBtn = e.target.closest('[data-emp-confirm]');
       if (confirmBtn) {
         const id = Number(confirmBtn.getAttribute('data-emp-confirm'));
@@ -4816,7 +4885,6 @@ async function loadCustomerSupportTickets() {
         const id = Number(completeBtn.getAttribute('data-driver-complete'));
         const photo = state.driverPhotosDraft[id];
         if (!photo) {
-          alert('Toma o adjunta la fotografía de entrega antes de finalizar.');
           return;
         }
         const noteInput = document.getElementById(`driverNoteInput_${id}`);
@@ -5391,6 +5459,28 @@ async function loadCustomerSupportTickets() {
         .join('');
     }
 
+        function openAdminEmployeeForm() {
+      const card = document.getElementById('adminEmployeeFormCard');
+      if (!card) return;
+      card.classList.remove('hidden');
+      card.classList.remove('is-closing');
+      document.getElementById('adminNewEmpEmail')?.focus();
+    }
+
+    function closeAdminEmployeeForm() {
+      const card = document.getElementById('adminEmployeeFormCard');
+      if (!card || card.classList.contains('hidden')) return;
+      card.classList.add('is-closing');
+      setTimeout(() => {
+        card.classList.remove('is-closing');
+        card.classList.add('hidden');
+      }, 220);
+    }
+
+    document.getElementById('btnOpenNewEmployeeForm')?.addEventListener('click', openAdminEmployeeForm);
+    document.getElementById('btnCloseEmployeeForm')?.addEventListener('click', closeAdminEmployeeForm);
+    document.getElementById('btnCancelEmployeeForm')?.addEventListener('click', closeAdminEmployeeForm);
+
     document.getElementById('btnOpenNewProductForm')?.addEventListener('click', () => {
       openAdminProductForm(null);
     });
@@ -5680,8 +5770,8 @@ async function loadCustomerSupportTickets() {
             </div>
           </div>
         `;
-      })
-      .join('');
+      }).join('');
+    enhanceAllCustomSelects(container);
   }
 
   function renderAdminDashboard() {
@@ -5849,7 +5939,7 @@ async function loadCustomerSupportTickets() {
         container.innerHTML = activeQueue
           .map(
             (ord) => `
-            <article class="staff-order-card">
+            <article class="staff-order-card" data-emp-order-id="${ord.id}">
               <div class="staff-order-top">
                 <div style="display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap;">
                   <span class="order-id-badge">Pedido #${ord.id} — ${formatCurrency(ord.total)}</span>
@@ -6172,7 +6262,7 @@ async function loadCustomerSupportTickets() {
 
                 <div class="staff-order-actions" style="margin-top:0.75rem;">
                   <button type="button" class="btn-cancel-order" data-emp-cancel="${ord.id}">Cancelar</button>
-                  <button type="button" class="btn-confirm-order" data-driver-complete="${ord.id}">
+                  <button type="button" class="btn-confirm-order ${draftPhoto ? '' : 'is-disabled-no-photo'}" data-driver-complete="${ord.id}" ${draftPhoto ? '' : 'disabled aria-disabled="true"'} title="${draftPhoto ? 'Confirmar entrega y finalizar parada' : 'Toma o adjunta una fotografía para habilitar la confirmación'}">
                     <span class="material-symbols-rounded">task_alt</span>
                     <span>Confirmar Entrega</span>
                   </button>
@@ -6335,9 +6425,8 @@ async function loadCustomerSupportTickets() {
                           id="staffTicketChatInput_${tk.id}"
                           placeholder="Escribe una respuesta en el chat para el cliente..."
                         />
-                        <button type="button" class="btn-primary" data-staff-send-chat="${tk.id}" style="padding:0.62rem 1.15rem;">
+                        <button type="button" class="chat-send-btn" data-staff-send-chat="${tk.id}" title="Enviar mensaje">
                           <span class="material-symbols-rounded">send</span>
-                          <span>Enviar</span>
                         </button>
                         ${
                           tk.estado !== 'resuelto'
@@ -6394,3 +6483,230 @@ async function loadCustomerSupportTickets() {
     else if (CURRENT_PAGE === 'panel') initPanelPage();
   });
 })();
+
+
+  // ==========================================================================
+  // COMPONENTE DE DROPDOWNS PERSONALIZADOS FLUIDOS (NO NATIVOS)
+  // ==========================================================================
+  function enhanceCustomSelect(selectEl) {
+    if (!selectEl || selectEl.dataset.customized === 'true') {
+      if (selectEl && typeof selectEl._syncCustomSelect === 'function') {
+        selectEl._syncCustomSelect();
+      }
+      return;
+    }
+
+    if (!selectEl.parentNode) return;
+
+    selectEl.dataset.customized = 'true';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'custom-select-wrapper';
+    if (selectEl.id) wrapper.dataset.customSelectFor = selectEl.id;
+    if (selectEl.classList.contains('driver-assign-select')) {
+      wrapper.classList.add('custom-select-pill');
+    }
+
+    selectEl.parentNode.insertBefore(wrapper, selectEl);
+    wrapper.appendChild(selectEl);
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'custom-select-trigger';
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'custom-select-label';
+
+    const arrowSpan = document.createElement('span');
+    arrowSpan.className = 'material-symbols-rounded custom-select-arrow';
+    arrowSpan.textContent = 'expand_more';
+
+    trigger.appendChild(labelSpan);
+    trigger.appendChild(arrowSpan);
+    wrapper.appendChild(trigger);
+
+    const menu = document.createElement('div');
+    menu.className = 'custom-select-menu';
+    menu.setAttribute('role', 'listbox');
+    wrapper.appendChild(menu);
+
+    function syncOptionsFromSelect() {
+      menu.innerHTML = '';
+      const opts = Array.from(selectEl.options || []);
+      const selIdx = selectEl.selectedIndex >= 0 ? selectEl.selectedIndex : 0;
+      const currentOpt = opts[selIdx] || opts[0];
+      labelSpan.textContent = currentOpt ? currentOpt.text : (selectEl.getAttribute('placeholder') || 'Seleccionar...');
+
+      opts.forEach((opt, idx) => {
+        const item = document.createElement('div');
+        item.className = 'custom-select-option';
+        item.setAttribute('role', 'option');
+        item.dataset.value = opt.value;
+        if (idx === selIdx || opt.selected) {
+          item.classList.add('is-selected');
+          item.setAttribute('aria-selected', 'true');
+        }
+
+        const textSpan = document.createElement('span');
+        textSpan.className = 'custom-select-option-text';
+        textSpan.textContent = opt.text;
+        item.appendChild(textSpan);
+
+        const checkSpan = document.createElement('span');
+        checkSpan.className = 'material-symbols-rounded custom-select-check';
+        checkSpan.textContent = 'check';
+        item.appendChild(checkSpan);
+
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          selectEl.value = opt.value;
+          selectEl.selectedIndex = idx;
+          labelSpan.textContent = opt.text;
+          menu.querySelectorAll('.custom-select-option').forEach((o) => o.classList.remove('is-selected'));
+          item.classList.add('is-selected');
+          closeDropdown();
+          selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+          selectEl.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+
+        menu.appendChild(item);
+      });
+
+      if (selectEl.disabled) {
+        trigger.disabled = true;
+        wrapper.classList.add('is-disabled');
+      } else {
+        trigger.disabled = false;
+        wrapper.classList.remove('is-disabled');
+      }
+    }
+
+    selectEl._syncCustomSelect = syncOptionsFromSelect;
+
+    function openDropdown() {
+      document.querySelectorAll('.custom-select-wrapper.is-open').forEach((w) => {
+        if (w !== wrapper) {
+          w.classList.remove('is-open');
+          const trig = w.querySelector('.custom-select-trigger');
+          if (trig) trig.setAttribute('aria-expanded', 'false');
+        }
+      });
+      wrapper.classList.add('is-open');
+      trigger.setAttribute('aria-expanded', 'true');
+    }
+
+    function closeDropdown() {
+      wrapper.classList.remove('is-open');
+      trigger.setAttribute('aria-expanded', 'false');
+    }
+
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (wrapper.classList.contains('is-open')) {
+        closeDropdown();
+      } else {
+        openDropdown();
+      }
+    });
+
+    selectEl.addEventListener('change', () => {
+      const currentOpt = selectEl.options[selectEl.selectedIndex];
+      if (currentOpt) {
+        labelSpan.textContent = currentOpt.text;
+        menu.querySelectorAll('.custom-select-option').forEach((o) => {
+          o.classList.toggle('is-selected', o.dataset.value === selectEl.value);
+        });
+      }
+    });
+
+    try {
+      const observer = new MutationObserver(() => {
+        syncOptionsFromSelect();
+      });
+      observer.observe(selectEl, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
+    } catch (_) {}
+
+    syncOptionsFromSelect();
+  }
+
+  
+  // Auto-Enhancement para selects generados dinámicamente
+  try {
+    const autoSelectObserver = new MutationObserver((mutations) => {
+      let hasNewSelect = false;
+      for (const m of mutations) {
+        if (m.addedNodes && m.addedNodes.length > 0) {
+          for (const n of m.addedNodes) {
+            if (n.nodeType === 1) {
+              if (n.tagName === 'SELECT' && n.dataset.customized !== 'true') {
+                hasNewSelect = true;
+                break;
+              }
+              if (n.querySelector && n.querySelector('select:not([data-customized="true"])')) {
+                hasNewSelect = true;
+                break;
+              }
+            }
+          }
+        }
+        if (hasNewSelect) break;
+      }
+      if (hasNewSelect) {
+        enhanceAllCustomSelects(document.body);
+      }
+    });
+    autoSelectObserver.observe(document.body, { childList: true, subtree: true });
+  } catch (_) {}
+
+  function enhanceAllCustomSelects(root = document) {
+    if (!root) return;
+    const selects = root.querySelectorAll('select:not([data-customized="true"])');
+    selects.forEach((s) => enhanceCustomSelect(s));
+    const customized = root.querySelectorAll('select[data-customized="true"]');
+    customized.forEach((s) => {
+      if (typeof s._syncCustomSelect === 'function') s._syncCustomSelect();
+    });
+  }
+
+  // Cierre global de dropdowns
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.custom-select-wrapper')) {
+      document.querySelectorAll('.custom-select-wrapper.is-open').forEach((w) => {
+        w.classList.remove('is-open');
+        const trig = w.querySelector('.custom-select-trigger');
+        if (trig) trig.setAttribute('aria-expanded', 'false');
+      });
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.custom-select-wrapper.is-open').forEach((w) => {
+        w.classList.remove('is-open');
+        const trig = w.querySelector('.custom-select-trigger');
+        if (trig) trig.setAttribute('aria-expanded', 'false');
+      });
+    }
+  });
+
+
+  // ==========================================================================
+  // ENVIADO DE MENSAJES CON ENTER EN COMPUTADOR
+  // ==========================================================================
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      if (e.target && e.target.id && e.target.id.startsWith('staffTicketChatInput_')) {
+        e.preventDefault();
+        const tkId = e.target.id.replace('staffTicketChatInput_', '');
+        const btn = document.querySelector(`[data-staff-send-chat="${tkId}"]`);
+        if (btn) btn.click();
+      } else if (e.target && e.target.id && e.target.id.startsWith('custChatInput_')) {
+        e.preventDefault();
+        const tkId = e.target.id.replace('custChatInput_', '');
+        const btn = document.querySelector(`[data-send-cust-chat="${tkId}"]`);
+        if (btn) btn.click();
+      }
+    }
+  });
