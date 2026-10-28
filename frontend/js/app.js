@@ -516,6 +516,26 @@
     });
   }
 
+  function hasEmployeeOrderNovelty(ord) {
+    if (!ord) return false;
+    const seen = getSeenNotifications();
+    const seenEmp = Array.isArray(seen.seenEmployeeOrders) ? seen.seenEmployeeOrders : [];
+    return ord.estado === 'pendiente' && !seenEmp.includes(Number(ord.id));
+  }
+
+  function hasDriverOrderNovelty(ord) {
+    if (!ord) return false;
+    const seen = getSeenNotifications();
+    const seenDrv = Array.isArray(seen.seenDriverOrders) ? seen.seenDriverOrders : [];
+    const myId = state.user?.id ? Number(state.user.id) : null;
+    const myName = (state.user?.nombre_completo || '').toLowerCase();
+    const isAssigned =
+      (myId && Number(ord.entregador_id) === myId) ||
+      (myName && (ord.entregador_nombre || '').toLowerCase().includes(myName));
+    const isActiveRoute = ['en_camino', 'en_proceso'].includes(ord.estado);
+    return isAssigned && isActiveRoute && !seenDrv.includes(Number(ord.id));
+  }
+
   function hasCustomerOrderNovelty(ord) {
     if (!ord) return false;
     const seen = getSeenNotifications();
@@ -2327,10 +2347,10 @@
     const cufeHash = `CUFE-${(orderId * 894311 + 512349).toString(16).toUpperCase()}-DN2026-${(Number(ord.total) || 9999).toString(16).toUpperCase()}`;
 
     const statusLabelMap = {
-      pendiente: '1. RECIBIDO EN TIENDA',
-      en_proceso: '2. ACEPTADO EN BODEGA',
-      en_camino: '3. EN RUTA DE REPARTO',
-      entregado: '4. ENTREGADO Y VERIFICADO',
+      pendiente: 'RECIBIDO EN TIENDA',
+      en_proceso: 'ACEPTADO EN BODEGA',
+      en_camino: 'EN RUTA DE REPARTO',
+      entregado: 'ENTREGADO Y VERIFICADO',
       cancelado: ord.reembolso_estado === 'reembolsado' ? 'CANCELADO (REEMBOLSADO)' : 'CANCELADO'
     };
     const estadoTexto = statusLabelMap[ord.estado] || (ord.estado ? String(ord.estado).toUpperCase() : 'RECIBIDO EN TIENDA');
@@ -5226,10 +5246,10 @@ async function loadCustomerSupportTickets() {
     }
 
     const stageLabels = {
-      pendiente: { icon: 'pending_actions', text: '1. Por Confirmar', pill: 'status-pendiente' },
-      en_proceso: { icon: 'warehouse', text: '2. En Proceso', pill: 'status-en_proceso' },
-      en_camino: { icon: 'local_shipping', text: '3. En Ruta de Reparto', pill: 'status-en_camino' },
-      entregado: { icon: 'verified', text: '4. Entregado', pill: 'status-entregado' },
+      pendiente: { icon: 'pending_actions', text: 'Por Confirmar', pill: 'status-pendiente' },
+      en_proceso: { icon: 'warehouse', text: 'En Proceso', pill: 'status-en_proceso' },
+      en_camino: { icon: 'local_shipping', text: 'En Ruta de Reparto', pill: 'status-en_camino' },
+      entregado: { icon: 'verified', text: 'Entregado', pill: 'status-entregado' },
       cancelado: { icon: 'cancel', text: 'Cancelado', pill: 'status-cancelado' }
     };
 
@@ -5266,7 +5286,7 @@ async function loadCustomerSupportTickets() {
               </div>
 
               <div class="customer-order-direct-stage" style="display:flex; align-items:center; gap:0.75rem;">
-                <span class="order-status-pill ${st.pill}">${st.text}</span>
+                <span class="order-status-pill ${st.pill}">${ord.estado === 'pendiente' && hasEmployeeOrderNovelty(ord) ? '<span class="ticket-unread-dot" title="Nuevo pedido por confirmar"></span>' : ''}<span>${st.text}</span></span>
                 <span class="customer-order-chevron">
                   <span class="material-symbols-rounded">expand_more</span>
                 </span>
@@ -5814,8 +5834,8 @@ async function loadCustomerSupportTickets() {
         container.innerHTML = `<div class="detail-box"><p>No hay pedidos pendientes en la cola de bodega con el filtro actual.</p></div>`;
       } else {
         const statusBadgeText = {
-          pendiente: '1. POR CONFIRMAR',
-          en_proceso: '2. ACEPTADO EN BODEGA'
+          pendiente: 'Por Confirmar',
+          en_proceso: 'Aceptado en Bodega'
         };
 
         const drivers =
@@ -5832,20 +5852,13 @@ async function loadCustomerSupportTickets() {
             <article class="staff-order-card">
               <div class="staff-order-top">
                 <div style="display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap;">
-                  ${
-                    hasEmployeeOrderNovelty(ord)
-                      ? '<span class="order-novelty-tag" title="Nuevo pedido pendiente por confirmar en bodega"><span class="ticket-unread-dot"></span> Nuevo Pedido</span>'
-                      : ''
-                  }
                   <span class="order-id-badge">Pedido #${ord.id} — ${formatCurrency(ord.total)}</span>
                   <span class="invoice-number-badge-inline">${getInvoiceCode(ord.id)}</span>
                   <span style="font-size:0.8rem; color:var(--text-secondary);">
                     ${ord.metodo_pago.toUpperCase()} • ${ord.tiempo_entrega_estimado}
                   </span>
                 </div>
-                <span class="order-status-pill status-${ord.estado}">
-                  ${statusBadgeText[ord.estado] || ord.estado}
-                </span>
+                <span class="order-status-pill status-${ord.estado}">${ord.estado === 'pendiente' && hasEmployeeOrderNovelty(ord) ? '<span class="ticket-unread-dot" title="Nuevo pedido pendiente por confirmar"></span>' : ''}<span>${statusBadgeText[ord.estado] || ord.estado}</span></span>
               </div>
 
               <div class="staff-order-details-grid">
@@ -6103,11 +6116,7 @@ async function loadCustomerSupportTickets() {
               >
                 <div>
                   <div class="driver-vstop-title">
-                    ${
-                      hasDriverOrderNovelty(ord)
-                        ? '<span class="order-novelty-tag" title="Nuevo pedido asignado a tu ruta de entrega"><span class="ticket-unread-dot"></span> Asignado a tu ruta</span> '
-                        : ''
-                    }Parada ${ord.stopNumber} • Pedido #${ord.id} (${getInvoiceCode(ord.id)}) — ${ord.nombre_recibe}
+                    ${hasDriverOrderNovelty(ord) ? '<span class="ticket-unread-dot" title="Nuevo pedido asignado a tu ruta" style="margin-right:6px;"></span>' : ''}Parada ${ord.stopNumber} • Pedido #${ord.id} (${getInvoiceCode(ord.id)}) — ${ord.nombre_recibe}
                   </div>
                   <div class="driver-vstop-sub">
                     ${ord.direccion_entrega} (${ord.municipio}) • ${ord.telefono_cliente}

@@ -2369,11 +2369,26 @@ textarea.modal-input.is-locked-field:focus {
 }
 
 .order-status-pill {
-  padding: 0.3rem 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.48rem;
+  padding: 0.32rem 0.85rem;
   border-radius: var(--radius-pill);
   font-size: 0.74rem;
   font-weight: 800;
   text-transform: uppercase;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.order-status-pill .ticket-unread-dot {
+  width: 8px;
+  height: 8px;
+  margin: 0;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .status-pendiente { background-color: rgba(245, 158, 11, 0.16); color: #fbbf24; }
@@ -6776,8 +6791,9 @@ html[data-theme='dark'] .invoice-barcode-code {
 
 /* Indicadores de Punto Rojo para Novedades */
 .ticket-unread-dot {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
+  vertical-align: middle;
   border-radius: 50%;
   background-color: var(--brand-red, #ef4444);
   display: inline-block;
