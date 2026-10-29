@@ -707,7 +707,14 @@ router.post('/auth/register', async (req, res) => {
     };
     usuariosFallback.push(newRow);
     const safeUser = formatSafeUser(newRow);
-    const token = signToken({ id: safeUser.id, rol: safeUser.rol, username: safeUser.username });
+    const token = signToken({
+      id: safeUser.id,
+      rol: safeUser.rol,
+      username: safeUser.username,
+      email: safeUser.email,
+      avatar_url: safeUser.avatar_url,
+      is_google: Boolean(safeUser.is_google_account)
+    });
 
     return res.status(201).json({
       ok: true,
@@ -787,7 +794,14 @@ router.post('/auth/login', async (req, res) => {
     const dirs = direccionesFallback
       .filter((d) => d.usuario_id === safeUser.id)
       .map(formatSafeAddress);
-    const token = signToken({ id: safeUser.id, rol: safeUser.rol, username: safeUser.username });
+    const token = signToken({
+      id: safeUser.id,
+      rol: safeUser.rol,
+      username: safeUser.username,
+      email: safeUser.email,
+      avatar_url: safeUser.avatar_url,
+      is_google: Boolean(safeUser.is_google_account)
+    });
 
     return res.json({
       ok: true,
@@ -879,7 +893,14 @@ router.post('/auth/google', async (req, res) => {
     );
 
     const safeUser = formatSafeUser(userRow);
-    const token = signToken({ id: safeUser.id, rol: safeUser.rol, username: safeUser.username });
+    const token = signToken({
+      id: safeUser.id,
+      rol: safeUser.rol,
+      username: safeUser.username,
+      email: safeUser.email,
+      avatar_url: safeUser.avatar_url,
+      is_google: Boolean(safeUser.is_google_account)
+    });
 
     return res.json({
       ok: true,
@@ -898,11 +919,18 @@ router.post('/auth/google', async (req, res) => {
         email_hash: emailHash,
         email_enc: emailEnc,
         google_id_enc: googleIdEnc,
-        avatar_url: avatar_url || null,
+        avatar_url: (avatar_url && !avatar_url.includes('test-avatar-photo')) ? avatar_url : null,
         rol: 'cliente',
         activo: 1
       };
       usuariosFallback.push(userRow);
+    } else {
+      if (avatar_url && !avatar_url.includes('test-avatar-photo')) {
+        userRow.avatar_url = avatar_url;
+      }
+      if (!userRow.google_id_enc) {
+        userRow.google_id_enc = googleIdEnc;
+      }
     }
 
     saveFallbackStore();
@@ -953,12 +981,16 @@ router.get('/auth/me', async (req, res) => {
       direcciones: dirRows.map(formatSafeAddress)
     });
   } catch (error) {
-    const userRow = usuariosFallback.find((u) => u.id === authUser.id);
+    const userRow = usuariosFallback.find((u) =>
+      Number(u.id) === Number(authUser.id) ||
+      (authUser.email && u.email_enc && decryptData(u.email_enc) === authUser.email) ||
+      (authUser.username && u.username === authUser.username)
+    );
     if (!userRow) return res.json({ authenticated: false, user: null, direcciones: [] });
     return res.json({
       authenticated: true,
       user: formatSafeUser(userRow),
-      direcciones: direccionesFallback.filter((d) => d.usuario_id === authUser.id).map(formatSafeAddress)
+      direcciones: direccionesFallback.filter((d) => Number(d.usuario_id) === Number(userRow.id)).map(formatSafeAddress)
     });
   }
 });
@@ -1010,8 +1042,10 @@ router.patch('/auth/perfil', async (req, res) => {
       memUser.tipo_documento = cleanTipoDoc;
       memUser.numero_documento_enc = numDocEnc;
       memUser.telefono_enc = telEnc;
-      if (!memUser.avatar_url && (avatar_url || authUser.avatar_url)) {
-        memUser.avatar_url = avatar_url || authUser.avatar_url;
+      if (avatar_url && !avatar_url.includes('test-avatar-photo')) {
+        memUser.avatar_url = avatar_url;
+      } else if (!memUser.avatar_url && authUser.avatar_url && !authUser.avatar_url.includes('test-avatar-photo')) {
+        memUser.avatar_url = authUser.avatar_url;
       }
       saveFallbackStore();
     }
@@ -1031,8 +1065,16 @@ router.patch('/auth/perfil', async (req, res) => {
     );
 
     if (!memUser) {
-      const finalEmail = email || authUser.email || `${authUser.username || "user"}@danillanos.com`;
-      const finalAvatar = avatar_url || authUser.avatar_url || null;
+      const finalEmail = (email && !email.endsWith('@danillanos.com'))
+        ? email
+        : (authUser.email && !authUser.email.endsWith('@danillanos.com'))
+          ? authUser.email
+          : `${authUser.username || "usuario"}@danillanos.com`;
+      const finalAvatar = (avatar_url && !avatar_url.includes('test-avatar-photo'))
+        ? avatar_url
+        : (authUser.avatar_url && !authUser.avatar_url.includes('test-avatar-photo'))
+          ? authUser.avatar_url
+          : null;
       memUser = {
         id: authUser.id || Date.now(),
         username: authUser.username || cleanNombre,
@@ -1059,8 +1101,10 @@ router.patch('/auth/perfil', async (req, res) => {
       memUser.tipo_documento = cleanTipoDoc;
       memUser.numero_documento_enc = numDocEnc;
       memUser.telefono_enc = telEnc;
-      if (!memUser.avatar_url && (avatar_url || authUser.avatar_url)) {
-        memUser.avatar_url = avatar_url || authUser.avatar_url;
+      if (avatar_url && !avatar_url.includes('test-avatar-photo')) {
+        memUser.avatar_url = avatar_url;
+      } else if (!memUser.avatar_url && authUser.avatar_url && !authUser.avatar_url.includes('test-avatar-photo')) {
+        memUser.avatar_url = authUser.avatar_url;
       }
       if (email && (!memUser.email_enc || decryptData(memUser.email_enc).endsWith('@danillanos.com'))) {
         memUser.email_enc = encryptData(email);
@@ -1121,6 +1165,7 @@ router.post('/auth/cambiar-password', async (req, res) => {
       if (memUser) {
         memUser.password_hash = newHash;
       }
+      saveFallbackStore();
 
       const safeUser = formatSafeUser(userRow);
       return res.json({
@@ -1144,6 +1189,7 @@ router.post('/auth/cambiar-password', async (req, res) => {
         activo: 1
       };
       usuariosFallback.push(memUser);
+      saveFallbackStore();
       return res.json({
         ok: true,
         source: 'fallback',
@@ -1162,6 +1208,7 @@ router.post('/auth/cambiar-password', async (req, res) => {
     }
     const newHash = hashPassword(cleanNewPass);
     memUser.password_hash = newHash;
+    saveFallbackStore();
     const safeUser = formatSafeUser(memUser);
     return res.json({
       ok: true,
@@ -1188,6 +1235,7 @@ router.post('/auth/cambiar-password', async (req, res) => {
         activo: 1
       };
       usuariosFallback.push(memUser);
+      saveFallbackStore();
       return res.json({
         ok: true,
         source: 'fallback',
@@ -1206,6 +1254,7 @@ router.post('/auth/cambiar-password', async (req, res) => {
     }
     const fallbackHash = hashPassword(cleanNewPass);
     memUser.password_hash = fallbackHash;
+    saveFallbackStore();
     return res.json({
       ok: true,
       source: 'fallback',

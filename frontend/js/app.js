@@ -709,9 +709,16 @@
         if (guestIcon) guestIcon.classList.add('hidden');
         syncUserNotificationDots();
 
-        if (state.user.avatar_url && avatarImg) {
+        if (state.user.avatar_url && avatarImg && !state.user.avatar_url.includes('test-avatar-photo')) {
           avatarImg.src = state.user.avatar_url;
           avatarImg.classList.remove('hidden');
+          avatarImg.onerror = () => {
+            avatarImg.classList.add('hidden');
+            if (avatarInitial) {
+              avatarInitial.textContent = initial;
+              avatarInitial.classList.remove('hidden');
+            }
+          };
           if (avatarInitial) avatarInitial.classList.add('hidden');
         } else if (avatarInitial) {
           if (avatarImg) avatarImg.classList.add('hidden');
@@ -2574,7 +2581,7 @@
 
   function syncProfileTabFromHash() {
     const h = window.location.hash;
-    if (h === '#direcciones-mapa-section') switchCustomerProfileTab('direcciones');
+    if (h === '#direcciones-mapa-section' || h === '#mi-cuenta' || h === '#cuenta-section') switchCustomerProfileTab('direcciones');
     else if (h === '#historial-compras-section') switchCustomerProfileTab('historial');
     else if (h === '#soporte-cliente') switchCustomerProfileTab('soporte');
     else if (h === '#mis-pedidos-section') switchCustomerProfileTab('pedidos');
@@ -2993,8 +3000,13 @@
           email: (data.user.email && !data.user.email.endsWith('@danillanos.com'))
             ? data.user.email
             : (state.user.email || data.user.email),
-          avatar_url: data.user.avatar_url || state.user.avatar_url,
-          rol: normalizeRole(data.user.rol)
+          avatar_url: (data.user.avatar_url && !data.user.avatar_url.includes('test-avatar-photo'))
+            ? data.user.avatar_url
+            : (state.user.avatar_url || data.user.avatar_url),
+          rol: normalizeRole(data.user.rol),
+          has_password: (data.user.has_password !== undefined)
+            ? data.user.has_password
+            : Boolean(state.user.has_password)
         };
         if (Array.isArray(data.direcciones)) {
           state.direcciones = data.direcciones;
@@ -3555,8 +3567,13 @@
             email: (data.user.email && !data.user.email.endsWith('@danillanos.com'))
               ? data.user.email
               : (state.user.email || data.user.email),
-            avatar_url: data.user.avatar_url || state.user.avatar_url,
-            telefono: payload.telefono
+            avatar_url: (data.user.avatar_url && !data.user.avatar_url.includes('test-avatar-photo'))
+              ? data.user.avatar_url
+              : (state.user.avatar_url || data.user.avatar_url),
+            telefono: payload.telefono || data.user.telefono || '',
+            has_password: (data.user.has_password !== undefined)
+              ? data.user.has_password
+              : Boolean(state.user.has_password)
           };
         } else {
           state.user = { ...state.user, ...payload };
@@ -3604,15 +3621,14 @@
       const sTel = document.getElementById('staticProfileTelefono');
       if (sTel) sTel.textContent = state.user.telefono || 'No registrado';
 
-      // Morph pencil button back to compact circle and show static grid
-      setProfileEditingState(false);
-
-      if (msgEl) {
-        msgEl.style.display = 'block';
-        msgEl.style.color = '#16a34a';
-        msgEl.textContent = '✔ Datos comerciales y de cuenta guardados correctamente.';
+      // Feedback message in inlineProfileSaveMsg
+      const saveFeedbackEl = document.getElementById('inlineProfileSaveMsg') || document.getElementById('companyEditFeedback');
+      if (saveFeedbackEl) {
+        saveFeedbackEl.style.display = 'block';
+        saveFeedbackEl.style.color = '#16a34a';
+        saveFeedbackEl.textContent = '✔ Datos comerciales y de cuenta guardados correctamente.';
         setTimeout(() => {
-          if (msgEl) msgEl.style.display = 'none';
+          if (saveFeedbackEl) saveFeedbackEl.style.display = 'none';
         }, 4000);
       }
     }
@@ -3812,8 +3828,8 @@
 
       const avatarLarge = document.getElementById('loggedAvatarLarge');
       if (avatarLarge) {
-        if (state.user.avatar_url) {
-          avatarLarge.innerHTML = `<img src="${state.user.avatar_url}" alt="${state.user.nombre_completo || 'Usuario'}" class="logged-avatar-img" referrerpolicy="no-referrer" />`;
+        if (state.user.avatar_url && !state.user.avatar_url.includes('test-avatar-photo')) {
+          avatarLarge.innerHTML = `<img src="${state.user.avatar_url}" alt="${state.user.nombre_completo || 'Usuario'}" class="logged-avatar-img" referrerpolicy="no-referrer" onerror="this.onerror=null; this.parentElement.textContent='${(state.user.nombre_completo || 'U').charAt(0).toUpperCase()}'; this.parentElement.classList.remove('has-photo');" />`;
           avatarLarge.classList.add('has-photo');
         } else {
           avatarLarge.textContent = (state.user.nombre_completo || 'U').charAt(0).toUpperCase();
