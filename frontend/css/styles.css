@@ -7070,6 +7070,9 @@ body[data-page="perfil"] .brand-text-wrapper,
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg, 16px);
   padding: 0.45rem;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 5px !important;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -7105,6 +7108,11 @@ body[data-page="perfil"] .brand-text-wrapper,
   transition: background-color 0.16s ease, color 0.16s ease, transform 0.15s ease;
   min-height: 42px;
   box-sizing: border-box;
+  margin-bottom: 4px;
+}
+
+.custom-select-option:last-child {
+  margin-bottom: 0;
 }
 
 .custom-select-option:hover {
@@ -7427,7 +7435,10 @@ body[data-page="perfil"] .brand-text-wrapper,
   z-index: 1300 !important;
   border-radius: var(--radius-md) !important;
   font-size: 0.82rem !important;
-  padding: 0.35rem !important;
+  padding: 0.45rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 5px !important;
   overflow-y: auto !important;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55) !important;
 }
@@ -7438,6 +7449,11 @@ body[data-page="perfil"] .brand-text-wrapper,
   font-size: 0.8rem !important;
   border-radius: var(--radius-sm) !important;
   gap: 0.5rem !important;
+  margin-bottom: 5px !important;
+}
+
+.cart-addr-actions-row .custom-select-option:last-child {
+  margin-bottom: 0 !important;
 }
 
 
