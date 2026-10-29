@@ -57,10 +57,189 @@ function haversineDistanceKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// ============================================================================
+// CRONOGRAMA OFICIAL DE RUTAS DEPARTAMENTALES DEL META Y VILLAVICENCIO
+// - Martes: Pto Lopez y San Carlos
+// - Miércoles: Mesetas - Vista Hermosa - Lejanías
+// - Jueves: 
+//     Ruta 1: San Martín - Granada - Fuente de Oro - Pto Lleras
+//     Ruta 2: Castilla - Guamal - Cubarral - El Dorado
+// - Viernes:
+//     Ruta 1: Pto Gaitán
+//     Ruta 2: Restrepo - Cumaral - Medina - Paratebueno
+// - Sábado: Acacías
+// Regla: Cualquier pedido antes de las 00:00 horas del día respectivo se entrega en su fecha;
+//        pasadas las 00:00, se reprograma para el siguiente ciclo semanal.
+// ============================================================================
+const DELIVERY_ROUTES = [
+  {
+    diaSemana: 2, // Martes
+    diaNombre: 'Martes',
+    rutaNombre: 'Ruta Puerto López y San Carlos',
+    municipios: ['puerto lópez', 'puerto lopez', 'pto lopez', 'pto. lopez', 'san carlos de guaroa', 'san carlos']
+  },
+  {
+    diaSemana: 3, // Miércoles
+    diaNombre: 'Miércoles',
+    rutaNombre: 'Ruta Mesetas - Vista Hermosa - Lejanías',
+    municipios: ['mesetas', 'vista hermosa', 'lejanías', 'lejanias']
+  },
+  {
+    diaSemana: 4, // Jueves
+    diaNombre: 'Jueves',
+    rutaNombre: 'Ruta 1: San Martín - Granada - Fuente de Oro - Puerto Lleras',
+    municipios: ['san martín', 'san martin', 'granada', 'fuente de oro', 'fue de oro', 'puerto lleras', 'pto lleras', 'pto. lleras']
+  },
+  {
+    diaSemana: 4, // Jueves
+    diaNombre: 'Jueves',
+    rutaNombre: 'Ruta 2: Castilla - Guamal - Cubarral - El Dorado',
+    municipios: ['castilla la nueva', 'castilla', 'guamal', 'cubarral', 'el dorado']
+  },
+  {
+    diaSemana: 5, // Viernes
+    diaNombre: 'Viernes',
+    rutaNombre: 'Ruta 1: Puerto Gaitán',
+    municipios: ['puerto gaitán', 'puerto gaitan', 'pto gaitán', 'pto gaitan', 'pto. gaitan']
+  },
+  {
+    diaSemana: 5, // Viernes
+    diaNombre: 'Viernes',
+    rutaNombre: 'Ruta 2: Restrepo - Cumaral - Medina - Paratebueno',
+    municipios: ['restrepo', 'cumaral', 'medina', 'paratebueno', 'párate bueno', 'parate bueno']
+  },
+  {
+    diaSemana: 6, // Sábado
+    diaNombre: 'Sábado',
+    rutaNombre: 'Ruta Acacías',
+    municipios: ['acacías', 'acacias']
+  }
+];
+
+const MUNICIPIOS_META_COORDS = [
+  { nombre: 'Villavicencio', lat: 4.142, lng: -73.6266, es_villavicencio: true },
+  { nombre: 'Puerto López', lat: 4.0845, lng: -72.956, es_villavicencio: false },
+  { nombre: 'San Carlos de Guaroa', lat: 3.7114, lng: -73.2422, es_villavicencio: false },
+  { nombre: 'Mesetas', lat: 3.3833, lng: -74.05, es_villavicencio: false },
+  { nombre: 'Vista Hermosa', lat: 3.1242, lng: -73.7514, es_villavicencio: false },
+  { nombre: 'Lejanías', lat: 3.5278, lng: -74.0236, es_villavicencio: false },
+  { nombre: 'San Martín', lat: 3.6964, lng: -73.6938, es_villavicencio: false },
+  { nombre: 'Granada', lat: 3.5463, lng: -73.7069, es_villavicencio: false },
+  { nombre: 'Fuente de Oro', lat: 3.4625, lng: -73.6214, es_villavicencio: false },
+  { nombre: 'Puerto Lleras', lat: 3.2792, lng: -73.375, es_villavicencio: false },
+  { nombre: 'Castilla la Nueva', lat: 3.8272, lng: -73.6881, es_villavicencio: false },
+  { nombre: 'Guamal', lat: 3.8804, lng: -73.7656, es_villavicencio: false },
+  { nombre: 'Cubarral', lat: 3.7917, lng: -73.8417, es_villavicencio: false },
+  { nombre: 'El Dorado', lat: 3.7, lng: -73.8333, es_villavicencio: false },
+  { nombre: 'Puerto Gaitán', lat: 4.3133, lng: -72.0817, es_villavicencio: false },
+  { nombre: 'Restrepo', lat: 4.2618, lng: -73.5644, es_villavicencio: false },
+  { nombre: 'Cumaral', lat: 4.2708, lng: -73.4867, es_villavicencio: false },
+  { nombre: 'Medina', lat: 4.5111, lng: -73.3486, es_villavicencio: false },
+  { nombre: 'Paratebueno', lat: 4.375, lng: -73.2111, es_villavicencio: false },
+  { nombre: 'Acacías', lat: 3.9869, lng: -73.7579, es_villavicencio: false }
+];
+
+function findRouteForMunicipio(muniName) {
+  if (!muniName) return null;
+  const clean = muniName
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+
+  if (clean.includes('villavicencio')) {
+    return { esVillavicencio: true, diaNombre: 'Mismo día', rutaNombre: 'Radio Urbano Villavicencio' };
+  }
+
+  for (const r of DELIVERY_ROUTES) {
+    for (const m of r.municipios) {
+      const cleanM = m
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
+      if (clean.includes(cleanM) || cleanM.includes(clean)) {
+        return r;
+      }
+    }
+  }
+  return null;
+}
+
+function calculateEstimatedDelivery(muniName, orderDate = new Date()) {
+  const route = findRouteForMunicipio(muniName);
+  const now = new Date(orderDate);
+
+  const meses = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+  ];
+  const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+  // Caso Villavicencio
+  if (!route || route.esVillavicencio) {
+    const hour = now.getHours();
+    const day = now.getDay();
+    if (day !== 0 && hour < 17) {
+      return {
+        texto: 'Envío el mismo día (Villavicencio)',
+        fechaEntrega: new Date(now),
+        ruta: 'Radio Urbano Villavicencio',
+        diaNombre: 'Hoy'
+      };
+    } else {
+      const nextDay = new Date(now);
+      const add = day === 6 ? 2 : 1;
+      nextDay.setDate(nextDay.getDate() + add);
+      nextDay.setHours(10, 0, 0, 0);
+      const diaNom = dias[nextDay.getDay()];
+      const diaNum = nextDay.getDate();
+      const mesNom = meses[nextDay.getMonth()];
+      return {
+        texto: `Llega el ${diaNom}, ${diaNum} de ${mesNom} (Villavicencio)`,
+        fechaEntrega: nextDay,
+        ruta: 'Radio Urbano Villavicencio',
+        diaNombre: diaNom
+      };
+    }
+  }
+
+  // Rutas Departamentales del Meta
+  // Regla: Cualquier pedido antes de las 00:00 de cada respectivo día se entrega en su fecha;
+  //        pasadas las 00:00 (hoy o después), se entrega en la próxima semana.
+  const currentDayOfWeek = now.getDay();
+  const targetDayOfWeek = route.diaSemana;
+
+  let daysToAdd = targetDayOfWeek - currentDayOfWeek;
+  if (daysToAdd <= 0) {
+    daysToAdd += 7;
+  }
+
+  const deliveryDate = new Date(now);
+  deliveryDate.setDate(deliveryDate.getDate() + daysToAdd);
+  deliveryDate.setHours(9, 0, 0, 0);
+
+  const diaNom = dias[deliveryDate.getDay()];
+  const diaNum = deliveryDate.getDate();
+  const mesNom = meses[deliveryDate.getMonth()];
+
+  const texto = `Llega el ${diaNom}, ${diaNum} de ${mesNom} (${route.rutaNombre})`;
+
+  return {
+    texto,
+    fechaEntrega: deliveryDate,
+    ruta: route.rutaNombre,
+    diaNombre: diaNom,
+    diaNum,
+    mesNom
+  };
+}
+
 /**
  * Evalúa si unas coordenadas caen dentro del radio urbano de Villavicencio
+ * y calcula con exactitud la fecha estimada y ruta según el cronograma oficial.
  */
-function evaluateDeliveryZone(lat, lng, municipioInput = '') {
+function evaluateDeliveryZone(lat, lng, municipioInput = '', orderDate = new Date()) {
   const numLat = Number(lat) || VILLAVICENCIO_CENTER.lat;
   const numLng = Number(lng) || VILLAVICENCIO_CENTER.lng;
   const distKm = haversineDistanceKm(
@@ -70,15 +249,30 @@ function evaluateDeliveryZone(lat, lng, municipioInput = '') {
     numLng
   );
   const isVcio = distKm <= VILLAVICENCIO_RADIUS_KM;
+
+  let resolvedMuni = isVcio ? 'Villavicencio' : (municipioInput || '');
+  if (!isVcio && !resolvedMuni) {
+    let minDist = Infinity;
+    MUNICIPIOS_META_COORDS.forEach((m) => {
+      const d = haversineDistanceKm(numLat, numLng, m.lat, m.lng);
+      if (d < minDist) {
+        minDist = d;
+        resolvedMuni = m.nombre;
+      }
+    });
+  }
+
+  const deliveryInfo = calculateEstimatedDelivery(resolvedMuni || 'Villavicencio', orderDate);
+
   return {
     lat: numLat,
     lng: numLng,
     distanceKm: Number(distKm.toFixed(2)),
     es_villavicencio: isVcio ? 1 : 0,
-    municipio: isVcio ? 'Villavicencio' : municipioInput || 'Municipio del Meta',
-    tiempo_entrega_estimado: isVcio
-      ? 'Envío el mismo día (Villavicencio)'
-      : 'Llega el 00 de octubre'
+    municipio: isVcio ? 'Villavicencio' : resolvedMuni,
+    tiempo_entrega_estimado: deliveryInfo.texto,
+    ruta_nombre: deliveryInfo.ruta,
+    fecha_estimada: deliveryInfo.fechaEntrega.toISOString()
   };
 }
 

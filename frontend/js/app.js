@@ -1343,7 +1343,174 @@
     { nombre: 'Vía Catama', lat: 4.1290, lng: -73.5980, via: 'Troncal del Llano Km 2' }
   ];
 
-  function updateZoneBannerUI(lat, lng, resolvedMuni) {
+  // ============================================================================
+  // CRONOGRAMA OFICIAL DE RUTAS DEPARTAMENTALES DEL META Y VILLAVICENCIO
+  // - Martes: Pto Lopez y San Carlos
+  // - Miércoles: Mesetas - Vista Hermosa - Lejanías
+  // - Jueves: 
+  //     Ruta 1: San Martín - Granada - Fuente de Oro - Pto Lleras
+  //     Ruta 2: Castilla - Guamal - Cubarral - El Dorado
+  // - Viernes:
+  //     Ruta 1: Pto Gaitán
+  //     Ruta 2: Restrepo - Cumaral - Medina - Paratebueno
+  // - Sábado: Acacías
+  // Regla: Cualquier pedido antes de las 00:00 horas del día respectivo se entrega en su fecha;
+  //        pasadas las 00:00, se reprograma para el siguiente ciclo semanal.
+  // ============================================================================
+  const DELIVERY_ROUTES = [
+    {
+      diaSemana: 2, // Martes
+      diaNombre: 'Martes',
+      rutaNombre: 'Ruta Puerto López y San Carlos',
+      municipios: ['puerto lópez', 'puerto lopez', 'pto lopez', 'pto. lopez', 'san carlos de guaroa', 'san carlos']
+    },
+    {
+      diaSemana: 3, // Miércoles
+      diaNombre: 'Miércoles',
+      rutaNombre: 'Ruta Mesetas - Vista Hermosa - Lejanías',
+      municipios: ['mesetas', 'vista hermosa', 'lejanías', 'lejanias']
+    },
+    {
+      diaSemana: 4, // Jueves
+      diaNombre: 'Jueves',
+      rutaNombre: 'Ruta 1: San Martín - Granada - Fuente de Oro - Puerto Lleras',
+      municipios: ['san martín', 'san martin', 'granada', 'fuente de oro', 'fue de oro', 'puerto lleras', 'pto lleras', 'pto. lleras']
+    },
+    {
+      diaSemana: 4, // Jueves
+      diaNombre: 'Jueves',
+      rutaNombre: 'Ruta 2: Castilla - Guamal - Cubarral - El Dorado',
+      municipios: ['castilla la nueva', 'castilla', 'guamal', 'cubarral', 'el dorado']
+    },
+    {
+      diaSemana: 5, // Viernes
+      diaNombre: 'Viernes',
+      rutaNombre: 'Ruta 1: Puerto Gaitán',
+      municipios: ['puerto gaitán', 'puerto gaitan', 'pto gaitán', 'pto gaitan', 'pto. gaitan']
+    },
+    {
+      diaSemana: 5, // Viernes
+      diaNombre: 'Viernes',
+      rutaNombre: 'Ruta 2: Restrepo - Cumaral - Medina - Paratebueno',
+      municipios: ['restrepo', 'cumaral', 'medina', 'paratebueno', 'párate bueno', 'parate bueno']
+    },
+    {
+      diaSemana: 6, // Sábado
+      diaNombre: 'Sábado',
+      rutaNombre: 'Ruta Acacías',
+      municipios: ['acacías', 'acacias']
+    }
+  ];
+
+  function findRouteForMunicipio(muniName) {
+    if (!muniName) return null;
+    const clean = muniName
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+
+    if (clean.includes('villavicencio')) {
+      return { esVillavicencio: true, diaNombre: 'Mismo día', rutaNombre: 'Radio Urbano Villavicencio' };
+    }
+
+    for (const r of DELIVERY_ROUTES) {
+      for (const m of r.municipios) {
+        const cleanM = m
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .trim();
+        if (clean.includes(cleanM) || cleanM.includes(clean)) {
+          return r;
+        }
+      }
+    }
+    return null;
+  }
+
+  function calculateEstimatedDelivery(muniName, orderDate = new Date()) {
+    const route = findRouteForMunicipio(muniName);
+    const now = new Date(orderDate);
+
+    const meses = [
+      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+    ];
+    const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+    if (!route || route.esVillavicencio) {
+      const hour = now.getHours();
+      const day = now.getDay();
+      if (day !== 0 && hour < 17) {
+        return {
+          texto: 'Envío el mismo día (Villavicencio)',
+          fechaEntrega: new Date(now),
+          ruta: 'Radio Urbano Villavicencio',
+          diaNombre: 'Hoy'
+        };
+      } else {
+        const nextDay = new Date(now);
+        const add = day === 6 ? 2 : 1;
+        nextDay.setDate(nextDay.getDate() + add);
+        nextDay.setHours(10, 0, 0, 0);
+        const diaNom = dias[nextDay.getDay()];
+        const diaNum = nextDay.getDate();
+        const mesNom = meses[nextDay.getMonth()];
+        return {
+          texto: `Llega el ${diaNom}, ${diaNum} de ${mesNom} (Villavicencio)`,
+          fechaEntrega: nextDay,
+          ruta: 'Radio Urbano Villavicencio',
+          diaNombre: diaNom
+        };
+      }
+    }
+
+    // Regla de corte: Pedido hecho antes de las 00:00 del día de ruta -> se entrega ese día.
+    // Pasadas las 00:00 -> se programa para el día correspondiente de la próxima semana.
+    const currentDayOfWeek = now.getDay();
+    const targetDayOfWeek = route.diaSemana;
+
+    let daysToAdd = targetDayOfWeek - currentDayOfWeek;
+    if (daysToAdd <= 0) {
+      daysToAdd += 7;
+    }
+
+    const deliveryDate = new Date(now);
+    deliveryDate.setDate(deliveryDate.getDate() + daysToAdd);
+    deliveryDate.setHours(9, 0, 0, 0);
+
+    const diaNom = dias[deliveryDate.getDay()];
+    const diaNum = deliveryDate.getDate();
+    const mesNom = meses[deliveryDate.getMonth()];
+
+    const texto = `Llega el ${diaNom}, ${diaNum} de ${mesNom} (${route.rutaNombre})`;
+
+    return {
+      texto,
+      fechaEntrega: deliveryDate,
+      ruta: route.rutaNombre,
+      diaNombre: diaNom,
+      diaNum,
+      mesNom
+    };
+  }
+
+  function isDeliveredToday(order) {
+    if (order.estado !== 'entregado') return false;
+    const dStr = order.fecha_entrega || order.actualizado_en || order.creado_en;
+    if (!dStr) return false;
+    const delivDate = new Date(dStr);
+    if (isNaN(delivDate.getTime())) return false;
+    const now = new Date();
+    return (
+      delivDate.getFullYear() === now.getFullYear() &&
+      delivDate.getMonth() === now.getMonth() &&
+      delivDate.getDate() === now.getDate()
+    );
+  }
+
+  function updateZoneBannerUI(lat, lng, resolvedMuni = '') {
     const insideVcio = isInsideVillavicencio(lat, lng);
     const zoneIndicator = document.getElementById('zoneLiveIndicator');
     const zoneIcon = document.getElementById('zoneLiveIcon');
@@ -1353,33 +1520,35 @@
 
     if (!zoneIndicator) return;
 
+    const deliveryInfo = calculateEstimatedDelivery(resolvedMuni || (insideVcio ? 'Villavicencio' : 'Acacías'), new Date());
+
     if (CURRENT_PAGE === 'pagos') {
-      // AL MOMENTO DE PAGAR: aquí sí se calcula y presenta el Estimado de Entrega
+      // AL MOMENTO DE PAGAR: aquí se calcula y presenta el Estimado de Entrega según ruta y corte de las 00:00
       if (insideVcio) {
         zoneIndicator.className = 'zone-live-indicator is-villavicencio';
         if (zoneIcon) zoneIcon.textContent = 'bolt';
-        if (zoneTitle) zoneTitle.textContent = 'Estimado de Entrega al Pagar: Envío el mismo día (Villavicencio)';
+        if (zoneTitle) zoneTitle.textContent = `Estimado de Entrega al Pagar: ${deliveryInfo.texto}`;
         if (zoneSubtitle) zoneSubtitle.textContent = 'Dirección dentro del radio urbano de Villavicencio';
-        if (etaSummary) etaSummary.textContent = 'Envío el mismo día (Villavicencio)';
+        if (etaSummary) etaSummary.textContent = deliveryInfo.texto;
       } else {
         zoneIndicator.className = 'zone-live-indicator is-meta-outside';
         if (zoneIcon) zoneIcon.textContent = 'event_available';
-        if (zoneTitle) zoneTitle.textContent = 'Estimado de Entrega al Pagar: Llega el 00 de octubre';
-        if (zoneSubtitle) zoneSubtitle.textContent = `Ruta departamental del Meta (${resolvedMuni || 'Fuera de Villavicencio'})`;
-        if (etaSummary) etaSummary.textContent = 'Llega el 00 de octubre';
+        if (zoneTitle) zoneTitle.textContent = `Estimado de Entrega al Pagar: ${deliveryInfo.texto}`;
+        if (zoneSubtitle) zoneSubtitle.textContent = `Ruta departamental del Meta (${deliveryInfo.ruta || resolvedMuni})`;
+        if (etaSummary) etaSummary.textContent = deliveryInfo.texto;
       }
     } else {
-      // EN PERFIL / GESTIÓN DE DIRECCIONES: las direcciones de por sí NO dicen cuándo se entregan
+      // EN PERFIL / GESTIÓN DE DIRECCIONES
       if (insideVcio) {
         zoneIndicator.className = 'zone-live-indicator is-villavicencio';
         if (zoneIcon) zoneIcon.textContent = 'location_on';
         if (zoneTitle) zoneTitle.textContent = 'Ubicación dentro del Radio Urbano de Villavicencio';
-        if (zoneSubtitle) zoneSubtitle.textContent = 'El estimado de entrega se calculará al momento de pagar tu pedido.';
+        if (zoneSubtitle) zoneSubtitle.textContent = 'El estimado de entrega se confirmará automáticamente al momento de pagar.';
       } else {
         zoneIndicator.className = 'zone-live-indicator is-meta-outside';
         if (zoneIcon) zoneIcon.textContent = 'map';
         if (zoneTitle) zoneTitle.textContent = `Ubicación en ${resolvedMuni || 'Municipio del Meta'} (Departamento del Meta)`;
-        if (zoneSubtitle) zoneSubtitle.textContent = 'El estimado de entrega se calculará al momento de pagar tu pedido.';
+        if (zoneSubtitle) zoneSubtitle.textContent = `Ruta programada de entrega: ${deliveryInfo.diaNombre} (${deliveryInfo.ruta})`;
       }
     }
   }
@@ -4248,9 +4417,9 @@ async function loadCustomerSupportTickets() {
     const recipient = document.getElementById('checkoutRecipientName')?.value.trim() || state.user?.nombre_completo || 'Cliente';
     const lat = Number(document.getElementById('addrLat')?.value || 4.142);
     const lng = Number(document.getElementById('addrLng')?.value || -73.6266);
-    const etaText = isInsideVillavicencio(lat, lng)
-      ? 'Envío el mismo día (Villavicencio)'
-      : 'Llega el 00 de octubre';
+    const insideVcio = isInsideVillavicencio(lat, lng);
+    const deliveryInfo = calculateEstimatedDelivery(insideVcio ? 'Villavicencio' : muni, new Date());
+    const etaText = deliveryInfo.texto;
 
     const step2AddrPill = document.getElementById('wizardStep2AddressSummary');
     if (step2AddrPill) {
@@ -4731,6 +4900,18 @@ async function loadCustomerSupportTickets() {
   // ==========================================================================
   // 7. PÁGINA DEDICADA DEL PANEL DE CONTROL (panel.html) + HISTORIALES CON FILTROS PARA TODOS LOS ROLES
   // ==========================================================================
+  // Chequeo reactivo para resetear la barra de progreso de entregadores automáticamente a las 00:00
+  let lastCheckedDay = new Date().getDate();
+  setInterval(() => {
+    const curDay = new Date().getDate();
+    if (curDay !== lastCheckedDay) {
+      lastCheckedDay = curDay;
+      if (CURRENT_PAGE === 'panel' && state.activeStaffTab === 'entregador') {
+        renderEntregadorPanel();
+      }
+    }
+  }, 15000);
+
   function initPanelPage() {
     syncCurrentUserRoleFromLocalStore();
     if (!isStaffUser()) {
@@ -6147,19 +6328,20 @@ async function loadCustomerSupportTickets() {
    */
   function renderEntregadorPanel() {
     const allDriverOrders = state.staffOrders.filter((o) => o.estado !== 'cancelado');
-    const completedCount = allDriverOrders.filter((o) => o.estado === 'entregado').length;
+    // Reset a las 00:00 horas: solo se cuentan las entregas realizadas el día de hoy
+    const completedTodayCount = allDriverOrders.filter(isDeliveredToday).length;
     const active = state.staffOrders.filter(
       (o) => o.estado === 'en_camino' || o.estado === 'en_proceso' || o.estado === 'pendiente'
     );
-    const totalRouteOrders = completedCount + active.length;
-    const progressPct = totalRouteOrders > 0 ? Math.round((completedCount / totalRouteOrders) * 100) : 0;
+    const totalDailyOrders = completedTodayCount + active.length;
+    const progressPct = totalDailyOrders > 0 ? Math.round((completedTodayCount / totalDailyOrders) * 100) : 0;
 
     const progressCard = document.getElementById('driverRappiProgressCard');
     if (progressCard) {
       progressCard.innerHTML = `
         <div class="driver-rappi-progress-top">
-          <span>Progreso</span>
-          <span>${completedCount} de ${totalRouteOrders} completados</span>
+          <span>Progreso de Entregas Hoy</span>
+          <span>${completedTodayCount} de ${totalDailyOrders} completados</span>
         </div>
         <div class="driver-rappi-bar-bg">
           <div class="driver-rappi-bar-fill" style="width:${progressPct}%;"></div>

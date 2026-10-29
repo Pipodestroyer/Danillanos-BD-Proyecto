@@ -33,66 +33,26 @@ window.DANILLANOS_CONFIG = {
       "lng": -73.6215
     },
     "municipiosMeta": [
-      {
-        "nombre": "Villavicencio",
-        "lat": 4.142,
-        "lng": -73.6266,
-        "es_villavicencio": true
-      },
-      {
-        "nombre": "Acacías",
-        "lat": 3.9869,
-        "lng": -73.7579,
-        "es_villavicencio": false
-      },
-      {
-        "nombre": "Restrepo",
-        "lat": 4.2618,
-        "lng": -73.5644,
-        "es_villavicencio": false
-      },
-      {
-        "nombre": "Cumaral",
-        "lat": 4.2708,
-        "lng": -73.4867,
-        "es_villavicencio": false
-      },
-      {
-        "nombre": "Granada",
-        "lat": 3.5463,
-        "lng": -73.7069,
-        "es_villavicencio": false
-      },
-      {
-        "nombre": "Puerto López",
-        "lat": 4.0845,
-        "lng": -72.956,
-        "es_villavicencio": false
-      },
-      {
-        "nombre": "San Martín",
-        "lat": 3.6964,
-        "lng": -73.6938,
-        "es_villavicencio": false
-      },
-      {
-        "nombre": "Guamal",
-        "lat": 3.8804,
-        "lng": -73.7656,
-        "es_villavicencio": false
-      },
-      {
-        "nombre": "Castilla la Nueva",
-        "lat": 3.8272,
-        "lng": -73.6881,
-        "es_villavicencio": false
-      },
-      {
-        "nombre": "Vista Hermosa",
-        "lat": 3.1242,
-        "lng": -73.7514,
-        "es_villavicencio": false
-      }
+      { "nombre": "Villavicencio", "lat": 4.142, "lng": -73.6266, "es_villavicencio": true },
+      { "nombre": "Puerto López", "lat": 4.0845, "lng": -72.956, "es_villavicencio": false },
+      { "nombre": "San Carlos de Guaroa", "lat": 3.7114, "lng": -73.2422, "es_villavicencio": false },
+      { "nombre": "Mesetas", "lat": 3.3833, "lng": -74.05, "es_villavicencio": false },
+      { "nombre": "Vista Hermosa", "lat": 3.1242, "lng": -73.7514, "es_villavicencio": false },
+      { "nombre": "Lejanías", "lat": 3.5278, "lng": -74.0236, "es_villavicencio": false },
+      { "nombre": "San Martín", "lat": 3.6964, "lng": -73.6938, "es_villavicencio": false },
+      { "nombre": "Granada", "lat": 3.5463, "lng": -73.7069, "es_villavicencio": false },
+      { "nombre": "Fuente de Oro", "lat": 3.4625, "lng": -73.6214, "es_villavicencio": false },
+      { "nombre": "Puerto Lleras", "lat": 3.2792, "lng": -73.375, "es_villavicencio": false },
+      { "nombre": "Castilla la Nueva", "lat": 3.8272, "lng": -73.6881, "es_villavicencio": false },
+      { "nombre": "Guamal", "lat": 3.8804, "lng": -73.7656, "es_villavicencio": false },
+      { "nombre": "Cubarral", "lat": 3.7917, "lng": -73.8417, "es_villavicencio": false },
+      { "nombre": "El Dorado", "lat": 3.7, "lng": -73.8333, "es_villavicencio": false },
+      { "nombre": "Puerto Gaitán", "lat": 4.3133, "lng": -72.0817, "es_villavicencio": false },
+      { "nombre": "Restrepo", "lat": 4.2618, "lng": -73.5644, "es_villavicencio": false },
+      { "nombre": "Cumaral", "lat": 4.2708, "lng": -73.4867, "es_villavicencio": false },
+      { "nombre": "Medina", "lat": 4.5111, "lng": -73.3486, "es_villavicencio": false },
+      { "nombre": "Paratebueno", "lat": 4.375, "lng": -73.2111, "es_villavicencio": false },
+      { "nombre": "Acacías", "lat": 3.9869, "lng": -73.7579, "es_villavicencio": false }
     ]
   },
   "defaultUser": null,
