@@ -6421,6 +6421,35 @@ html[data-theme='dark'] .invoice-barcode-code {
   transform: scale(1);
 }
 
+.auth-inline-feedback {
+  background-color: rgba(224, 26, 44, 0.1);
+  color: var(--brand-red, #e01a2c);
+  border: 1px solid rgba(224, 26, 44, 0.28);
+  border-radius: 12px;
+  padding: 0.65rem 0.95rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 0.35rem;
+  margin-bottom: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  line-height: 1.4;
+  box-sizing: border-box;
+  animation: fadeInAuthFeedback 0.2s ease-out;
+}
+
+@keyframes fadeInAuthFeedback {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* 2. Optimización Móvil para Teléfonos de Alta Densidad (Samsung Galaxy S25 Ultra / 360px - 430px) */
 @media (max-width: 768px) {
   /* Header compacto sin recortes laterales ni salto de línea del punto rojo */

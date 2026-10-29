@@ -185,6 +185,22 @@
     if (modal) modal.classList.add('hidden');
   }
 
+  function syncAuthViewportHeightGlobal(mode) {
+    const vp = document.getElementById('authFormsViewport');
+    if (!vp) return;
+    const card = document.getElementById('wideAuthCard');
+    const isReg = mode ? mode === 'register' : card?.classList.contains('is-register-mode');
+    const targetPanel = isReg ? document.getElementById('registerFormPanel') : document.getElementById('loginFormPanel');
+    if (!targetPanel) return;
+
+    requestAnimationFrame(() => {
+      const h = Math.max(targetPanel.scrollHeight, targetPanel.offsetHeight);
+      if (h > 0) {
+        vp.style.height = (h + 16) + 'px';
+      }
+    });
+  }
+
   function showAuthInlineFeedback(formType, message, type = 'error') {
     let el = document.getElementById(formType === 'login' ? 'loginInlineFeedback' : 'registerInlineFeedback');
     if (!el) {
@@ -193,7 +209,12 @@
         el = document.createElement('div');
         el.id = formType === 'login' ? 'loginInlineFeedback' : 'registerInlineFeedback';
         el.className = 'auth-inline-feedback';
-        form.insertBefore(el, form.firstChild);
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+          form.insertBefore(el, submitBtn);
+        } else {
+          form.appendChild(el);
+        }
       }
     }
     if (!el) return;
@@ -201,6 +222,7 @@
     if (!message) {
       el.classList.add('hidden');
       el.textContent = '';
+      syncAuthViewportHeightGlobal();
       return;
     }
 
@@ -212,12 +234,17 @@
     el.style.padding = '0.65rem 0.95rem';
     el.style.fontSize = '0.85rem';
     el.style.fontWeight = '600';
-    el.style.marginBottom = '1rem';
+    el.style.marginTop = '0.35rem';
+    el.style.marginBottom = '0.85rem';
     el.style.display = 'flex';
     el.style.alignItems = 'center';
     el.style.gap = '0.5rem';
-    el.innerHTML = `<span class="material-symbols-rounded" style="font-size: 1.15rem; flex-shrink: 0;">${isError ? 'error' : 'check_circle'}</span><span>${message}</span>`;
+    el.innerHTML = '<span class="material-symbols-rounded" style="font-size: 1.15rem; flex-shrink: 0;">' + (isError ? 'error' : 'check_circle') + '</span><span>' + message + '</span>';
     el.classList.remove('hidden');
+
+    syncAuthViewportHeightGlobal(formType);
+    setTimeout(() => syncAuthViewportHeightGlobal(formType), 60);
+    setTimeout(() => syncAuthViewportHeightGlobal(formType), 250);
   }
 
   function showCheckoutInlineFeedback(stepNum, message, type = 'error') {
@@ -3226,15 +3253,16 @@
     const registerFormPanel = document.getElementById('registerFormPanel');
 
     function syncAuthViewportHeight(mode) {
-      if (!authFormsViewport) return;
-      const targetPanel = mode === 'register' ? registerFormPanel : loginFormPanel;
-      if (!targetPanel) return;
-      requestAnimationFrame(() => {
-        const h = targetPanel.scrollHeight;
-        if (h > 0) {
-          authFormsViewport.style.height = `${h}px`;
-        }
+      syncAuthViewportHeightGlobal(mode);
+    }
+
+    if (typeof ResizeObserver !== 'undefined' && authFormsViewport) {
+      const authResizeObs = new ResizeObserver(() => {
+        const isReg = wideAuthCard?.classList.contains('is-register-mode');
+        syncAuthViewportHeightGlobal(isReg ? 'register' : 'login');
       });
+      if (loginFormPanel) authResizeObs.observe(loginFormPanel);
+      if (registerFormPanel) authResizeObs.observe(registerFormPanel);
     }
 
     function setAuthSlideMode(mode) {
