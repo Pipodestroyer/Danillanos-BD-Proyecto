@@ -1,0 +1,574 @@
+-- ============================================================================
+-- DANILLANOS - TIENDA DE CÁRNICOS, CONGELADOS E INSUMOS PARA RESTAURANTES
+-- Esquema Completo MySQL (235 Productos + Usuarios Encriptados + Roles + Mapa)
+-- ============================================================================
+
+CREATE DATABASE IF NOT EXISTS danillanos_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE danillanos_db;
+
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS tickets_soporte;
+DROP TABLE IF EXISTS pedido_items;
+DROP TABLE IF EXISTS pedidos;
+DROP TABLE IF EXISTS usuario_direcciones;
+DROP TABLE IF EXISTS usuarios;
+DROP TABLE IF EXISTS carrusel_promociones;
+DROP TABLE IF EXISTS productos;
+DROP TABLE IF EXISTS categorias;
+DROP VIEW IF EXISTS resumen_base;
+DROP VIEW IF EXISTS resumen_ventas_categoria;
+DROP VIEW IF EXISTS resumen_dist_metodo_pago;
+DROP PROCEDURE IF EXISTS sp_catalogo_completo;
+DROP TRIGGER IF EXISTS tr_contar_stock;
+SET FOREIGN_KEY_CHECKS = 1;
+
+CREATE TABLE categorias (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL,
+  slug VARCHAR(80) NOT NULL UNIQUE,
+  icono VARCHAR(60) DEFAULT 'restaurant',
+  descripcion VARCHAR(255),
+  activo TINYINT(1) DEFAULT 1,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE productos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  categoria_id INT NOT NULL,
+  codigo_sku VARCHAR(50) NOT NULL UNIQUE,
+  nombre VARCHAR(160) NOT NULL,
+  descripcion TEXT,
+  presentacion VARCHAR(80) NOT NULL,
+  precio DECIMAL(12, 2) NOT NULL,
+  precio_anterior DECIMAL(12, 2) DEFAULT NULL,
+  imagen_url VARCHAR(500) DEFAULT NULL,
+  stock INT NOT NULL DEFAULT 100,
+  es_mas_vendido TINYINT(1) DEFAULT 0,
+  etiqueta VARCHAR(50) DEFAULT NULL,
+  temperatura_conservacion VARCHAR(60) DEFAULT 'Ambiente',
+  activo TINYINT(1) DEFAULT 1,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_producto_categoria FOREIGN KEY (categoria_id) REFERENCES categorias(id)
+    ON UPDATE CASCADE ON DELETE RESTRICT
+);
+
+CREATE TABLE carrusel_promociones (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  producto_id INT DEFAULT NULL,
+  subtitulo VARCHAR(100) NOT NULL,
+  titulo VARCHAR(160) NOT NULL,
+  descripcion VARCHAR(320) NOT NULL,
+  precio_destacado DECIMAL(12, 2) DEFAULT NULL,
+  imagen_url VARCHAR(500) NOT NULL,
+  texto_boton VARCHAR(60) NOT NULL DEFAULT 'Añadir al carrito',
+  tipo_accion ENUM('add_to_cart', 'buy_now', 'ver_catalogo') DEFAULT 'add_to_cart',
+  orden INT DEFAULT 1,
+  activo TINYINT(1) DEFAULT 1,
+  CONSTRAINT fk_carrusel_producto FOREIGN KEY (producto_id) REFERENCES productos(id)
+    ON UPDATE CASCADE ON DELETE SET NULL
+);
+
+CREATE TABLE usuarios (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(80) NOT NULL,
+  nombre_completo_enc TEXT NOT NULL COMMENT 'Cifrado AES-256-GCM',
+  nombres_enc TEXT DEFAULT NULL COMMENT 'Nombres cifrados AES-256-GCM',
+  apellidos_enc TEXT DEFAULT NULL COMMENT 'Apellidos cifrados AES-256-GCM',
+  empresa_enc TEXT DEFAULT NULL COMMENT 'Empresa opcional cifrada AES-256-GCM',
+  tipo_documento VARCHAR(20) DEFAULT 'CC',
+  numero_documento_enc TEXT DEFAULT NULL COMMENT 'Documento cifrado AES-256-GCM',
+  email_hash VARCHAR(128) NOT NULL UNIQUE COMMENT 'HMAC-SHA256 para búsqueda indexada',
+  email_enc TEXT NOT NULL COMMENT 'Cifrado AES-256-GCM',
+  password_hash VARCHAR(255) DEFAULT NULL COMMENT 'Hash Scrypt con Salt',
+  google_id_enc TEXT DEFAULT NULL COMMENT 'ID OAuth Google Cifrado',
+  telefono_enc TEXT DEFAULT NULL COMMENT 'Celular Cifrado AES-256-GCM',
+  avatar_url VARCHAR(500) DEFAULT NULL,
+  rol ENUM('cliente', 'empleado', 'entregador', 'soporte', 'admin') NOT NULL DEFAULT 'cliente',
+  activo TINYINT(1) DEFAULT 1,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE usuario_direcciones (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  usuario_id INT NOT NULL,
+  etiqueta VARCHAR(60) NOT NULL DEFAULT 'Principal',
+  direccion_enc TEXT NOT NULL COMMENT 'Dirección cifrada AES-256-GCM',
+  barrio_referencia VARCHAR(140) DEFAULT NULL,
+  municipio VARCHAR(80) NOT NULL DEFAULT 'Villavicencio',
+  departamento VARCHAR(80) NOT NULL DEFAULT 'Meta',
+  lat DECIMAL(10, 7) NOT NULL,
+  lng DECIMAL(10, 7) NOT NULL,
+  es_villavicencio TINYINT(1) NOT NULL DEFAULT 1,
+  tiempo_entrega_estimado VARCHAR(100) NOT NULL DEFAULT 'Envío el mismo día (Villavicencio)',
+  es_principal TINYINT(1) NOT NULL DEFAULT 0,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_direccion_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+    ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE pedidos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  usuario_id INT DEFAULT NULL,
+  nombre_recibe_enc TEXT NOT NULL COMMENT 'Nombre de quien recibe cifrado AES-256-GCM',
+  telefono_cliente_enc TEXT NOT NULL COMMENT 'Teléfono cifrado AES-256-GCM',
+  direccion_entrega_enc TEXT NOT NULL COMMENT 'Dirección cifrada AES-256-GCM',
+  municipio VARCHAR(80) NOT NULL DEFAULT 'Villavicencio',
+  lat DECIMAL(10, 7) NOT NULL DEFAULT 4.1420000,
+  lng DECIMAL(10, 7) NOT NULL DEFAULT -73.6266000,
+  es_villavicencio TINYINT(1) NOT NULL DEFAULT 1,
+  tiempo_entrega_estimado VARCHAR(100) NOT NULL DEFAULT 'Envío el mismo día (Villavicencio)',
+  metodo_pago ENUM('pse', 'nequi', 'bancolombia', 'tarjeta', 'efectivo') NOT NULL DEFAULT 'efectivo',
+  referencia_pago VARCHAR(100) DEFAULT NULL,
+  total DECIMAL(12, 2) NOT NULL,
+  estado ENUM('pendiente', 'en_proceso', 'en_camino', 'entregado', 'cancelado') NOT NULL DEFAULT 'pendiente',
+  observaciones_cliente TEXT DEFAULT NULL,
+  razon_cancelacion TEXT DEFAULT NULL,
+  reembolso_estado ENUM('no_aplica', 'reembolsado') NOT NULL DEFAULT 'no_aplica',
+  entregador_id INT DEFAULT NULL,
+  observaciones_entregador TEXT DEFAULT NULL,
+  foto_entrega_url LONGTEXT DEFAULT NULL COMMENT 'Foto de evidencia tomada por el entregador',
+  fecha_confirmacion DATETIME DEFAULT NULL,
+  fecha_entrega DATETIME DEFAULT NULL,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_pedido_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+    ON UPDATE CASCADE ON DELETE SET NULL
+);
+
+CREATE TABLE pedido_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  pedido_id INT NOT NULL,
+  producto_id INT NOT NULL,
+  nombre_producto VARCHAR(160) NOT NULL,
+  cantidad INT NOT NULL DEFAULT 1,
+  precio_unitario DECIMAL(12, 2) NOT NULL,
+  subtotal DECIMAL(12, 2) NOT NULL,
+  CONSTRAINT fk_item_pedido FOREIGN KEY (pedido_id) REFERENCES pedidos(id)
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_item_producto FOREIGN KEY (producto_id) REFERENCES productos(id)
+    ON UPDATE CASCADE ON DELETE RESTRICT
+);
+
+CREATE TABLE tickets_soporte (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  pedido_id INT DEFAULT NULL,
+  usuario_id INT DEFAULT NULL,
+  tipo ENUM('envio', 'pago', 'producto', 'reembolso', 'otro') DEFAULT 'envio',
+  asunto VARCHAR(160) NOT NULL,
+  descripcion TEXT NOT NULL,
+  imagen_cliente_url LONGTEXT DEFAULT NULL COMMENT 'Foto adjunta por el cliente (ej. fecha de vencimiento)',
+  estado ENUM('abierto', 'en_revision', 'resuelto') DEFAULT 'abierto',
+  respuesta_soporte TEXT DEFAULT NULL,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_ticket_pedido FOREIGN KEY (pedido_id) REFERENCES pedidos(id)
+    ON UPDATE CASCADE ON DELETE SET NULL
+);
+
+-- ============================================================================
+-- VIEWS, PROCCEDURES Y TRIGGERS
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- Proporciona indicadores clave sobre las ventas y el estado operativo de los pedidos en la tienda.
+--   - total_vendido: Suma el monto total únicamente de los pedidos entregados.
+--   - por_aceptar: Evalúa la cantidad de pedidos pendientes de confirmación.
+--   - en_bodega_o_en_reparto: Evalúa los pedidos en bodega o en ruta.
+--   - entregados: Evalúa el total de pedidos finalizados.
+-- ----------------------------------------------------------------------------
+CREATE VIEW resumen_base AS
+SELECT
+	SUM(CASE WHEN pe.estado = 'entregado' THEN pe.total ELSE 0 END) AS total_vendido,
+	COUNT(CASE WHEN pe.estado = 'pendiente' THEN 1 ELSE 0 END) AS por_aceptar,
+    COUNT(CASE WHEN pe.estado = 'en_proceso' OR pe.estado = 'en_camino 'THEN 1 ELSE 0 END) AS en_bodega_o_en_reparto,
+    COUNT(CASE WHEN pe.estado = 'entregado' THEN 1 ELSE 0 END) AS entregados
+FROM pedidos AS pe;
+
+-- ----------------------------------------------------------------------------
+-- Calcula el total de ingresos agrupado por cada categoría.
+--   - Relaciona las tablas pedido_items, pedidos, productos y categorias mediante INNER JOIN.
+--   - Suma el valor de los productos entregados de la misma categoria y agrupa el resultado
+--     por el nombre de la categoría.
+-- ----------------------------------------------------------------------------
+CREATE VIEW resumen_ventas_categoria AS
+SELECT
+	c.nombre,
+    SUM(CASE WHEN pe.estado = 'entregado' THEN peit.subtotal ELSE 0 END) AS ventas
+FROM pedido_items AS peit
+INNER JOIN pedidos AS pe ON pe.id = peit.pedido_id
+INNER JOIN productos as pr on pr.id = peit.producto_id
+INNER JOIN categorias as c on c.id = pr.categoria_id
+GROUP BY c.nombre;
+
+-- ----------------------------------------------------------------------------
+-- Muestra la distribución del dinero recaudado según cada método
+-- de pago en Danillanos.
+--   - Define una tabla derivada (e) con los 5 métodos de pago ('pse', 'nequi',
+--     'bancolombia', 'tarjeta', 'efectivo').
+--   - La cruza (INNER JOIN) con la tabla pedidos y suma el total (pe.total)
+--     agrupado por cada método de pago.
+-- ----------------------------------------------------------------------------
+CREATE VIEW resumen_dist_metodo_pago AS
+SELECT
+	e.metodo AS metodo_pago,
+    SUM(pe.total) AS total
+FROM (
+	SELECT 'pse' AS metodo
+    UNION ALL SELECT 'nequi'
+    UNION ALL SELECT 'bancolombia'
+    UNION ALL SELECT 'tarjeta'
+    UNION ALL SELECT 'efectivo'
+) AS e
+INNER JOIN pedidos AS pe ON e.metodo = pe.metodo_pago
+GROUP BY e.metodo;
+
+-- ----------------------------------------------------------------------------
+-- Permite consultar de forma dinámica el catálogo de productos activos
+-- según la opción solicitada por el usuario o el sistema.
+-- -
+-- p_opcion VARCHAR(50) - Filtro de consulta del catálogo.
+--   1. Si p_opcion corresponde al nombre de una de las 9 categorías, filtra
+--      y devuelve los productos activos pertenecientes a dicha categoría.
+--   2. Si p_opcion es 'Más Vendidos', devuelve únicamente los productos activos
+--      destacados con la marca es_mas_vendido = 1.
+--   3. Si p_opcion es 'Todos', devuelve la totalidad de los productos activos.
+--   4. Si p_opcion no coincide con ninguno de los valores anteriores, retorna
+--      con un error 'Opción invalida'.
+-- ----------------------------------------------------------------------------
+DELIMITER //
+CREATE PROCEDURE sp_catalogo_completo(IN p_opcion VARCHAR(50))
+BEGIN
+	IF (p_opcion IN ('Cárnicos y Embutidos', 'Línea de Panes', 'Congelados', 'Pulpas de Fruta', 'Salsas y Aderezos', 'Adobos y Sazonadores', 'Desechables e Icopores', 'Don Maní y Frutos Secos', 'Dulcería y Otros')) THEN
+		SELECT 	p.codigo_sku as codigo,p.nombre,p.descripcion,p.presentacion,p.precio AS precio_unitario,p.precio_anterior,p.imagen_url,p.etiqueta,p.temperatura_conservacion
+		FROM productos AS p
+		INNER JOIN categorias AS c ON c.id = p.categoria_id
+		WHERE c.nombre = p_opcion AND p.activo = 1;
+	ELSEIF (p_opcion IN ('Más Vendidos')) THEN
+		SELECT 	p.codigo_sku as codigo,p.nombre,p.descripcion,p.presentacion,p.precio AS precio_unitario,p.precio_anterior,p.imagen_url,p.etiqueta,p.temperatura_conservacion
+		FROM productos AS p
+        WHERE p.es_mas_vendido = 1 AND p.activo = 1;
+	ELSEIF (p_opcion IN ('Todos')) THEN
+		SELECT 	p.codigo_sku as codigo,p.nombre,p.descripcion,p.presentacion,p.precio AS precio_unitario,p.precio_anterior,p.imagen_url,p.etiqueta,p.temperatura_conservacion
+		FROM productos AS p
+		WHERE p.activo = 1;
+	ELSE 
+		SELECT 'Opción invalida';
+	END IF;
+END //
+
+-- ----------------------------------------------------------------------------
+-- Actualizar de forma automática el stock (cantidad vendida) en la tabla
+-- productos cuando se registra (inserta en la tabla pedido_items) un ítem 
+-- dentro de un pedido.
+--   - Por cada fila insertada, actualiza la columna stock de la tabla
+--     productos sumando la cantidad registrada en el nuevo ítem.
+-- ----------------------------------------------------------------------------
+CREATE TRIGGER tr_contar_stock
+AFTER INSERT ON pedido_items
+FOR EACH ROW
+BEGIN
+	UPDATE productos
+    SET stock = stock + NEW.cantidad
+    WHERE id = NEW.pedido_id;
+END //
+
+DELIMITER ;
+
+-- ============================================================================
+-- INSERCIÓN DE LAS 9 CATEGORÍAS OFICIALES
+-- ============================================================================
+INSERT INTO categorias (id, nombre, slug, icono, descripcion) VALUES
+  (1, 'Cárnicos y Embutidos', 'embutidos', 'kebab_dining', 'Chorizos, costillas ahumadas, hamburguesas, jamones, salchichas y tocinetas'),
+  (2, 'Línea de Panes', 'pan', 'bakery_dining', 'Panes para hamburguesa, perro caliente y tajado artesanal e industrial'),
+  (3, 'Congelados', 'congelados', 'ac_unit', 'Papas francesas, criollas, yuca, maíz, pastas para empanada, milanesas y nuggets'),
+  (4, 'Pulpas de Fruta', 'pulpas', 'local_drink', 'Pulpas congeladas naturales y mezclas listas para limonadas y jugos'),
+  (5, 'Salsas y Aderezos', 'salsas', 'soup_kitchen', 'Líneas Río Grande, Salsabor, Company y Alimentek en kilo, galón y sobres'),
+  (6, 'Adobos y Sazonadores', 'adobos', 'Auto_awesome', 'Adobo criollo, pasta de ajo, ají La Granja, miel, salsa soya, negra y vinagres'),
+  (7, 'Desechables e Icopores', 'desechables', 'takeout_dining', 'Contenedores de icopor, cajas porta comidas, papel aluminio, vasos, palillos y servilletas'),
+  (8, 'Don Maní y Frutos Secos', 'secos', 'nutrition', 'Arándanos, maní dulce, natural, picante, salado, mixto y mantequilla de maní'),
+  (9, 'Dulcería y Otros', 'otros', 'icecream', 'Leche condensada, manjar blanco, syropes, jarabes, obleas, conos, piña en trozos y más');
+
+-- ============================================================================
+-- INSERCIÓN DE LOS 235 PRODUCTOS DEL LISTADO DE PRECIOS DANILLANOS
+-- ============================================================================
+INSERT INTO productos (id, categoria_id, codigo_sku, nombre, descripcion, presentacion, precio, precio_anterior, imagen_url, stock, es_mas_vendido, etiqueta, temperatura_conservacion) VALUES
+  (1, 1, 'DAN-EMB-001', 'ALITAS DE POLLO X 500 GRS', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 500 GRS', 15000, 16800, 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?auto=format&fit=crop&w=700&q=80', 120, 1, 'Más Vendido', '0°C a 4°C Refrigerado'),
+  (2, 1, 'DAN-EMB-002', 'BUTIFARRA X450 GR', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X450 GR', 10400, NULL, 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80', 120, 0, 'Tradicional', '0°C a 4°C Refrigerado'),
+  (3, 1, 'DAN-EMB-003', 'CHORIZO CASERO X10', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X10', 18850, 21112, 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80', 120, 1, 'Más Vendido', '0°C a 4°C Refrigerado'),
+  (4, 1, 'DAN-EMB-004', 'CHORIZO CASERO X5', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X5', 9550, NULL, 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (5, 1, 'DAN-EMB-005', 'CHORIZO COCTEL X LB', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X LB', 13400, NULL, 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (6, 1, 'DAN-EMB-006', 'CHORIZO CUNCIA X 10', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 10', 20550, 23016, 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80', 120, 1, 'Favorito Llanero', '0°C a 4°C Refrigerado'),
+  (7, 1, 'DAN-EMB-007', 'CHORIZO CUNCIA X 4', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 4', 5900, NULL, 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (8, 1, 'DAN-EMB-008', 'CHORIZO CUNCIA X 5', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 5', 10900, NULL, 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (9, 1, 'DAN-EMB-009', 'CHORIZO CUNCIA X 8', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 8', 10900, NULL, 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (10, 1, 'DAN-EMB-010', 'CHORIZO SANTARROSANO DS X 10', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 10', 21350, 23912, 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80', 120, 1, 'Premium', '0°C a 4°C Refrigerado'),
+  (11, 1, 'DAN-EMB-011', 'CHORIZO SANTARROSANO DS X5', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X5', 10900, NULL, 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (12, 1, 'DAN-EMB-012', 'COSTILLA AHUMADA DS X 250 GR', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 250 GR', 9300, NULL, 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (13, 1, 'DAN-EMB-013', 'COSTILLA AHUMADA DS X 450 GRS', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 450 GRS', 16300, 18256, 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=700&q=80', 120, 1, 'Más Vendido', '0°C a 4°C Refrigerado'),
+  (14, 1, 'DAN-EMB-014', 'COSTILLA PREMIUM X250', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X250', 8300, NULL, 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (15, 1, 'DAN-EMB-015', 'COSTILLA PREMIUM X450', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X450', 14300, NULL, 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=700&q=80', 120, 0, 'Premium', '0°C a 4°C Refrigerado'),
+  (16, 1, 'DAN-EMB-016', 'COSTILLA CR CALI X 3 KLS', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 3 KLS', 75900, NULL, 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=700&q=80', 120, 0, 'Formato Restaurante', '0°C a 4°C Refrigerado'),
+  (17, 1, 'DAN-EMB-017', 'COSTILLA CARAMELO 3 KILOS', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 84000, 94080, 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=700&q=80', 120, 1, 'Especial Restaurante', '0°C a 4°C Refrigerado'),
+  (18, 1, 'DAN-EMB-018', 'COSTILLA ESPECIAL CR SIN HUESO X 250GR', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 250GR', 8000, NULL, 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (19, 1, 'DAN-EMB-019', 'COSTILLA ESPECIAL CR SIN HUESO X 500GR', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 500GR', 16000, NULL, 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (20, 1, 'DAN-EMB-020', 'COSTILLA RECORTE KILO', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 24500, NULL, 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (21, 1, 'DAN-EMB-021', 'HAMB. LLANERA X 10 UND X 90 GRS (cuadrada)', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 10 UND X 90 GRS (cuadrada)', 20200, 22624, 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80', 120, 1, 'Más Vendido', '0°C a 4°C Refrigerado'),
+  (22, 1, 'DAN-EMB-022', 'HAMB. PREASADA X 500 GR', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 500 GR', 6000, NULL, 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (23, 1, 'DAN-EMB-023', 'HAMB. PURA CARNE X10 UND (cuadrada)', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X10 UND (cuadrada)', 26300, 29456, 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80', 120, 1, '100% Carne', '0°C a 4°C Refrigerado'),
+  (24, 1, 'DAN-EMB-024', 'HB LLANERO CAJA X30UNID 85GR', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X30UNID 85GR', 51400, 57568, 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80', 120, 1, 'Caja Negocio', '0°C a 4°C Refrigerado'),
+  (25, 1, 'DAN-EMB-025', 'HB LLANERO CAJA X30UNID 115GR', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X30UNID 115GR', 66400, NULL, 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80', 120, 0, 'Caja Negocio', '0°C a 4°C Refrigerado'),
+  (26, 1, 'DAN-EMB-026', 'JAMON DS X 500gr', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 500gr', 11600, NULL, 'https://images.unsplash.com/photo-1524438418049-ab2acb7aa48f?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (27, 1, 'DAN-EMB-027', 'JAMON YORK JJ X 500 GRS', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 500 GRS', 5500, NULL, 'https://images.unsplash.com/photo-1524438418049-ab2acb7aa48f?auto=format&fit=crop&w=700&q=80', 120, 0, 'Económico', '0°C a 4°C Refrigerado'),
+  (28, 1, 'DAN-EMB-028', 'JAMON AHUMADO JJ X 500', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 500', 7800, NULL, 'https://images.unsplash.com/photo-1524438418049-ab2acb7aa48f?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (29, 1, 'DAN-EMB-029', 'SALCHICHA AMERICANA X 15 UND', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 15 UND', 28100, NULL, 'https://images.unsplash.com/photo-1619740455993-9e612b1af08a?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (30, 1, 'DAN-EMB-030', 'SALCHICHA MANGUERA X15', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X15', 26600, NULL, 'https://images.unsplash.com/photo-1619740455993-9e612b1af08a?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (31, 1, 'DAN-EMB-031', 'SALCHICHA DEL RANCHO X 15 UND', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 15 UND', 12500, NULL, 'https://images.unsplash.com/photo-1619740455993-9e612b1af08a?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (32, 1, 'DAN-EMB-032', 'SALCHICHA SUPERPERRERO DS X 15', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 15', 26100, 29232, 'https://images.unsplash.com/photo-1619740455993-9e612b1af08a?auto=format&fit=crop&w=700&q=80', 120, 1, 'Perros Calientes', '0°C a 4°C Refrigerado'),
+  (33, 1, 'DAN-EMB-033', 'SALCHICHA PERRERA MGS X15', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X15', 18200, NULL, 'https://images.unsplash.com/photo-1619740455993-9e612b1af08a?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (34, 1, 'DAN-EMB-034', 'TOCINETA DS X 250 GR', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 250 GR', 7500, NULL, 'https://images.unsplash.com/photo-1606851094655-b2593a9af63f?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (35, 1, 'DAN-EMB-035', 'TOCINETA DS X 450 GR', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 450 GR', 13400, 15008, 'https://images.unsplash.com/photo-1606851094655-b2593a9af63f?auto=format&fit=crop&w=700&q=80', 120, 1, 'Más Vendido', '0°C a 4°C Refrigerado'),
+  (36, 1, 'DAN-EMB-036', 'TOCINETA LLANERA X900', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X900', 16850, NULL, 'https://images.unsplash.com/photo-1606851094655-b2593a9af63f?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (37, 1, 'DAN-EMB-037', 'TOCINETA OFIR X900', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X900', 21500, NULL, 'https://images.unsplash.com/photo-1606851094655-b2593a9af63f?auto=format&fit=crop&w=700&q=80', 120, 0, 'Bloque 900g', '0°C a 4°C Refrigerado'),
+  (38, 1, 'DAN-EMB-038', 'TOCINETA RECORTE DS X KILO', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X KILO', 21150, NULL, 'https://images.unsplash.com/photo-1606851094655-b2593a9af63f?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '0°C a 4°C Refrigerado'),
+  (39, 2, 'DAN-PAN-039', 'PAN HAMBURGUESA AJONJOLI GUADALUPE', 'Insumo garantizado por Danillanos (Línea de Panes) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 10500, NULL, 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80', 120, 0, 'Fresco', 'Ambiente Fresco'),
+  (40, 2, 'DAN-PAN-040', 'PAN HAMBURGUESA ARTESANAL BIMBO X 10 UND', 'Insumo garantizado por Danillanos (Línea de Panes) ideal para restaurantes, comidas rápidas y hogar.', 'X 10 UND', 12900, 14448, 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80', 120, 1, 'Más Vendido', 'Ambiente Fresco'),
+  (41, 2, 'DAN-PAN-041', 'PAN TAJADO BIMBO EXTRALARGO', 'Insumo garantizado por Danillanos (Línea de Panes) ideal para restaurantes, comidas rápidas y hogar.', 'XTRALARGO', 8500, NULL, 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (42, 2, 'DAN-PAN-042', 'PAN PERRO BIMBO X10 UND', 'Insumo garantizado por Danillanos (Línea de Panes) ideal para restaurantes, comidas rápidas y hogar.', 'X10 UND', 11850, NULL, 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (43, 3, 'DAN-CON-043', 'CRIOLLA X 1000 GR', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X 1000 GR', 11800, 13216, 'https://images.unsplash.com/photo-1576107232684-1279f3908594?auto=format&fit=crop&w=700&q=80', 120, 1, 'Congelado IQF', '-18°C Ultracongelado'),
+  (44, 3, 'DAN-CON-044', 'CRIOLLA X LIBRA', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X LIBRA', 6100, NULL, 'https://images.unsplash.com/photo-1576107232684-1279f3908594?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (45, 3, 'DAN-CON-045', 'CROQUETA YUCA X 1000 GR', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X 1000 GR', 7500, NULL, 'https://images.unsplash.com/photo-1576107232684-1279f3908594?auto=format&fit=crop&w=700&q=80', 120, 0, 'Listo para Freír', '-18°C Ultracongelado'),
+  (46, 3, 'DAN-CON-046', 'CROQUETA YUCA X 500 GR', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X 500 GR', 4000, NULL, 'https://images.unsplash.com/photo-1576107232684-1279f3908594?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (47, 3, 'DAN-CON-047', 'MAIZ DULCE X KILO', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X KILO', 8000, NULL, 'https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (48, 3, 'DAN-CON-048', 'MAIZ DULCE X 500gr', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X 500gr', 5000, NULL, 'https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (49, 3, 'DAN-CON-049', 'MAIZ PORCIONADO X20 UNID', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X20 UNID', 28000, NULL, 'https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=700&q=80', 120, 0, 'Restaurantes', '-18°C Ultracongelado'),
+  (50, 3, 'DAN-CON-050', 'MIX DE VERDURA X KILO', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X DE VERDURA X KILO', 11500, NULL, 'https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (51, 3, 'DAN-CON-051', 'MIX DE VERDURA X LIBRA', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X DE VERDURA X LIBRA', 6300, NULL, 'https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (52, 3, 'DAN-CON-052', 'PAPA FRANCESA IMPORTADA X 2.5 KG', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X 2.5 KG', 17500, 19600, 'https://images.unsplash.com/photo-1576107232684-1279f3908594?auto=format&fit=crop&w=700&q=80', 120, 1, 'Más Vendido', '-18°C Ultracongelado'),
+  (53, 3, 'DAN-CON-053', 'PAPA FRANCESA X 500 GR', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X 500 GR', 5000, NULL, 'https://images.unsplash.com/photo-1576107232684-1279f3908594?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (54, 3, 'DAN-CON-054', 'PAPA FRANCESA X 1000 GR', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X 1000 GR', 9800, 10976, 'https://images.unsplash.com/photo-1576107232684-1279f3908594?auto=format&fit=crop&w=700&q=80', 120, 1, 'Extra Crujiente', '-18°C Ultracongelado'),
+  (55, 3, 'DAN-CON-055', 'PAPA PORCIONADA X 20 UND', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X 20 UND', 30000, NULL, 'https://images.unsplash.com/photo-1576107232684-1279f3908594?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (56, 3, 'DAN-CON-056', 'PASTA CUADRADA PARA FLAUTA X 600 GRS', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X 600 GRS', 4800, NULL, 'https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (57, 3, 'DAN-CON-057', 'PASTA EMPANADA REDONDA X 500 GRS', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X 500 GRS', 4500, NULL, 'https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (58, 3, 'DAN-CON-058', 'PASTA EMPANADA REDONDA X 600 GRS', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X 600 GRS', 4650, NULL, 'https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (59, 3, 'DAN-CON-059', 'PATACON TOSTON X 1000 GR', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X 1000 GR', 11800, NULL, 'https://images.unsplash.com/photo-1576107232684-1279f3908594?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (60, 3, 'DAN-CON-060', 'MILANESA DE POLLO X22 UNID 100GR', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X22 UNID 100GR', 64200, NULL, 'https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=700&q=80', 120, 0, 'Caja x22', '-18°C Ultracongelado'),
+  (61, 3, 'DAN-CON-061', 'HAMBURGUESA POLLO X22 UNID 100GR', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X22 UNID 100GR', 64200, NULL, 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80', 120, 0, 'Caja x22', '-18°C Ultracongelado'),
+  (62, 3, 'DAN-CON-062', 'NUGGETS X60 UNIDADES', 'Insumo garantizado por Danillanos (Congelados) ideal para restaurantes, comidas rápidas y hogar.', 'X60 UNIDADES', 36900, 41328, 'https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=700&q=80', 120, 1, 'Familiar x60', '-18°C Ultracongelado'),
+  (63, 4, 'DAN-PUL-063', 'PULPA FRUTOS AMARILLOS X 8 X125GR', 'Insumo garantizado por Danillanos (Pulpas de Fruta) ideal para restaurantes, comidas rápidas y hogar.', 'X 8 X125GR', 21000, NULL, 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=700&q=80', 120, 0, 'Fruta Natural', '-18°C Ultracongelado'),
+  (64, 4, 'DAN-PUL-064', 'PULPA CONGELADA DE LULO X8UN X 125GR', 'Insumo garantizado por Danillanos (Pulpas de Fruta) ideal para restaurantes, comidas rápidas y hogar.', 'X8UN X 125GR', 15600, NULL, 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (65, 4, 'DAN-PUL-065', 'PULPA CONGELADA FRESA X 8UND X 125 GR', 'Insumo garantizado por Danillanos (Pulpas de Fruta) ideal para restaurantes, comidas rápidas y hogar.', 'X 8UND X 125 GR', 14700, NULL, 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (66, 4, 'DAN-PUL-066', 'PULPA CONGELADA FRUTOS ROJOS X8UND 125GR', 'Insumo garantizado por Danillanos (Pulpas de Fruta) ideal para restaurantes, comidas rápidas y hogar.', 'X8UND 125GR', 15600, NULL, 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (67, 4, 'DAN-PUL-067', 'PULPA CONGELADA HIERBABUENA 8X125 GR', 'Insumo garantizado por Danillanos (Pulpas de Fruta) ideal para restaurantes, comidas rápidas y hogar.', 'X125 GR', 20600, NULL, 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (68, 4, 'DAN-PUL-068', 'PULPA CONGELADA MANGO 8X125 GR', 'Insumo garantizado por Danillanos (Pulpas de Fruta) ideal para restaurantes, comidas rápidas y hogar.', 'X125 GR', 16100, NULL, 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (69, 4, 'DAN-PUL-069', 'PULPA CONGELADA MARACUYA X8UN X125 GR', 'Insumo garantizado por Danillanos (Pulpas de Fruta) ideal para restaurantes, comidas rápidas y hogar.', 'X8UN X125 GR', 26400, 29568, 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=700&q=80', 120, 1, 'Más Vendido', '-18°C Ultracongelado'),
+  (70, 4, 'DAN-PUL-070', 'PULPA CONGELADA MORA X8 X125 GR', 'Insumo garantizado por Danillanos (Pulpas de Fruta) ideal para restaurantes, comidas rápidas y hogar.', 'X8 X125 GR', 16100, NULL, 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (71, 4, 'DAN-PUL-071', 'PULPA CONGELADA DE GUANABANA X8 X125', 'Insumo garantizado por Danillanos (Pulpas de Fruta) ideal para restaurantes, comidas rápidas y hogar.', 'X8 X125', 18900, NULL, 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (72, 4, 'DAN-PUL-072', 'PULPA LIMONADA CEREZA X8UND X125GR', 'Insumo garantizado por Danillanos (Pulpas de Fruta) ideal para restaurantes, comidas rápidas y hogar.', 'X8UND X125GR', 20600, NULL, 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=700&q=80', 120, 0, 'Limonada Lista', '-18°C Ultracongelado'),
+  (73, 4, 'DAN-PUL-073', 'PULPA LIMONADA DE COCO X8UND X125GR', 'Insumo garantizado por Danillanos (Pulpas de Fruta) ideal para restaurantes, comidas rápidas y hogar.', 'X8UND X125GR', 27700, 31024, 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=700&q=80', 120, 1, 'Favorito', '-18°C Ultracongelado'),
+  (74, 4, 'DAN-PUL-074', 'PULPA LIMONADA MANGO BICHE X8 UND', 'Insumo garantizado por Danillanos (Pulpas de Fruta) ideal para restaurantes, comidas rápidas y hogar.', 'X8 UND', 20700, NULL, 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (75, 4, 'DAN-PUL-075', 'PULPA LIMONADA NATURAL X8UND', 'Insumo garantizado por Danillanos (Pulpas de Fruta) ideal para restaurantes, comidas rápidas y hogar.', 'X8UND', 16100, NULL, 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (76, 4, 'DAN-PUL-076', 'PULPA LIMONADA NARANJA X8 UND 125GR', 'Insumo garantizado por Danillanos (Pulpas de Fruta) ideal para restaurantes, comidas rápidas y hogar.', 'X8 UND 125GR', 18600, NULL, 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (77, 4, 'DAN-PUL-077', 'PULPA LIMONADA MANDARINA X8 UND 125GR', 'Insumo garantizado por Danillanos (Pulpas de Fruta) ideal para restaurantes, comidas rápidas y hogar.', 'X8 UND 125GR', 19600, NULL, 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (78, 4, 'DAN-PUL-078', 'PULPA PIÑA COLADA X8 UND 125GR', 'Insumo garantizado por Danillanos (Pulpas de Fruta) ideal para restaurantes, comidas rápidas y hogar.', 'X8 UND 125GR', 26400, NULL, 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (79, 4, 'DAN-PUL-079', 'PULPA LIMONADA PANELADA X8 UND 125GR', 'Insumo garantizado por Danillanos (Pulpas de Fruta) ideal para restaurantes, comidas rápidas y hogar.', 'X8 UND 125GR', 18000, NULL, 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, '-18°C Ultracongelado'),
+  (80, 6, 'DAN-ADO-080', 'ADOBO CRIOLLO X 1000 GR', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X 1000 GR', 8100, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, 'Sazón Casero', 'Ambiente Fresco'),
+  (81, 6, 'DAN-ADO-081', 'ADOBO CRIOLLO X 110 GR', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X 110 GR', 1500, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (82, 6, 'DAN-ADO-082', 'ADOBO CRIOLLO X 245 GR', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X 245 GR', 2800, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (83, 6, 'DAN-ADO-083', 'ADOBO CRIOLLO X 4000 GR', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X 4000 GR', 28000, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, 'Garrafa 4Kg', 'Ambiente Fresco'),
+  (84, 6, 'DAN-ADO-084', 'ADOBO CRIOLLO X 500 GR', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X 500 GR', 5600, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (85, 6, 'DAN-ADO-085', 'ADOBO CRIOLLO X 50 GR X12 UND', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X 50 GR X12 UND', 11800, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (86, 6, 'DAN-ADO-086', 'AJI LA GRANJA X 110 GR', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X 110 GR', 1500, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (87, 6, 'DAN-ADO-087', 'AJI LA GRANJA X 245 GR', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X 245 GR', 2800, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (88, 6, 'DAN-ADO-088', 'AJI LA GRANJA X 4 KL', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X 4 KL', 28000, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, 'Institucional', 'Ambiente Fresco'),
+  (89, 6, 'DAN-ADO-089', 'AJI LA GRANJA X 500 GR', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X 500 GR', 5600, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (90, 6, 'DAN-ADO-090', 'AJI LA GRANJA X 50 GR X 12UND', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X 50 GR X 12UND', 11800, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (91, 6, 'DAN-ADO-091', 'AJI LA GRANJA X KILO', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X KILO', 8100, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (92, 6, 'DAN-ADO-092', 'PASTA DE AJO X KILO', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X KILO', 8100, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (93, 6, 'DAN-ADO-093', 'PASTA DE AJO X 110 GR', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X 110 GR', 1800, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (94, 6, 'DAN-ADO-094', 'PASTA DE AJO X245GR', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X245GR', 2800, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (95, 6, 'DAN-ADO-095', 'PASTA DE AJO X 4 KLS', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X 4 KLS', 28000, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (96, 6, 'DAN-ADO-096', 'PASTA DE AJO X 500 GR', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X 500 GR', 5600, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (97, 6, 'DAN-ADO-097', 'PASTA DE AJO X 50 GR X12 UND', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X 50 GR X12 UND', 11800, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (98, 6, 'DAN-ADO-098', 'MIEL GRANJA X1000', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X1000', 10000, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (99, 6, 'DAN-ADO-099', 'MIEL LA GRANJA X 500 GR', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'X 500 GR', 5500, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (100, 6, 'DAN-ADO-100', 'SALSA SOYA GAVIUS *1000 ML', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 7000, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (101, 6, 'DAN-ADO-101', 'SALSA SOYA GAVIUS *3800 ML', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 19200, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, 'Galón', 'Ambiente Fresco'),
+  (102, 6, 'DAN-ADO-102', 'SALSA NEGRA GAVIUS *1000 ML', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 7000, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (103, 6, 'DAN-ADO-103', 'SALSA NEGRA GAVIUS *3800 ML', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 19200, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, 'Galón', 'Ambiente Fresco'),
+  (104, 6, 'DAN-ADO-104', 'VINAGRE BLANCO *1000 ML', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 3250, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (105, 6, 'DAN-ADO-105', 'VINAGRE BLANCO *3000 ML', 'Insumo garantizado por Danillanos (Adobos y Sazonadores) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 8000, NULL, 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (106, 5, 'DAN-SAL-106', 'SALSA BBQ X GALON RIO GRANDE', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X GALON RIO GRANDE', 28500, 31920, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 1, 'Río Grande', 'Ambiente Fresco'),
+  (107, 5, 'DAN-SAL-107', 'SALSA BBQ KILO RIOGRANDE', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 8500, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Río Grande', 'Ambiente Fresco'),
+  (108, 5, 'DAN-SAL-108', 'SALSA BBQ DULCE RIOGRANDE KILO', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 14500, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Río Grande', 'Ambiente Fresco'),
+  (109, 5, 'DAN-SAL-109', 'ADEREZO PIÑA X KILO RIOGRANDE', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X KILO RIOGRANDE', 15800, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Río Grande', 'Ambiente Fresco'),
+  (110, 5, 'DAN-SAL-110', 'SALSA DE PIÑA RIOGRANDE KILO', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 6800, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Río Grande', 'Ambiente Fresco'),
+  (111, 5, 'DAN-SAL-111', 'SALSA DULCE MAIZ RIOGRANDE X GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X GALON', 49800, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Río Grande', 'Ambiente Fresco'),
+  (112, 5, 'DAN-SAL-112', 'SALSA DULCE MAIZ RIOGRANDE X KILO', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X KILO', 14800, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Río Grande', 'Ambiente Fresco'),
+  (113, 5, 'DAN-SAL-113', 'SALSA GUACAMOLE CON AJI X KILO RIOGRANDE', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X KILO RIOGRANDE', 15950, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Río Grande', 'Ambiente Fresco'),
+  (114, 5, 'DAN-SAL-114', 'SALSA GUACAMOLE SIN AJI X KILO RIOGRANDE', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X KILO RIOGRANDE', 15950, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Río Grande', 'Ambiente Fresco'),
+  (115, 5, 'DAN-SAL-115', 'SALSA TARTARA RIOGRANDE X KILO', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X KILO', 13650, 15288, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 1, 'Más Vendido', 'Ambiente Fresco'),
+  (116, 5, 'DAN-SAL-116', 'SALSA TOMATE RIOGRANDE X KILO', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X KILO', 8500, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Río Grande', 'Ambiente Fresco'),
+  (117, 5, 'DAN-SAL-117', 'SALSA TOMATE RIO GRANDE X GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X GALON', 29500, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Río Grande', 'Ambiente Fresco'),
+  (118, 5, 'DAN-SAL-118', 'SALSA MOSTAZA RIOGRANDE GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 22500, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Río Grande', 'Ambiente Fresco'),
+  (119, 5, 'DAN-SAL-119', 'SALSA MOSTAZA RIOGRANDE KILO', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 6500, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Río Grande', 'Ambiente Fresco'),
+  (120, 5, 'DAN-SAL-120', 'SALSA CON AJO CAMPO GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 72700, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Galón', 'Ambiente Fresco'),
+  (121, 5, 'DAN-SAL-121', 'SALSA MAYONESA CAMPO GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 68000, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Galón', 'Ambiente Fresco'),
+  (122, 5, 'DAN-SAL-122', 'SALSA BBQ BUFALO RIO GRANDE KILO', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 14900, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Río Grande', 'Ambiente Fresco'),
+  (123, 5, 'DAN-SAL-123', 'SALSA MIEL MOSTAZA RIO GRANDE KILO', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 11900, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Río Grande', 'Ambiente Fresco'),
+  (124, 5, 'DAN-SAL-124', 'SALSA ROSADA RIOGRANDE GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 33000, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Río Grande', 'Ambiente Fresco'),
+  (125, 5, 'DAN-SAL-125', 'PASTA TOMATE FINAS HIERBAS SALSABOR GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 30650, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (126, 5, 'DAN-SAL-126', 'PASTA DE TOMATE SALSABOR GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 27300, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (127, 5, 'DAN-SAL-127', 'SALSA BBQ SALSABOR GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 23400, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (128, 5, 'DAN-SAL-128', 'SALSA BBQ SALSABOR KILO', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 8000, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (129, 5, 'DAN-SAL-129', 'SALSA TOMATE SALSABOR GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 23400, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (130, 5, 'DAN-SAL-130', 'SALSA TOMATE SALSABOR KILO', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 5700, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (131, 5, 'DAN-SAL-131', 'SALSA MAYONESA SALSABOR GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 35000, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (132, 5, 'DAN-SAL-132', 'SALSA MAYONESA SALSABOR KILO', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 9400, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (133, 5, 'DAN-SAL-133', 'SALSA NEGRA SALSABOR GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 17300, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (134, 5, 'DAN-SAL-134', 'SALSA PIÑA SALSABOR GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 21200, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (135, 5, 'DAN-SAL-135', 'SALSA PIÑA SALSABOR KILO', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 6700, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (136, 5, 'DAN-SAL-136', 'SALSA ROSADA SALSABOR GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 23400, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (137, 5, 'DAN-SAL-137', 'SALSA ROSADA SALSABOR KILO', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 7700, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (138, 5, 'DAN-SAL-138', 'SALSA SOYA SALSABOR GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 18900, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (139, 5, 'DAN-SAL-139', 'SALSA TARTARA SALSABOR KILO', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 7700, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (140, 5, 'DAN-SAL-140', 'SALSA TARTARA GOURMETH SALSABOR GLN', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 41500, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (141, 5, 'DAN-SAL-141', 'SALSA DULCE MAIZ SALSABOR GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 42800, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (142, 5, 'DAN-SAL-142', 'SALSA DULCE MAIZ SALSABOR KILO', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 12000, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (143, 5, 'DAN-SAL-143', 'SALSA QUESO SALSABOR GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 41500, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (144, 5, 'DAN-SAL-144', 'SALSA QUESO SALSABOR KILO', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 11100, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (145, 5, 'DAN-SAL-145', 'SALSA BBQ SALSABOR GOURMETH GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 32600, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (146, 5, 'DAN-SAL-146', 'SALSA TOMATE SALSABOR GOURMETH GALON', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 24200, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Salsabor', 'Ambiente Fresco'),
+  (147, 5, 'DAN-SAL-147', 'SALSA BBQ BUQUIN GLN', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 24850, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Buquin', 'Ambiente Fresco'),
+  (148, 5, 'DAN-SAL-148', 'SALSA TOMATE BUQUIN GLN', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 22200, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Buquin', 'Ambiente Fresco'),
+  (149, 5, 'DAN-SAL-149', 'SALSA TOMATE SOBRES COMPANY', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 5850, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Porciones Sobres', 'Ambiente Fresco'),
+  (150, 5, 'DAN-SAL-150', 'SALSA MIEL SOBRES COMPANY', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 6650, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Porciones Sobres', 'Ambiente Fresco'),
+  (151, 5, 'DAN-SAL-151', 'SALSA BBQ SOBRES COMPANY', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 7350, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Porciones Sobres', 'Ambiente Fresco'),
+  (152, 5, 'DAN-SAL-152', 'SALSA ROSADA SOBRES COMPANY', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 8000, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Porciones Sobres', 'Ambiente Fresco'),
+  (153, 5, 'DAN-SAL-153', 'ALIMENTEK MAYO AJO X900 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X900 GR', 21600, 24192, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 1, 'Alimentek', 'Ambiente Fresco'),
+  (154, 5, 'DAN-SAL-154', 'ALIMENTEK MAYO AJO X4000 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X4000 GR', 69300, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek 4Kg', 'Ambiente Fresco'),
+  (155, 5, 'DAN-SAL-155', 'ALIMENTEK BBQ X1000 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X1000 GR', 14500, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek', 'Ambiente Fresco'),
+  (156, 5, 'DAN-SAL-156', 'ALIMENTEK BBQ X4000 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X4000 GR', 34000, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek 4Kg', 'Ambiente Fresco'),
+  (157, 5, 'DAN-SAL-157', 'ALIMENTEK MAIZ DULCE X900 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X900 GR', 18500, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek', 'Ambiente Fresco'),
+  (158, 5, 'DAN-SAL-158', 'ALIMENTEK MAIZ DULCE X4000 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X4000 GR', 56000, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek 4Kg', 'Ambiente Fresco'),
+  (159, 5, 'DAN-SAL-159', 'ALIMENTEK MAYO TOCINETA X900 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X900 GR', 19000, 21280, 'https://images.unsplash.com/photo-1606851094655-b2593a9af63f?auto=format&fit=crop&w=700&q=80', 120, 1, 'Más Vendido', 'Ambiente Fresco'),
+  (160, 5, 'DAN-SAL-160', 'ALIMENTEK MAYO TOCINETA X4000 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X4000 GR', 57500, NULL, 'https://images.unsplash.com/photo-1606851094655-b2593a9af63f?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek 4Kg', 'Ambiente Fresco'),
+  (161, 5, 'DAN-SAL-161', 'ALIMENTEK MAYONESA X900 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X900 GR', 21000, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek', 'Ambiente Fresco'),
+  (162, 5, 'DAN-SAL-162', 'ALIMENTEK MAYONESA X4000 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X4000 GR', 64000, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek 4Kg', 'Ambiente Fresco'),
+  (163, 5, 'DAN-SAL-163', 'ALIMENTEK PARRILLA Y CARBON X900 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X900 GR', 18400, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek', 'Ambiente Fresco'),
+  (164, 5, 'DAN-SAL-164', 'ALIMENTEK PARRILLA Y CARBON X4000 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X4000 GR', 52500, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek 4Kg', 'Ambiente Fresco'),
+  (165, 5, 'DAN-SAL-165', 'ALIMENTEK QUESO CHEDDAR X900 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X900 GR', 17700, 19824, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 1, 'Queso Cheddar', 'Ambiente Fresco'),
+  (166, 5, 'DAN-SAL-166', 'ALIMENTEK QUESO CHEDDAR X4000 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X4000 GR', 52600, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek 4Kg', 'Ambiente Fresco'),
+  (167, 5, 'DAN-SAL-167', 'ALIMENTEK TARTARA FRAGATA X900 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X900 GR', 19600, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek', 'Ambiente Fresco'),
+  (168, 5, 'DAN-SAL-168', 'ALIMENTEK TARTARA FRAGATA X4000 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X4000 GR', 62500, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek 4Kg', 'Ambiente Fresco'),
+  (169, 5, 'DAN-SAL-169', 'ALIMENTEK TOMATE X1000 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X1000 GR', 14000, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek', 'Ambiente Fresco'),
+  (170, 5, 'DAN-SAL-170', 'ALIMENTEK TOMATE X4000 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X4000 GR', 35000, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek 4Kg', 'Ambiente Fresco'),
+  (171, 5, 'DAN-SAL-171', 'ALIMENTEK MOSTAZA X1000 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X1000 GR', 14600, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek', 'Ambiente Fresco'),
+  (172, 5, 'DAN-SAL-172', 'ALIMENTEK MOSTAZA X4000 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X4000 GR', 30000, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek 4Kg', 'Ambiente Fresco'),
+  (173, 5, 'DAN-SAL-173', 'ALIMENTEK ROSADA X1000 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X1000 GR', 18000, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek', 'Ambiente Fresco'),
+  (174, 5, 'DAN-SAL-174', 'ALIMENTEK ROSADA X4000 GR', 'Insumo garantizado por Danillanos (Salsas y Aderezos) ideal para restaurantes, comidas rápidas y hogar.', 'X4000 GR', 40700, NULL, 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=700&q=80', 120, 0, 'Alimentek 4Kg', 'Ambiente Fresco'),
+  (175, 7, 'DAN-DES-175', 'CARTON PORTA HAMBURGUESA', 'Insumo garantizado por Danillanos (Desechables e Icopores) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 100, NULL, 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80', 120, 0, 'Empaque', 'Ambiente Fresco'),
+  (176, 7, 'DAN-DES-176', 'CARTON PORTA PERRO', 'Insumo garantizado por Danillanos (Desechables e Icopores) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 100, NULL, 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=700&q=80', 120, 0, 'Empaque', 'Ambiente Fresco'),
+  (177, 7, 'DAN-DES-177', 'CARTON PORTA PIZZA', 'Insumo garantizado por Danillanos (Desechables e Icopores) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 100, NULL, 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=700&q=80', 120, 0, 'Empaque', 'Ambiente Fresco'),
+  (178, 7, 'DAN-DES-178', 'PALILLO HAMBURGUESA', 'Insumo garantizado por Danillanos (Desechables e Icopores) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 1850, NULL, 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80', 120, 0, 'Insumo', 'Ambiente Fresco'),
+  (179, 7, 'DAN-DES-179', 'PALILLO MESA', 'Insumo garantizado por Danillanos (Desechables e Icopores) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 1000, NULL, 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=700&q=80', 120, 0, 'Insumo', 'Ambiente Fresco'),
+  (180, 7, 'DAN-DES-180', 'PALILLOS PINCHO X 25 CM', 'Insumo garantizado por Danillanos (Desechables e Icopores) ideal para restaurantes, comidas rápidas y hogar.', 'X 25 CM', 4200, NULL, 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=700&q=80', 120, 0, 'Asados / Pinchos', 'Ambiente Fresco'),
+  (181, 7, 'DAN-DES-181', 'PALO PALETA X MILLAR', 'Insumo garantizado por Danillanos (Desechables e Icopores) ideal para restaurantes, comidas rápidas y hogar.', 'X MILLAR', 18000, NULL, 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=700&q=80', 120, 0, 'x1000 Unidades', 'Ambiente Fresco'),
+  (182, 7, 'DAN-DES-182', 'PAPEL ALUMINIO ROLLO X 16 MTS', 'Insumo garantizado por Danillanos (Desechables e Icopores) ideal para restaurantes, comidas rápidas y hogar.', 'X 16 MTS', 7500, NULL, 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=700&q=80', 120, 0, 'Cocina', 'Ambiente Fresco'),
+  (183, 7, 'DAN-DES-183', 'PAPEL ALUMINIO ROLLO X 100 MTS', 'Insumo garantizado por Danillanos (Desechables e Icopores) ideal para restaurantes, comidas rápidas y hogar.', 'X 100 MTS', 37500, 42000, 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=700&q=80', 120, 1, 'Rollo Industrial', 'Ambiente Fresco'),
+  (184, 7, 'DAN-DES-184', 'PORTA ENSALADA/ SOPA P1 X 20UN', 'Insumo garantizado por Danillanos (Desechables e Icopores) ideal para restaurantes, comidas rápidas y hogar.', 'X 20UN', 10000, NULL, 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=700&q=80', 120, 0, 'x20 Unidades', 'Ambiente Fresco'),
+  (185, 7, 'DAN-DES-185', 'SERVILLETA X 300', 'Insumo garantizado por Danillanos (Desechables e Icopores) ideal para restaurantes, comidas rápidas y hogar.', 'X 300', 5300, NULL, 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=700&q=80', 120, 0, 'x300 Unidades', 'Ambiente Fresco'),
+  (186, 7, 'DAN-DES-186', 'VASOS DESECHABLE 3.3 ONZ', 'Insumo garantizado por Danillanos (Desechables e Icopores) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 1500, NULL, 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=700&q=80', 120, 0, 'Bebidas', 'Ambiente Fresco'),
+  (187, 7, 'DAN-DES-187', 'VASOS DESECHABLE 7 ONZ', 'Insumo garantizado por Danillanos (Desechables e Icopores) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 2200, NULL, 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=700&q=80', 120, 0, 'Bebidas', 'Ambiente Fresco'),
+  (188, 7, 'DAN-DES-188', 'ICOPOR J1 X20 UNIDADES', 'Insumo garantizado por Danillanos (Desechables e Icopores) ideal para restaurantes, comidas rápidas y hogar.', 'X20 UNIDADES', 11500, 12880, 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=700&q=80', 120, 1, 'Más Vendido', 'Ambiente Fresco'),
+  (189, 7, 'DAN-DES-189', 'ICOPOR P1 X20 UNIDADES', 'Insumo garantizado por Danillanos (Desechables e Icopores) ideal para restaurantes, comidas rápidas y hogar.', 'X20 UNIDADES', 13150, NULL, 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=700&q=80', 120, 0, 'x20 Unidades', 'Ambiente Fresco'),
+  (190, 7, 'DAN-DES-190', 'ICOPOR C1 X20 UNIDADES', 'Insumo garantizado por Danillanos (Desechables e Icopores) ideal para restaurantes, comidas rápidas y hogar.', 'X20 UNIDADES', 7100, NULL, 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=700&q=80', 120, 0, 'x20 Unidades', 'Ambiente Fresco'),
+  (191, 7, 'DAN-DES-191', 'ICOPOR K1 X20 UNIDADES', 'Insumo garantizado por Danillanos (Desechables e Icopores) ideal para restaurantes, comidas rápidas y hogar.', 'X20 UNIDADES', 9900, NULL, 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=700&q=80', 120, 0, 'x20 Unidades', 'Ambiente Fresco'),
+  (192, 8, 'DAN-SEC-192', 'ARANDANOS LIBRA', 'Insumo garantizado por Danillanos (Don Maní y Frutos Secos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 20500, NULL, 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?auto=format&fit=crop&w=700&q=80', 120, 0, 'Don Maní', 'Ambiente Fresco'),
+  (193, 8, 'DAN-SEC-193', 'MANI DULCE LIBRA', 'Insumo garantizado por Danillanos (Don Maní y Frutos Secos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 7400, NULL, 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?auto=format&fit=crop&w=700&q=80', 120, 0, 'Don Maní', 'Ambiente Fresco'),
+  (194, 8, 'DAN-SEC-194', 'MANI NATURAL LIBRA', 'Insumo garantizado por Danillanos (Don Maní y Frutos Secos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 10200, NULL, 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?auto=format&fit=crop&w=700&q=80', 120, 0, 'Don Maní', 'Ambiente Fresco'),
+  (195, 8, 'DAN-SEC-195', 'MANI PICANTE LIBRA', 'Insumo garantizado por Danillanos (Don Maní y Frutos Secos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 10200, NULL, 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?auto=format&fit=crop&w=700&q=80', 120, 0, 'Don Maní', 'Ambiente Fresco'),
+  (196, 8, 'DAN-SEC-196', 'MANI SALADO LIBRA', 'Insumo garantizado por Danillanos (Don Maní y Frutos Secos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 10200, NULL, 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?auto=format&fit=crop&w=700&q=80', 120, 0, 'Don Maní', 'Ambiente Fresco'),
+  (197, 8, 'DAN-SEC-197', 'MANTEQUILLA DE MANI', 'Insumo garantizado por Danillanos (Don Maní y Frutos Secos) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 12200, 13664, 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?auto=format&fit=crop&w=700&q=80', 120, 1, 'Don Maní', 'Ambiente Fresco'),
+  (198, 8, 'DAN-SEC-198', 'MANI MIXTO X100GR', 'Insumo garantizado por Danillanos (Don Maní y Frutos Secos) ideal para restaurantes, comidas rápidas y hogar.', 'XTO X100GR', 2200, NULL, 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?auto=format&fit=crop&w=700&q=80', 120, 0, 'Don Maní', 'Ambiente Fresco'),
+  (199, 8, 'DAN-SEC-199', 'MANI MIXTO X250GR', 'Insumo garantizado por Danillanos (Don Maní y Frutos Secos) ideal para restaurantes, comidas rápidas y hogar.', 'XTO X250GR', 5200, NULL, 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?auto=format&fit=crop&w=700&q=80', 120, 0, 'Don Maní', 'Ambiente Fresco'),
+  (200, 9, 'DAN-OTR-200', 'CABELLO DE ANGEL LIBRA', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 4900, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (201, 9, 'DAN-OTR-201', 'CABELLO DE ANGEL KILO', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 8950, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (202, 9, 'DAN-OTR-202', 'CABELLO DE ANGEL X200', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X200', 2900, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (203, 9, 'DAN-OTR-203', 'OBLEA GRANDE', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 15800, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Postres', 'Ambiente Fresco'),
+  (204, 9, 'DAN-OTR-204', 'OBLEA MEDIANA', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 9700, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Postres', 'Ambiente Fresco'),
+  (205, 9, 'DAN-OTR-205', 'OBLEA MINI', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 7850, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Postres', 'Ambiente Fresco'),
+  (206, 9, 'DAN-OTR-206', 'PIÑA EN TROZOS X 1 KG', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X 1 KG', 5200, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Para Perros/Pizzas', 'Ambiente Fresco'),
+  (207, 9, 'DAN-OTR-207', 'PIÑA EN TROZOS X 2.5 KL', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X 2.5 KL', 12150, 13608, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 1, 'Formato Negocio', 'Ambiente Fresco'),
+  (208, 9, 'DAN-OTR-208', 'PIÑA EN TROZOS X 500 GRS', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X 500 GRS', 3800, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, NULL, 'Ambiente Fresco'),
+  (209, 9, 'DAN-OTR-209', 'ZUMO DE LIMON X 2000', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X 2000', 8050, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, '2 Litros', 'Ambiente Fresco'),
+  (210, 9, 'DAN-OTR-210', 'ZUMO LIMON X 1000', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X 1000', 4300, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, '1 Litro', 'Ambiente Fresco'),
+  (211, 9, 'DAN-OTR-211', 'ZUMO LIMON X 500 ML', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X 500 ML', 2100, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, '500 ml', 'Ambiente Fresco'),
+  (212, 9, 'DAN-OTR-212', 'CONO PEQUEÑO X10 UNIDADES', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X10 UNIDADES', 4900, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Heladería', 'Ambiente Fresco'),
+  (213, 9, 'DAN-OTR-213', 'CONO GRANDE X10 UNIDADES', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X10 UNIDADES', 5000, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Heladería', 'Ambiente Fresco'),
+  (214, 9, 'DAN-OTR-214', 'GALLETAS CORAZONES X50 UNIDADES', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X50 UNIDADES', 5400, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Heladería', 'Ambiente Fresco'),
+  (215, 9, 'DAN-OTR-215', 'CANASTILLA GALLETA X10 UNIDADES', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X10 UNIDADES', 5950, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Heladería', 'Ambiente Fresco'),
+  (216, 9, 'DAN-OTR-216', 'BARQUILLO PIAZZA X24 UND', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X24 UND', 12500, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Heladería', 'Ambiente Fresco'),
+  (217, 9, 'DAN-OTR-217', 'GRAGEA COLOR FIESTA X250 ML', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X250 ML', 4200, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Repostería', 'Ambiente Fresco'),
+  (218, 9, 'DAN-OTR-218', 'GRAGEA COLOR FIESTA X500 ML', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X500 ML', 6700, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Repostería', 'Ambiente Fresco'),
+  (219, 9, 'DAN-OTR-219', 'JARABE PARA RASPADO CEREZA *500 ML', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 2800, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Raspados', 'Ambiente Fresco'),
+  (220, 9, 'DAN-OTR-220', 'JARABE PARA RASPADO CHICLE *500 ML', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 2800, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Raspados', 'Ambiente Fresco'),
+  (221, 9, 'DAN-OTR-221', 'JARABE PARA RASPADO LIMON *500 ML', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 2800, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Raspados', 'Ambiente Fresco'),
+  (222, 9, 'DAN-OTR-222', 'JARABE PARA RASPADO MARACUYA *500 ML', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 2800, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Raspados', 'Ambiente Fresco'),
+  (223, 9, 'DAN-OTR-223', 'JARABE PARA RASPADO MORA *500 ML', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 2800, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Raspados', 'Ambiente Fresco'),
+  (224, 9, 'DAN-OTR-224', 'JARABE PARA RASPADO FRESA *500 ML', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 2800, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Raspados', 'Ambiente Fresco'),
+  (225, 9, 'DAN-OTR-225', 'JARABE PARA RASPADO KOLA *500 ML', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 2800, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Raspados', 'Ambiente Fresco'),
+  (226, 9, 'DAN-OTR-226', 'LECHE CONDENSADA X4.700 GR', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X4.700 GR', 45000, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Institucional', 'Ambiente Fresco'),
+  (227, 9, 'DAN-OTR-227', 'LECHE CONDENSADA DULCE LACTEO X1000 KG', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X1000 KG', 11050, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Dulcería', 'Ambiente Fresco'),
+  (228, 9, 'DAN-OTR-228', 'LECHE CONDENSADA DULCE LACTEO X500 GR', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X500 GR', 5000, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Dulcería', 'Ambiente Fresco'),
+  (229, 9, 'DAN-OTR-229', 'LECHE CONDENSADA ELITE DOYPACK X250 GR', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X250 GR', 3100, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Dulcería', 'Ambiente Fresco'),
+  (230, 9, 'DAN-OTR-230', 'MANJAR BLANCO *250 GR', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 4500, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Tradicional', 'Ambiente Fresco'),
+  (231, 9, 'DAN-OTR-231', 'MANJAR BLANCO *850 GR MATERA', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 10500, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Tradicional', 'Ambiente Fresco'),
+  (232, 9, 'DAN-OTR-232', 'MANJAR BLANCO X4.500 KL', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'X4.500 KL', 33000, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Institucional', 'Ambiente Fresco'),
+  (233, 9, 'DAN-OTR-233', 'SYROPE DOLCE SABOR A CARAMELO *600 GR', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 9900, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Topping', 'Ambiente Fresco'),
+  (234, 9, 'DAN-OTR-234', 'SYROPE DOLCE SABOR A CHOCOLATE *600 GR', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 11400, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Topping', 'Ambiente Fresco'),
+  (235, 9, 'DAN-OTR-235', 'SYROPE DOLCE SABOR A FRESA *600 GR', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 9900, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Topping', 'Ambiente Fresco');
+
+INSERT INTO carrusel_promociones (id, producto_id, subtitulo, titulo, descripcion, precio_destacado, imagen_url, texto_boton, tipo_accion, orden) VALUES
+  (1, 24, 'TODO PARA TU RESTAURANTE Y HOGAR', 'Cárnicos, Hamburguesas, Costillas y Chorizos Llaneros', 'Distribuimos calidad desde nuestra sede en Av. Los Maracos (Clle 15 # 12-91). Envíos el mismo día en Villavicencio.', 18850, 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1600&q=80', 'Añadir al carrito', 'add_to_cart', 1),
+  (2, 52, 'LÍNEA ULTRACONGELADOS Y PULPAS', 'Papas Francesas, Criollas, Nuggets y Pulpas 100% Fruta', 'Cadena de frío garantizada. Surte tu negocio de comidas rápidas con los mejores precios del Meta.', 17500, 'https://images.unsplash.com/photo-1576107232684-1279f3908594?auto=format&fit=crop&w=1600&q=80', 'Comprar ahora', 'buy_now', 2),
+  (3, 106, 'SALSAS INSTITUCIONALES Y DESECHABLES', 'Río Grande, Salsabor, Alimentek, Icopores y Empaques', 'Desde galones de salsa BBQ, Mayonesa y Queso Cheddar hasta contenedores de icopor, aluminio y servilletas.', 21600, 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=1600&q=80', 'Añadir al carrito', 'add_to_cart', 3),
+  (4, 17, 'ESPECIALISTAS EN COSTILLAS Y TOCINETA', 'Costilla Caramelo, Ahumada, San Luis y Tocineta Llanera', 'Cortes seleccionados con el sello de calidad Danillanos. Entregas programadas a todo el departamento del Meta.', 16300, 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=1600&q=80', 'Comprar corte ahora', 'buy_now', 4);
+
+INSERT INTO usuarios (id, username, nombre_completo_enc, nombres_enc, apellidos_enc, empresa_enc, tipo_documento, numero_documento_enc, email_hash, email_enc, password_hash, telefono_enc, rol) VALUES
+  (1, 'Restaurante El Llanerazo', 'enc:186a756d9cd6f0587d6cb0a6:128431937e8ef8e486c118cce433d408:ffde516a5d48309b78b76248de7457a175264ac7c8e7e83dfa32f09658b564bb', 'enc:ce2dffe9a968c5a2f6b0e075:3c9327691e44f38a1c89d5caa6062655:17f8a64404d57203a3edfb5e8a8a', 'enc:23bd6014bd473069e84bdf03:2e42c2284190c8124fc5986b15320a81:91dfa06dd6b430', 'enc:a4c00540d66ad9e2a33af02a:ddbb3a81fba4f26ec6822db6a12af47a:debd92506ea4455d35a8ee44a0e5eaa6c5ade4dbdaafb41d', 'NIT', 'enc:60b926ba33dcffc23bd3ece4:eea1502a418abbf55a6a62bc47b7217f:f35920d601eb6d32af79ac', '69400d2464935d5c22ddd25afe50f3491144caeb7c20f0de8ae8310c67ab6b8b', 'enc:016bdf35659ad43b771cb43e:c546cf1861837d710393bdf079df0e2e:d01ad4858865b95273b27adbc33520f125c3e01bd0f5', 'f04b2b0be5013cdc399d3959ac709b3d:7994f53a8b1cf39b9062e650b5aad2ffda3e9047e51dbcbec670ed4e80e54e875d7b4c62d02d162f2da97c18599c177b657627e76d7766f0b61ab225f7ef4fb0', 'enc:54e3f90cd204c9149264f0b1:194bdb129b8066cc0efd506691a7538b:371aecb06e658aab63b7', 'cliente'),
+  (2, 'Laura Gómez', 'enc:dc21b71fde62d4729a156e61:ba9b65ed1f3380097fd72a71204d35d1:3048a2d2e8d625d5d1562103e7308131fb184b66430af25db80f', 'enc:2d7c52a9966ab7f404ad7097:60837ae9233369eb25d2a39518518154:f872872e8c9c28a70cd6f60925', 'enc:2d6fe12559558338376d466d:6de319e07b96af053f308c5dfa845436:d091d8bada12708e6611b521', 'enc:c46917f09af2cf7b86ea9340:29cee2181f9fb248c287e65b933b0220:a976ae988ac09c36c677ddeab9eff17808', 'CC', 'enc:51894444cc64fb0fee202b81:b584bfdccae1453adf349397082f592b:aadd62b0593565363969', '4e3e495ae3bfc2df3cb969ca140f8d04f4c9bc96408e00d7789350da81afc943', 'enc:36a1d99f0e78e33a41a3ad4e:31f8e632404fc896095db89860732536:14d36777d8b5ec580ef4cdfef3427cc6f67971d2107368', 'f04b2b0be5013cdc399d3959ac709b3d:7994f53a8b1cf39b9062e650b5aad2ffda3e9047e51dbcbec670ed4e80e54e875d7b4c62d02d162f2da97c18599c177b657627e76d7766f0b61ab225f7ef4fb0', 'enc:16bb6e61501c949c8a358df7:ee26f4011ace911afb7349c9f32390d0:af60e49a04284c262dcf', 'empleado'),
+  (3, 'Diego Vargas', 'enc:4b4c2762c9fe43cdb4bf4984:21a598a59a2fb8b566d4944ee1c7a051:c9b5693051265c6382e3968552848a970f87fbbc860fe5c32592488ff9', 'enc:510d6877ac019d1c3dd2dc46:25b416551ad95ff320fad790557347db:69bae5d874027e81be5b3bc2f66f41', 'enc:c10e7800f5d63c060307fb71:6966cb29b295452f309f4d88defc9617:9faad37888cbfd55ec70488805', 'enc:f7de5c35cf49977a1a2101f5:a1ff1b9e7f57d56c39b2da0c488d4526:0be71b4c67f9a66d207c3d233c9144bdea', 'CC', 'enc:4fc132366afa4e49b125dbe8:8a3c12022408e020b1a0ac5aa658a7ee:825a64bdeff36b6b8e43', '1acfd489a248506f55cbd553ea1dac3945e37c7b9bc77708d24c35b735f8cb2d', 'enc:1c5e90c4ec78024df3590b35:6549243459cd96f5701aa81278e5836a:993fd4437071215bb39d0079a2cec91362fe74eb024cf23213', 'f04b2b0be5013cdc399d3959ac709b3d:7994f53a8b1cf39b9062e650b5aad2ffda3e9047e51dbcbec670ed4e80e54e875d7b4c62d02d162f2da97c18599c177b657627e76d7766f0b61ab225f7ef4fb0', 'enc:4bcd5a0107df22e7f13f6cf8:a923834e4e38b11707f8b0cf7648e44a:0c495075fce4bba78bb3', 'entregador'),
+  (4, 'Sofía Martínez', 'enc:72f04613e265a7c405e704dd:e50d1e8ab030af30428ab2c4044bf3ad:cca827f3fcd9469dbe411867e7451b18a0b94c1042def667428a2eba78a5c25928d0', 'enc:25e51d4213747dde15d26d92:0e3f096ceb4b63a4b8c952e5b78871cb:2fc3b34ceee2', 'enc:dbd0d54d1b9c4c1b13eb1880:faea096b2f337676b5f557267f1309fd:bf059d076654b66eed', 'enc:51d4901d9af9164f1bfe384a:fc1865a11d2e8b3433a744848fb1abd9:20633bf1055975c58348b20b2f9d2dadba', 'CC', 'enc:109de4bc8ff684881e6eb15b:1b3aa41e21b4f4ce509895ff7bbcff84:8f33f4eccb1de07c50d9', '2e7bad0e1be734f4c2c524c18f0c6e7411a79e0f81ce7d2f4f219c35d71d3be9', 'enc:e93f1ce3342c10f8b77c9dc3:c5cf9b492dbb8ea9ab8c307a105e3383:696935bfe52224b1021ef3bda7d0106fd2eca74975e1', 'f04b2b0be5013cdc399d3959ac709b3d:7994f53a8b1cf39b9062e650b5aad2ffda3e9047e51dbcbec670ed4e80e54e875d7b4c62d02d162f2da97c18599c177b657627e76d7766f0b61ab225f7ef4fb0', 'enc:a2fdd33595ca1ffdc6addf7e:b8bb9a7244219faa114c32cd42c1f226:768a188c59f17391a5b9', 'soporte'),
+  (5, 'Gerencia Danillanos', 'enc:f0c1d0440919432c877eed96:9f4c97e0d722ca5434535ac9951512d0:9fdcbf1940130f7a9e183c13319bfac5fc5c69a77180f9564f2b6a920cfb45288cccfe2c1b', 'enc:35d84fe2e5b3e2ed3244344f:93615403f07c7adc850174cab737e76c:3640709059dbd20728f5d98d74', 'enc:5d2f4d0c650a92bf9775e273:010277f2acf9a6f8dc6d0f75716127cc:be0925d2cfcec5', 'enc:75d9c4233434fb498be54a9b:86fa31c1a7ef95010b03d498430295e5:e0cb67ed1f25778073a195759f09fe5840', 'CC', 'enc:71e55b6c69d3c0865a86d55c:5b8687e74054b860463bd559e72470f6:b315a290eb9336daec0f', '18611dc7ddd8f44e801b7ed207f0077179f9dcbf090557548767e8d3f42c4645', 'enc:c6784789a1809bf3f7641bd4:5ec4bf9b6d798c2ac04159cf9fa7687a:8c97c3df58c29412f03c1bdf16b829bd36475e08', 'f04b2b0be5013cdc399d3959ac709b3d:7994f53a8b1cf39b9062e650b5aad2ffda3e9047e51dbcbec670ed4e80e54e875d7b4c62d02d162f2da97c18599c177b657627e76d7766f0b61ab225f7ef4fb0', 'enc:eaa53ea97455c3e0838879e9:f187c52881e1bb0d3bc27da72ac72442:f5cc09ad4566f8cd895a', 'admin');
+
+INSERT INTO usuario_direcciones (id, usuario_id, etiqueta, direccion_enc, barrio_referencia, municipio, departamento, lat, lng, es_villavicencio, tiempo_entrega_estimado, es_principal) VALUES
+  (1, 1, 'Restaurante Principal', 'enc:47a008027bda3c6e025fb071:559abfb69d0ee9f7ed12ee03fc36892f:811ca57abca464062b556d107b5870a8d33d8d4f6d507a44fad48eb5ce45fca4149381ee2a8b2799', 'Frente al parque', 'Villavicencio', 'Meta', 4.1392000, -73.6351000, 1, 'Envío el mismo día (Villavicencio)', 1),
+  (2, 1, 'Sucursal Primavera', 'enc:7cfc73d0ae38e90590f0f369:8b730696c8d98faac957108d7e449973:f65aedec1bf64acec491d519ed6e9e712811b3158b081361283333577ff9309ccec0e6f398', 'Local 2 Esquina', 'Villavicencio', 'Meta', 4.1468000, -73.6412000, 1, 'Envío el mismo día (Villavicencio)', 0),
+  (3, 1, 'Sede Campestre Acacías', 'enc:c2114a8d177b410efd738724:8f3a7fff01fc1b2b8f2017c13db63b20:a2e68e7b262ce422688a6f54e65ab9e05427840b54c62fc0c3d7d150519e536dda40ed41', 'Bodega Roja', 'Acacías', 'Meta', 3.9869000, -73.7579000, 0, 'Llega el 00 de octubre', 0);
+
+INSERT INTO pedidos (id, usuario_id, nombre_recibe_enc, telefono_cliente_enc, direccion_entrega_enc, municipio, lat, lng, es_villavicencio, tiempo_entrega_estimado, metodo_pago, referencia_pago, total, estado, observaciones_cliente, razon_cancelacion, reembolso_estado, entregador_id, observaciones_entregador, foto_entrega_url, fecha_confirmacion, fecha_entrega) VALUES
+  (1, 1, 'enc:05f35eb0cafa901f2ec1b64c:b17c65369d259b4c5f308e06dbebe178:ec3256c84fe4617b7bcd0c500a66397d287710e10c95', 'enc:0faa556413f99a1183f02435:4b2b17f778fff888a3ea71f111389cbc:d8462d50377a8e5e551d', 'enc:0f35e5c77ab6735e65214c98:1bdc1ed38bbf1680353d5673b0b892b5:e836a37b832bdb039290cc154fac638665e2988809180443c6e1ed75c1c6eab4367e79fc3735f965', 'Villavicencio', 4.1392000, -73.6351000, 1, 'Envío el mismo día (Villavicencio)', 'tarjeta', 'PAY-TC-98231', 122900.00, 'pendiente', 'Por favor entregar por la entrada de proveedores antes de las 4pm.', NULL, 'no_aplica', NULL, NULL, NULL, NULL, NULL),
+  (2, 1, 'enc:1aa25267bd1470f99e34f1bb:ac9bfde45ad9c959f5437d7c2e3825ee:b1edd93f46921f724953206dd6dd7b6097e5cf8e83089a9b65c1cf', 'enc:4b86496c65dffafca13498c6:a30855f9c87595ef9d54dddba1352724:5ea4117f5a3cb43f68f3', 'enc:eefbda503a9654bd91514464:c143274b4bdd0917b3c84430c796b599:9863abdd873728bd79cfd034ee4afaaec6fcc5d23839278a7d049de98a2cc24d88a64580', 'Acacías', 3.9869000, -73.7579000, 0, 'Llega el 00 de octubre', 'pse', 'PSE-BAN-44120', 148500.00, 'pendiente', 'Llamar 15 minutos antes de llegar al municipio.', NULL, 'no_aplica', NULL, NULL, NULL, NULL, NULL),
+  (3, 1, 'enc:35083e8d13b052af43b66219:7ef8199b02243698fd2a3fffae88fe57:641e70db429e938f381e58027fb9057b69214d91ee803091165d4b174e46f86b0da6043b', 'enc:ace6c684c3dc090f36dba364:787581a98fc77fbd764acd8473dd729b:514d05821301d97b0fa3', 'enc:beba702a87bcc5d3015d62f1:ef83747014a9018c9bdf2269f1a7214e:f8f9c8fa7d1afeb559eb36d8049bf8ed597e0593864f894e3e3d91e90d2a1f0de1b54635d2', 'Villavicencio', 4.1468000, -73.6412000, 1, 'Envío el mismo día (Villavicencio)', 'nequi', 'NEQ-31588877', 96400.00, 'en_camino', 'Timbrar en el segundo piso, cocina principal.', NULL, 'no_aplica', 3, NULL, NULL, NOW(), NULL),
+  (4, 1, 'enc:bd438582d8dddd8b231cc0e6:1f07adaa0c16c0dc624e17079d2ee9d1:71dedffc43ff3d41d0c69f99660487900a673135af869c3bb32f260abb75c8', 'enc:0632611208a3fa02fb29da21:355bc188c8490a6b0ae044a58a6855ad:4050bbe50a3e0a9bc821', 'enc:9aa7a6136da6c47dc7d484ea:ecfb9f4b4389d94b756e9aff1b90db65:80c60da959a6f0e11622006ed4b16e7b7b4aa6c4a1afa9dc36bffc6a12a48dd346f50d525b', 'Villavicencio', 4.0985000, -73.6682000, 1, 'Envío el mismo día (Villavicencio)', 'efectivo', 'EFE-CONTRAENTREGA', 168000.00, 'en_proceso', 'Pagan en efectivo exacto al recibir las costillas.', NULL, 'no_aplica', 3, NULL, NULL, NOW(), NULL),
+  (5, 1, 'enc:10d5363a5bec1fdc45654b00:641b8a52e803ae0f55a42637d6cc8f4e:27d2f096a99bf40daeeccabf15e547b5eb911103ab3dbd6b9971b3916a', 'enc:41a0f9ab2d14a0b7102277c9:148b4e678b3f4f922489c7044d06c6bf:4423c2499f8b92a8a772', 'enc:be74c3d6e885761e2b0e60d7:8f512d37c0d63afe5ae5ae7dbdbf922b:ca452f8026360392efe532402a7bfe4662315e12297a4b6f10c88d0b50693c36ff41', 'Villavicencio', 4.1562000, -73.6385000, 1, 'Envío el mismo día (Villavicencio)', 'bancolombia', 'BCO-QR-77510', 89300.00, 'entregado', 'Dejar en recepción con sello.', NULL, 'no_aplica', 3, 'Entregado a tiempo y verificada temperatura con el encargado.', 'data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22480%22%20height%3D%22320%22%20viewBox%3D%220%200%20480%20320%22%3E%3Crect%20width%3D%22480%22%20height%3D%22320%22%20fill%3D%22%23141821%22%2F%3E%3Crect%20x%3D%2224%22%20y%3D%2224%22%20width%3D%22432%22%20height%3D%22272%22%20rx%3D%2218%22%20fill%3D%22%231e2433%22%20stroke%3D%22%2322c55e%22%20stroke-width%3D%223%22%2F%3E%3Ctext%20x%3D%22240%22%20y%3D%22130%22%20fill%3D%22%23ffffff%22%20font-family%3D%22sans-serif%22%20font-size%3D%2222%22%20font-weight%3D%22bold%22%20text-anchor%3D%22middle%22%3EEVIDENCIA%20DE%20ENTREGA%20%231003%3C%2Ftext%3E%3Ctext%20x%3D%22240%22%20y%3D%22165%22%20fill%3D%22%2394a3b8%22%20font-family%3D%22sans-serif%22%20font-size%3D%2215%22%20text-anchor%3D%22middle%22%3ERecibido%20conforme%20en%3A%20Av.%20Los%20Maracos%2C%20Villavicencio%3C%2Ftext%3E%3Ctext%20x%3D%22240%22%20y%3D%22205%22%20fill%3D%22%2322c55e%22%20font-family%3D%22sans-serif%22%20font-size%3D%2216%22%20font-weight%3D%22bold%22%20text-anchor%3D%22middle%22%3E%E2%9C%94%20Cadena%20de%20Fr%C3%ADo%20Verificada%20(-18%C2%B0C)%3C%2Ftext%3E%3C%2Fsvg%3E', NOW(), NOW());
+
+INSERT INTO pedido_items (pedido_id, producto_id, nombre_producto, cantidad, precio_unitario, subtotal) VALUES
+  (1, 24, 'HB LLANERO CAJA X30UNID 85GR', 1, 51400.00, 51400.00),
+  (1, 52, 'PAPA FRANCESA IMPORTADA X 2.5 KG', 2, 17500.00, 35000.00),
+  (1, 106, 'SALSA BBQ X GALON RIO GRANDE', 1, 28500.00, 28500.00),
+  (1, 188, 'ICOPOR J1 X20 UNIDADES', 1, 8000.00, 8000.00),
+  (2, 17, 'COSTILLA CARAMELO 3 KILOS', 1, 84000.00, 84000.00),
+  (2, 159, 'ALIMENTEK MAYO TOCINETA X900 GR', 2, 19000.00, 38000.00),
+  (2, 6, 'CHORIZO CUNCIA X 10', 1, 26500.00, 26500.00),
+  (3, 21, 'HAMB. LLANERA X 10 UND X 90 GRS (cuadrada)', 2, 20200.00, 40400.00),
+  (3, 40, 'PAN HAMBURGUESA ARTESANAL BIMBO X 10 UND', 2, 12900.00, 25800.00),
+  (3, 165, 'ALIMENTEK QUESO CHEDDAR X900 GR', 1, 17700.00, 17700.00),
+  (3, 31, 'SALCHICHA DEL RANCHO X 15 UND', 1, 12500.00, 12500.00),
+  (4, 17, 'COSTILLA CARAMELO 3 KILOS', 2, 84000.00, 168000.00),
+  (5, 62, 'NUGGETS X60 UNIDADES', 1, 36900.00, 36900.00),
+  (5, 52, 'PAPA FRANCESA IMPORTADA X 2.5 KG', 2, 17500.00, 35000.00),
+  (5, 137, 'SALSA ROSADA SALSABOR KILO', 1, 7700.00, 7700.00),
+  (5, 204, 'OBLEA MEDIANA', 1, 9700.00, 9700.00);
+
+INSERT INTO tickets_soporte (id, pedido_id, usuario_id, tipo, asunto, descripcion, imagen_cliente_url, estado, respuesta_soporte) VALUES
+  (1, 5, 1, 'producto', 'Verificación de lote y fecha de vencimiento en entrega #5', 'Adjunto foto del lote recibido para confirmar fecha de vencimiento y copia de factura electrónica.', 'data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22480%22%20height%3D%22320%22%20viewBox%3D%220%200%20480%20320%22%3E%3Crect%20width%3D%22480%22%20height%3D%22320%22%20fill%3D%22%23181c24%22%2F%3E%3Crect%20x%3D%2224%22%20y%3D%2224%22%20width%3D%22432%22%20height%3D%22272%22%20rx%3D%2216%22%20fill%3D%22%23232834%22%20stroke%3D%22%23f59e0b%22%20stroke-width%3D%223%22%2F%3E%3Ctext%20x%3D%22240%22%20y%3D%22120%22%20fill%3D%22%23ffffff%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20font-weight%3D%22bold%22%20text-anchor%3D%22middle%22%3EFOTO%20ENVIADA%20POR%20EL%20CLIENTE%3C%2Ftext%3E%3Ctext%20x%3D%22240%22%20y%3D%22160%22%20fill%3D%22%23fbbf24%22%20font-family%3D%22sans-serif%22%20font-size%3D%2216%22%20font-weight%3D%22bold%22%20text-anchor%3D%22middle%22%3ELote%20%232026-10%20%E2%80%A2%20Consulta%20Fecha%20de%20Vencimiento%3C%2Ftext%3E%3Ctext%20x%3D%22240%22%20y%3D%22195%22%20fill%3D%22%239ca5b4%22%20font-family%3D%22sans-serif%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3EAdjunto%20desde%20el%20Centro%20de%20Soporte%20Danillanos%3C%2Ftext%3E%3C%2Fsvg%3E', 'en_revision', 'Soporte Danillanos: Hemos verificado la foto del lote adjunta; tiene vigencia de 6 meses en congelación (-18°C).');
+  
