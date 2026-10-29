@@ -1,10 +1,15 @@
 /**
- * ============================================================================
- * CATÁLOGO OFICIAL COMPLETO DANILLANOS (235 PRODUCTOS DEL LISTADO DE PRECIOS)
- * Dirección Sede Principal: CLLE 15 # 12 -91 AVENIDA LOS MARACOS, Villavicencio
- * ============================================================================
+ * @fileoverview Catálogo maestro de productos y promociones de Danillanos.
+ * Define la estructura oficial de las 9 categorías del negocio, la lista maestra de 235 productos
+ * con sus especificaciones de conservación, presentación y precios, y las promociones del carrusel principal.
+ *
+ * @module backend/data/catalogData
  */
 
+/**
+ * Listado oficial de las 9 categorías comerciales de Danillanos.
+ * @type {Array<{id: number, nombre: string, slug: string, icono: string, descripcion: string}>}
+ */
 const categoriasDanillanos = [
   {
     id: 1,
@@ -71,7 +76,10 @@ const categoriasDanillanos = [
   }
 ];
 
-// Imágenes representativas por tipo de producto (fáciles de personalizar individualmente)
+/**
+ * Mapa de recursos gráficos representativos por familia de producto.
+ * @type {Record<string, string>}
+ */
 const IMG_MAP = {
   alitas: 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?auto=format&fit=crop&w=700&q=80',
   chorizo: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80',
@@ -91,6 +99,14 @@ const IMG_MAP = {
   dulceria: 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80'
 };
 
+/**
+ * Resuelve la URL de la imagen adecuada a partir del nombre del ítem y la categoría.
+ *
+ * @function resolveImage
+ * @param {string} nombre - Nombre del producto.
+ * @param {string} catSlug - Slug identificador de la categoría.
+ * @returns {string} URL de la imagen optimizada.
+ */
 function resolveImage(nombre, catSlug) {
   const n = nombre.toUpperCase();
   if (n.includes('ALITAS')) return IMG_MAP.alitas;
@@ -111,10 +127,13 @@ function resolveImage(nombre, catSlug) {
   return IMG_MAP.dulceria;
 }
 
-// Lista maestra de los 235 ítems exactos del PDF de Danillanos
-// Formato: [categoria_id, categoria_slug, nombre, precio, es_mas_vendido, etiqueta]
+/**
+ * Matriz maestra con los 235 productos del catálogo Danillanos.
+ * Estructura de tupla: [categoria_id, categoria_slug, nombre, precio, es_mas_vendido, etiqueta]
+ * @type {Array<[number, string, string, number, number, string|null]>}
+ */
 const rawItems = [
-  // ================= PÁGINA 1: LÍNEA DE CÁRNICOS (EMBUTIDOS) =================
+  
   [1, 'embutidos', 'ALITAS DE POLLO X 500 GRS', 15000, 1, 'Más Vendido'],
   [1, 'embutidos', 'BUTIFARRA X450 GR', 10400, 0, 'Tradicional'],
   [1, 'embutidos', 'CHORIZO CASERO X10', 18850, 1, 'Más Vendido'],
@@ -144,7 +163,7 @@ const rawItems = [
   [1, 'embutidos', 'JAMON YORK JJ X 500 GRS', 5500, 0, 'Económico'],
   [1, 'embutidos', 'JAMON AHUMADO JJ X 500', 7800, 0, null],
 
-  // ================= PÁGINA 2: CÁRNICOS + LÍNEA DE PANES =================
+  
   [1, 'embutidos', 'SALCHICHA AMERICANA X 15 UND', 28100, 0, null],
   [1, 'embutidos', 'SALCHICHA MANGUERA X15', 26600, 0, null],
   [1, 'embutidos', 'SALCHICHA DEL RANCHO X 15 UND', 12500, 0, null],
@@ -161,7 +180,7 @@ const rawItems = [
   [2, 'pan', 'PAN TAJADO BIMBO EXTRALARGO', 8500, 0, null],
   [2, 'pan', 'PAN PERRO BIMBO X10 UND', 11850, 0, null],
 
-  // ================= PÁGINA 3: LÍNEA DE CONGELADOS =================
+  
   [3, 'congelados', 'CRIOLLA X 1000 GR', 11800, 1, 'Congelado IQF'],
   [3, 'congelados', 'CRIOLLA X LIBRA', 6100, 0, null],
   [3, 'congelados', 'CROQUETA YUCA X 1000 GR', 7500, 0, 'Listo para Freír'],
@@ -230,7 +249,7 @@ const rawItems = [
   [6, 'adobos', 'VINAGRE BLANCO *1000 ML', 3250, 0, null],
   [6, 'adobos', 'VINAGRE BLANCO *3000 ML', 8000, 0, null],
 
-  // ================= PÁGINA 5: SALSAS RÍO GRANDE Y SALSABOR =================
+  
   [5, 'salsas', 'SALSA BBQ X GALON RIO GRANDE', 28500, 1, 'Río Grande'],
   [5, 'salsas', 'SALSA BBQ KILO RIOGRANDE', 8500, 0, 'Río Grande'],
   [5, 'salsas', 'SALSA BBQ DULCE RIOGRANDE KILO', 14500, 0, 'Río Grande'],
@@ -263,7 +282,7 @@ const rawItems = [
   [5, 'salsas', 'SALSA PIÑA SALSABOR GALON', 21200, 0, 'Salsabor'],
   [5, 'salsas', 'SALSA PIÑA SALSABOR KILO', 6700, 0, 'Salsabor'],
 
-  // ================= PÁGINA 6: SALSABOR + COMPANY + ALIMENTEK =================
+  
   [5, 'salsas', 'SALSA ROSADA SALSABOR GALON', 23400, 0, 'Salsabor'],
   [5, 'salsas', 'SALSA ROSADA SALSABOR KILO', 7700, 0, 'Salsabor'],
   [5, 'salsas', 'SALSA SOYA SALSABOR GALON', 18900, 0, 'Salsabor'],
@@ -292,7 +311,7 @@ const rawItems = [
   [5, 'salsas', 'ALIMENTEK MAYO TOCINETA X900 GR', 19000, 1, 'Más Vendido'],
   [5, 'salsas', 'ALIMENTEK MAYO TOCINETA X4000 GR', 57500, 0, 'Alimentek 4Kg'],
 
-  // ================= PÁGINA 7: ALIMENTEK + LÍNEA DESECHABLES =================
+  
   [5, 'salsas', 'ALIMENTEK MAYONESA X900 GR', 21000, 0, 'Alimentek'],
   [5, 'salsas', 'ALIMENTEK MAYONESA X4000 GR', 64000, 0, 'Alimentek 4Kg'],
   [5, 'salsas', 'ALIMENTEK PARRILLA Y CARBON X900 GR', 18400, 0, 'Alimentek'],
@@ -326,7 +345,7 @@ const rawItems = [
   [7, 'desechables', 'ICOPOR C1 X20 UNIDADES', 7100, 0, 'x20 Unidades'],
   [7, 'desechables', 'ICOPOR K1 X20 UNIDADES', 9900, 0, 'x20 Unidades'],
 
-  // ================= PÁGINA 8: DON MANÍ + LÍNEA OTROS PRODUCTOS =================
+  
   [8, 'secos', 'ARANDANOS LIBRA', 20500, 0, 'Don Maní'],
   [8, 'secos', 'MANI DULCE LIBRA', 7400, 0, 'Don Maní'],
   [8, 'secos', 'MANI NATURAL LIBRA', 10200, 0, 'Don Maní'],
@@ -354,7 +373,7 @@ const rawItems = [
   [9, 'otros', 'CANASTILLA GALLETA X10 UNIDADES', 5950, 0, 'Heladería'],
   [9, 'otros', 'BARQUILLO PIAZZA X24 UND', 12500, 0, 'Heladería'],
 
-  // ================= PÁGINA 9: DULCERÍA =================
+  
   [9, 'otros', 'GRAGEA COLOR FIESTA X250 ML', 4200, 0, 'Repostería'],
   [9, 'otros', 'GRAGEA COLOR FIESTA X500 ML', 6700, 0, 'Repostería'],
   [9, 'otros', 'JARABE PARA RASPADO CEREZA *500 ML', 2800, 0, 'Raspados'],
@@ -378,6 +397,10 @@ const rawItems = [
 
 const catNameById = Object.fromEntries(categoriasDanillanos.map((c) => [c.id, c.nombre]));
 
+/**
+ * Catálogo normalizado de productos Danillanos con identificador SKU, stock y conservación.
+ * @type {Array<object>}
+ */
 const productosDanillanos = rawItems.map((item, idx) => {
   const [categoria_id, categoria_slug, nombre, precio, es_mas_vendido, etiqueta] = item;
   const id = idx + 1;
@@ -406,6 +429,10 @@ const productosDanillanos = rawItems.map((item, idx) => {
   };
 });
 
+/**
+ * Banners promocionales configurados para el carrusel de la página de inicio.
+ * @type {Array<object>}
+ */
 const carruselDanillanos = [
   {
     id: 1,

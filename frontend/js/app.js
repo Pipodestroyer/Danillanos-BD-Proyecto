@@ -1,11 +1,13 @@
 /**
- * ============================================================================
- * LÓGICA INTEGRAL MULTI-PÁGINA DANILLANOS
- * - index.html  (Tienda + Menú Hamburger + Buscador Móvil Siempre Abierto + Cantidades Masivas)
- * - perfil.html (Registro Completo Encriptado + Mapa Pin Exacto + Línea 4 Pasos + Soporte con Fotos)
- * - pagos.html  (Pasarela de Pagos + Estimado de Entrega al Pagar + Bloqueo sin Sesión)
- * - panel.html  (Panel con Menú Colapsable + Gráficas Pastel/Barras + Ruta Google Maps/Waze + Paradas Colapsables)
- * ============================================================================
+ * Danillanos E-Commerce - Arquitectura Frontend Unificada
+ * Manejador principal de estado y ciclo de vida de la aplicación en el cliente.
+ * Coordina las vistas:
+ * - index.html: Catálogo dinámico, slider publicitario interactivo, buscador en vivo y carrito de compras.
+ * - perfil.html: Registro y autenticación de usuarios, mapa de cobertura, seguimiento de pedidos y PQRS.
+ * - pagos.html: Pasarela de checkout paso a paso, cálculo de estimaciones de entrega y facturación digital.
+ * - panel.html: Centro de operaciones multirrol (Administrador, Empleado, Entregador y Soporte).
+ *
+ * @module frontend/app
  */
 
 (function () {
@@ -14,7 +16,7 @@
   const CONFIG = window.DANILLANOS_CONFIG;
   const CURRENT_PAGE = document.body.getAttribute('data-page') || 'store';
 
-    // Limpieza proactiva de cuentas semilla obsoletas (dejar solo 1 cuenta de administrador)
+    // Limpieza y migración de credenciales obsoletas almacenadas localmente
   try {
     const legacyEmails = [
       'cliente@danillanos.com',
@@ -37,7 +39,7 @@
         localStorage.removeItem('danillanos_tickets_store');
         localStorage.removeItem('danillanos_orders_overrides');
       }
-    // Si la versión local contiene tickets obsoletos de pruebas previas, purgarlos
+    // Sincronización y saneamiento del almacén de tickets de contingencia
     const ticketVersionKey = 'danillanos_tickets_version_v4';
     if (!localStorage.getItem(ticketVersionKey)) {
       localStorage.removeItem('danillanos_tickets_store');
@@ -47,6 +49,12 @@
     }
   } catch (_) {}
 
+  /**
+   * Estado reactivo global de la aplicación en el navegador.
+   * Centraliza autenticación, catálogo, carrito, filtros de búsqueda,
+   * navegación por pestañas e instancias de mapas Leaflet.
+   * @type {Object}
+   */
   const state = {
     theme: localStorage.getItem('danillanos_theme') || 'dark',
     token:
@@ -81,8 +89,8 @@
     staffTickets: [],
     activeStaffTab: 'empleado',
     driverPhotosDraft: {},
-    driverExpandedOrderIds: null, // Set de IDs de paradas abiertas; por defecto solo la parada #1 actual
-    customerExpandedOrderIds: null, // Set de IDs de pedidos del cliente desplegados
+    driverExpandedOrderIds: null, // Identificadores de paradas activas del repartidor (por defecto sólo la parada inicial)
+    customerExpandedOrderIds: null, // Identificadores de pedidos expandidos en el historial del cliente
     activeProfileTab: 'pedidos',
     customerTickets: [],
     customerExpandedTicketIds: new Set(),
@@ -114,8 +122,14 @@
   };
 
   // ==========================================================================
-  // UTILIDADES GENERALES Y GEOMETRÍA HAVERSINE
+  // UTILIDADES GENERALES, GEOMETRÍA HAVERSINE Y SESIÓN
   // ==========================================================================
+
+  /**
+   * Formatea un valor numérico a divisa colombiana (COP) sin decimales.
+   * @param {number|string} amount - Cantidad monetaria a formatear.
+   * @returns {string} Cadena formateada en pesos colombianos (ej. "$ 12.000").
+   */
   function formatCurrency(amount) {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
@@ -124,10 +138,23 @@
     }).format(Number(amount) || 0);
   }
 
+  /**
+   * Emite una notificación flotante no intrusiva en la esquina de la interfaz.
+   * @param {string} [message] - Mensaje informativo a mostrar.
+   * @param {string} [icon] - Identificador de icono de Google Material Symbols.
+   */
   function showToast() {
-    // Notificaciones laterales flotantes desactivadas para no superponerse a la interfaz
+    // Control de retroalimentación en interfaz (desactivado para evitar superposiciones)
   }
 
+  /**
+   * Despliega un diálogo modal central para alertas y notificaciones del sistema.
+   * @param {Object} [options={}] - Parámetros de configuración del diálogo.
+   * @param {string} [options.title='Notificación'] - Título de la ventana modal.
+   * @param {string} [options.message=''] - Contenido informativo o mensaje de alerta.
+   * @param {('info'|'error'|'success')} [options.type='info'] - Tipo visual del diálogo.
+   * @param {string} [options.confirmText='Entendido'] - Texto del botón de confirmación.
+   */
   function showAppDialog({ title = 'Notificación', message = '', type = 'info', confirmText = 'Entendido' } = {}) {
     if (!message || !String(message).trim()) return;
     let modal = document.getElementById('danillanosAppDialogModal');
@@ -181,11 +208,18 @@
     modal.classList.remove('hidden');
   }
 
+  /**
+   * Cierra el diálogo modal central del sistema si se encuentra visible.
+   */
   function closeAppDialog() {
     const modal = document.getElementById('danillanosAppDialogModal');
     if (modal) modal.classList.add('hidden');
   }
 
+  /**
+   * Ajusta dinámicamente la altura del contenedor de autenticación con transición suave.
+   * @param {('login'|'register')} [mode] - Modo de visualización activo.
+   */
   function syncAuthViewportHeightGlobal(mode) {
     const vp = document.getElementById('authFormsViewport');
     if (!vp) return;
@@ -202,6 +236,12 @@
     });
   }
 
+  /**
+   * Muestra u oculta mensajes de validación y retroalimentación en línea dentro de los formularios de acceso.
+   * @param {('login'|'register')} formType - Formulario destino.
+   * @param {string} message - Mensaje descriptivo (cadena vacía para limpiar).
+   * @param {('error'|'success')} [type='error'] - Estilo visual del mensaje.
+   */
   function showAuthInlineFeedback(formType, message, type = 'error') {
     let el = document.getElementById(formType === 'login' ? 'loginInlineFeedback' : 'registerInlineFeedback');
     if (!el) {
@@ -248,6 +288,12 @@
     setTimeout(() => syncAuthViewportHeightGlobal(formType), 250);
   }
 
+  /**
+   * Muestra u oculta mensajes de validación en línea en los pasos de la pasarela de pagos.
+   * @param {number} stepNum - Número del paso activo en el checkout (1, 2 o 3).
+   * @param {string} message - Mensaje descriptivo (cadena vacía para limpiar).
+   * @param {('error'|'success')} [type='error'] - Estilo visual del mensaje.
+   */
   function showCheckoutInlineFeedback(stepNum, message, type = 'error') {
     if (!message || !String(message).trim()) {
       const existing = document.getElementById('checkoutInlineFeedbackStep' + stepNum);
@@ -295,6 +341,15 @@
     el.classList.remove('hidden');
   }
 
+  /**
+   * Calcula la distancia ortodrómica en kilómetros entre dos coordenadas geográficas
+   * utilizando la fórmula de Haversine.
+   * @param {number} lat1 - Latitud del punto origen en grados decimales.
+   * @param {number} lng1 - Longitud del punto origen en grados decimales.
+   * @param {number} lat2 - Latitud del punto destino en grados decimales.
+   * @param {number} lng2 - Longitud del punto destino en grados decimales.
+   * @returns {number} Distancia en línea recta sobre la esfera terrestre en kilómetros.
+   */
   function haversineKm(lat1, lng1, lat2, lng2) {
     const toRad = (d) => (d * Math.PI) / 180;
     const R = 6371;
@@ -306,12 +361,23 @@
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
+  /**
+   * Determina si una coordenada geográfica se encuentra dentro del radio urbano de Villavicencio (9.5 km).
+   * @param {number} lat - Latitud geográfica.
+   * @param {number} lng - Longitud geográfica.
+   * @returns {boolean} True si el punto se ubica dentro del radio metropolitano.
+   */
   function isInsideVillavicencio(lat, lng) {
     const center = CONFIG.map.villavicencioCenter;
     const radiusKm = (CONFIG.map.villavicencioRadiusMeters || 9500) / 1000;
     return haversineKm(center.lat, center.lng, Number(lat), Number(lng)) <= radiusKm;
   }
 
+  /**
+   * Normaliza sinónimos y variaciones de nombres de rol al identificador canónico del sistema.
+   * @param {string} roleVal - Nombre del rol a evaluar.
+   * @returns {('cliente'|'empleado'|'entregador'|'soporte'|'admin')} Rol normalizado.
+   */
   function normalizeRole(roleVal) {
     const r = String(roleVal || '').trim().toLowerCase();
     if (['empleado', 'empleado_general', 'bodega'].includes(r)) return 'empleado';
@@ -321,6 +387,9 @@
     return r || 'cliente';
   }
 
+  /**
+   * Sincroniza el rol del usuario en la sesión activa con la base de datos local de contingencia.
+   */
   function syncCurrentUserRoleFromLocalStore() {
     if (!state.user) return;
     try {
@@ -344,6 +413,10 @@
     state.user.rol = normalizeRole(state.user.rol);
   }
 
+  /**
+   * Construye los encabezados HTTP estándar para solicitudes autenticadas a la API REST.
+   * @returns {Object.<string, string>} Cabeceras con Content-Type, Bearer Token y rol de usuario.
+   */
   function getAuthHeaders() {
     syncCurrentUserRoleFromLocalStore();
     const headers = { 'Content-Type': 'application/json' };
@@ -354,12 +427,20 @@
     return headers;
   }
 
+  /**
+   * Comprueba si un usuario posee privilegios administrativos u operacionales (no es cliente raso).
+   * @param {Object} [user=state.user] - Objeto de usuario a evaluar.
+   * @returns {boolean} True si el usuario tiene rol empleado, entregador, soporte o admin.
+   */
   function isStaffUser(user = state.user) {
     if (!user) return false;
     const rol = normalizeRole(user.rol);
     return ['empleado', 'entregador', 'soporte', 'admin'].includes(rol);
   }
 
+  /**
+   * Valida y establece la dirección seleccionada por defecto del usuario a partir de su lista guardada.
+   */
   function syncSelectedAddressDefault() {
     if (!state.direcciones || state.direcciones.length === 0) {
       state.selectedAddressId = null;
@@ -375,6 +456,12 @@
     }
   }
 
+  /**
+   * Actualiza el estado de autenticación y persiste credenciales en sessionStorage y localStorage.
+   * @param {string|null} token - Token JWT de autenticación o null para cerrar sesión.
+   * @param {Object|null} user - Datos del perfil de usuario o null para cerrar sesión.
+   * @param {Array<Object>} [direcciones=[]] - Lista de direcciones asociadas a la cuenta.
+   */
   function setSession(token, user, direcciones = []) {
     const normalizedUser = user ? { ...user, rol: normalizeRole(user.rol) } : null;
     state.token = token;
@@ -405,8 +492,12 @@
   }
 
   // ==========================================================================
-  // 1. HEADER COMPARTIDO, MENÚ HAMBURGER MÓVIL, TEMA B&N Y BUSCADOR DOBLE
+  // 1. HEADER COMPARTIDO, MENÚ MÓVIL, TEMA VISUAL Y BUSCADOR UNIFICADO
   // ==========================================================================
+
+  /**
+   * Inicializa la cabecera compartida, selector de tema claro/oscuro y componentes transversales.
+   */
   function initSharedHeaderAndTheme() {
     syncSelectedAddressDefault();
 
@@ -438,12 +529,18 @@
     initSharedCartDrawer();
   }
 
+  /**
+   * Configura el menú lateral de navegación móvil (cajón deslizable) y sus escuchadores de eventos.
+   */
   function initMobileHamburgerDrawer() {
     const openBtn = document.getElementById('mobileMenuBtn');
     const closeBtn = document.getElementById('mobileMenuCloseBtn');
     const drawer = document.getElementById('mobileNavDrawer');
     const backdrop = document.getElementById('mobileNavBackdrop');
 
+    /**
+     * Cierra el cajón de navegación móvil y oculta el telón de fondo.
+     */
     function closeMobileMenu() {
       drawer?.classList.remove('is-open');
       backdrop?.classList.remove('is-open');
@@ -492,6 +589,9 @@
     renderMobileHamburgerMenuContent();
   }
 
+  /**
+   * Genera el contenido dinámico del menú lateral móvil según el estado de sesión y rol del usuario.
+   */
   function renderMobileHamburgerMenuContent() {
     const navBody = document.getElementById('mobileNavBody');
     if (!navBody) return;
@@ -588,10 +688,16 @@
   }
 
   // ==========================================================================
-  // GESTOR DE NOVEDADES Y PUNTOS ROJOS DE NOTIFICACIÓN MULTIFUNCIÓN
+  // GESTOR DE NOVEDADES Y PUNTOS DE NOTIFICACIÓN MULTIFUNCIÓN
   // ==========================================================================
+
+  /** Clave de persistencia local para el registro de notificaciones vistas. */
   const NOTIF_STORAGE_KEY = 'danillanos_seen_notifications_v2';
 
+  /**
+   * Recupera el registro de notificaciones y novedades visualizadas almacenadas en el cliente.
+   * @returns {Object} Mapa de identificadores vistos por cliente, personal y repartidores.
+   */
   function getSeenNotifications() {
     try {
       const raw = localStorage.getItem(NOTIF_STORAGE_KEY);
@@ -606,18 +712,30 @@
     };
   }
 
+  /**
+   * Persiste el estado de notificaciones visualizadas en el almacenamiento local.
+   * @param {Object} seen - Registro actualizado de notificaciones vistas.
+   */
   function saveSeenNotifications(seen) {
     try {
       localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(seen));
     } catch (_) {}
   }
 
+  /**
+   * Refresca la barra lateral de navegación para el personal operativo si está disponible.
+   */
   function renderStaffNav() {
     if (typeof renderStaffSidebar === 'function') {
       try { renderStaffSidebar(); } catch (_) {}
     }
   }
 
+  /**
+   * Retorna una etiqueta legible en español para el estado de un ticket PQRS.
+   * @param {string} estado - Código del estado del ticket.
+   * @returns {string} Etiqueta descriptiva formateada.
+   */
   function formatTicketStatus(estado) {
     const s = String(estado || '').trim().toLowerCase();
     if (s === 'en_revision') return 'En Revisión';
@@ -629,6 +747,11 @@
     return s.replace(/_/g, ' ').toUpperCase();
   }
 
+  /**
+   * Retorna la clase CSS correspondiente para la insignia visual del ticket según su estado.
+   * @param {string} estado - Código del estado del ticket.
+   * @returns {string} Nombre de la clase CSS de estado.
+   */
   function getTicketStatusClass(estado) {
     const s = String(estado || '').trim().toLowerCase();
     if (s === 'resuelto') return 'status-entregado';
@@ -636,6 +759,11 @@
     return 'status-pendiente';
   }
 
+  /**
+   * Registra los mensajes de un ticket de soporte como visualizados por el cliente.
+   * @param {number|string} ticketId - Identificador del ticket.
+   * @param {Array<Object>} messages - Lista de mensajes contenidos en el ticket.
+   */
   function markTicketSeenByClient(ticketId, messages) {
     const seen = getSeenNotifications();
     if (!seen.seenTicketsClient) seen.seenTicketsClient = {};
@@ -650,6 +778,11 @@
     syncUserNotificationDots();
   }
 
+  /**
+   * Registra los mensajes de un ticket de soporte como visualizados por el equipo de atención.
+   * @param {number|string} ticketId - Identificador del ticket.
+   * @param {Array<Object>} messages - Lista de mensajes contenidos en el ticket.
+   */
   function markTicketSeenByStaff(ticketId, messages) {
     const seen = getSeenNotifications();
     if (!seen.seenTicketsStaff) seen.seenTicketsStaff = {};
@@ -665,6 +798,11 @@
     renderStaffNav();
   }
 
+  /**
+   * Marca el estado actual de un pedido como visto por el cliente para limpiar alertas de novedad.
+   * @param {number|string} orderId - Identificador del pedido.
+   * @param {string} currentStatus - Estado actual del pedido.
+   */
   function markOrderStatusSeen(orderId, currentStatus) {
     const seen = getSeenNotifications();
     if (!seen.seenOrderStatuses) seen.seenOrderStatuses = {};
@@ -673,6 +811,10 @@
     syncUserNotificationDots();
   }
 
+  /**
+   * Marca un pedido de bodega como visto por el personal de empaque.
+   * @param {number|string} orderId - Identificador del pedido.
+   */
   function markEmployeeOrderSeen(orderId) {
     const seen = getSeenNotifications();
     if (!Array.isArray(seen.seenEmployeeOrders)) seen.seenEmployeeOrders = [];
@@ -684,6 +826,10 @@
     }
   }
 
+  /**
+   * Marca una orden en reparto como vista por el conductor asignado.
+   * @param {number|string} orderId - Identificador del pedido.
+   */
   function markDriverOrderSeen(orderId) {
     const seen = getSeenNotifications();
     if (!Array.isArray(seen.seenDriverOrders)) seen.seenDriverOrders = [];
@@ -695,6 +841,11 @@
     }
   }
 
+  /**
+   * Verifica si un ticket contiene respuestas no leídas emitidas por el personal de soporte hacia el cliente.
+   * @param {Object} tk - Objeto del ticket con su historial de mensajes.
+   * @returns {boolean} True si existen mensajes no leídos del personal.
+   */
   function hasTicketUnreadForClient(tk) {
     if (!tk) return false;
     const seen = getSeenNotifications();
@@ -707,6 +858,11 @@
     });
   }
 
+  /**
+   * Verifica si un ticket contiene réplicas recientes del cliente sin leer por el personal de soporte.
+   * @param {Object} tk - Objeto del ticket.
+   * @returns {boolean} True si existen mensajes nuevos del cliente.
+   */
   function hasTicketUnreadForStaff(tk) {
     if (!tk) return false;
     const seen = getSeenNotifications();
@@ -719,6 +875,11 @@
     });
   }
 
+  /**
+   * Determina si un pedido pendiente representa una orden nueva sin procesar en bodega.
+   * @param {Object} ord - Objeto del pedido.
+   * @returns {boolean} True si el pedido está pendiente y no ha sido visualizado.
+   */
   function hasEmployeeOrderNovelty(ord) {
     if (!ord) return false;
     const seen = getSeenNotifications();
@@ -726,6 +887,11 @@
     return ord.estado === 'pendiente' && !seenEmp.includes(Number(ord.id));
   }
 
+  /**
+   * Determina si un pedido en ruta asignado al repartidor activo aún no ha sido revisado.
+   * @param {Object} ord - Objeto del pedido.
+   * @returns {boolean} True si la orden fue asignada y está pendiente de inspección por el conductor.
+   */
   function hasDriverOrderNovelty(ord) {
     if (!ord) return false;
     const seen = getSeenNotifications();
@@ -739,6 +905,11 @@
     return isAssigned && isActiveRoute && !seenDrv.includes(Number(ord.id));
   }
 
+  /**
+   * Determina si un pedido del cliente ha cambiado de fase logística desde su última visualización.
+   * @param {Object} ord - Objeto del pedido.
+   * @returns {boolean} True si el pedido cambió de estado.
+   */
   function hasCustomerOrderNovelty(ord) {
     if (!ord) return false;
     const seen = getSeenNotifications();
@@ -750,6 +921,10 @@
     return lastSeenState !== ord.estado;
   }
 
+  /**
+   * Verifica de manera global si la cola de bodega contiene nuevos pedidos pendientes por procesar.
+   * @returns {boolean} True si existen órdenes pendientes no revisadas.
+   */
   function hasUnreadEmployeeOrders() {
     const seen = getSeenNotifications();
     const seenEmp = Array.isArray(seen.seenEmployeeOrders) ? seen.seenEmployeeOrders : [];
@@ -757,6 +932,10 @@
     return orders.some((o) => o.estado === 'pendiente' && !seenEmp.includes(Number(o.id)));
   }
 
+  /**
+   * Comprueba si el repartidor activo tiene entregas asignadas sin revisar en su ruta.
+   * @returns {boolean} True si hay pedidos activos en ruta sin inspeccionar.
+   */
   function hasUnreadDriverOrders() {
     const seen = getSeenNotifications();
     const seenDrv = Array.isArray(seen.seenDriverOrders) ? seen.seenDriverOrders : [];
@@ -773,11 +952,18 @@
     });
   }
 
+  /**
+   * Comprueba si existen tickets de soporte con réplicas pendientes de atención por el equipo.
+   * @returns {boolean} True si hay consultas no leídas de clientes.
+   */
   function hasUnreadStaffTickets() {
     const tickets = state.staffTickets || [];
     return tickets.some((tk) => hasTicketUnreadForStaff(tk));
   }
 
+  /**
+   * Sincroniza indicadores luminosos de alerta (puntos rojos) en el avatar, pestañas y menús.
+   */
   function syncUserNotificationDots() {
     const statusDot = document.getElementById('userStatusDot');
     const tabPedidosDot = document.getElementById('tabPedidosDot');
@@ -801,9 +987,9 @@
       const customerOrders = state.customerOrders || [];
       const customerTickets = state.customerTickets || [];
 
-      // Novedades en pedidos (cambio de estado o entrega)
+      // Detección de novedades logísticas en órdenes de compra del cliente
       const orderNovelties = customerOrders.filter((o) => hasCustomerOrderNovelty(o));
-      // Mensajes de ticket no leídos
+      // Verificación de réplicas de soporte no leídas por el cliente
       const ticketNovelties = customerTickets.filter((t) => hasTicketUnreadForClient(t));
 
       const hasOrdersNotif = orderNovelties.length > 0;
@@ -857,6 +1043,9 @@
     }
   }
 
+  /**
+   * Renderiza el estado del perfil del usuario en la barra superior (avatar, iniciales, menú desplegable).
+   */
   function renderSharedHeaderAuthUI() {
     const avatarBtn = document.getElementById('userAvatarBtn');
     const avatarImg = document.getElementById('userAvatarImg');
@@ -903,7 +1092,7 @@
     }
 
     if (profileMenu) {
-      // Si NO ha iniciado sesión, el usuario NO puede hacer pedido ni ver direcciones ni pedidos en progreso
+      // Vista para usuarios visitantes sin sesión activa (modo invitado)
       if (!state.user) {
         profileMenu.innerHTML = `
           <div class="dropdown-header-label">Modo Visitante (Sin Sesión)</div>
@@ -987,10 +1176,17 @@
   }
 
   /**
-   * Conecta tanto la barra de búsqueda de escritorio (#searchInput) como la barra
-   * de celular siempre abierta (#mobileSearchInput) con autocompletado desde 1 letra.
+   * Inicializa las barras de búsqueda (versión escritorio y móvil) con autocompletado en tiempo real.
    */
   function initAutocompleteSearchBar() {
+    /**
+     * Enlaza una barra de búsqueda con su menú desplegable de autocompletado y botones de acción.
+     * @param {string} inputId - ID del input de texto de búsqueda.
+     * @param {string} dropdownId - ID del contenedor desplegable de sugerencias.
+     * @param {string|null} containerId - ID del contenedor padre envolvente.
+     * @param {string|null} clearBtnId - ID del botón para limpiar el texto.
+     * @param {string|null} submitBtnId - ID del botón de envío de búsqueda.
+     */
     function wireSearchInputPair(inputId, dropdownId, containerId, clearBtnId, submitBtnId) {
       const searchInput = document.getElementById(inputId);
       const dropdown = document.getElementById(dropdownId);
@@ -1000,6 +1196,10 @@
 
       if (!searchInput || !dropdown) return;
 
+      /**
+       * Filtra el catálogo y renderiza los elementos coincidentes en el menú desplegable de autocompletado.
+       * @param {string} rawQuery - Término de búsqueda ingresado por el usuario.
+       */
       function renderSuggestions(rawQuery) {
         const q = rawQuery.trim().toLowerCase();
         if (q.length < 1) {
@@ -1079,7 +1279,7 @@
         const val = e.target.value;
         state.searchQuery = val;
         if (searchContainer) searchContainer.classList.toggle('has-value', val.trim().length > 0);
-        // Sincronizar ambos inputs si existen
+        // Sincronización bidireccional entre la barra de escritorio y la móvil
         const otherId = inputId === 'searchInput' ? 'mobileSearchInput' : 'searchInput';
         const otherEl = document.getElementById(otherId);
         if (otherEl && otherEl.value !== val) otherEl.value = val;
@@ -1142,7 +1342,7 @@
       });
     }
 
-    // Conectar buscador Desktop y buscador Móvil siempre abierto
+    // Enlace de los campos de búsqueda en escritorio y dispositivos móviles
     wireSearchInputPair('searchInput', 'searchAutocompleteDropdown', 'searchContainer', 'searchClearBtn', null);
     wireSearchInputPair('mobileSearchInput', 'mobileSearchAutocompleteDropdown', null, null, 'mobileSearchSubmitBtn');
 
@@ -1155,8 +1355,12 @@
   }
 
   // ==========================================================================
-  // 2. CARRITO DE COMPRAS + GESTIÓN Y CAMBIO DE DIRECCIONES EN VIVO DESDE EL CARRITO
+  // 2. CARRITO DE COMPRAS Y GESTIÓN DE DIRECCIONES EN VIVO
   // ==========================================================================
+
+  /**
+   * Dispara una animación de vibración en el icono del carrito al añadir nuevos productos.
+   */
   function triggerCartHeaderAnimation() {
     const cartBtn = document.getElementById('cartToggleBtn');
     if (!cartBtn) return;
@@ -1165,6 +1369,11 @@
     cartBtn.classList.add('is-animating');
   }
 
+  /**
+   * Agrega un producto al carrito de compras con la cantidad especificada.
+   * @param {Object} product - Objeto del producto a incorporar.
+   * @param {number} [quantityToAdd=1] - Cantidad de unidades a adicionar.
+   */
   function addToCart(product, quantityToAdd = 1) {
     const cleanQty = Math.max(1, parseInt(quantityToAdd, 10) || 1);
     const existing = state.cart.find((item) => Number(item.id) === Number(product.id));
@@ -1186,6 +1395,11 @@
     showToast(`Añadido: ${cleanQty} und. de ${product.nombre}`, 'shopping_cart_checkout');
   }
 
+  /**
+   * Modifica la cantidad exacta de unidades de una línea de compra en el carrito.
+   * @param {number|string} productId - Identificador del producto.
+   * @param {number|string} newQuantity - Nueva cantidad de unidades (0 para eliminar).
+   */
   function setCartItemExactQuantity(productId, newQuantity) {
     const idx = state.cart.findIndex((item) => Number(item.id) === Number(productId));
     if (idx === -1) return;
@@ -1199,17 +1413,25 @@
     if (CURRENT_PAGE === 'pagos') renderCheckoutPageItems();
   }
 
+  /**
+   * Calcula el importe monetario total de los artículos contenidos en el carrito.
+   * @returns {number} Subtotal acumulado en pesos colombianos.
+   */
   function getCartTotal() {
     return state.cart.reduce((sum, item) => sum + item.precio * item.cantidad, 0);
   }
 
+  /**
+   * Calcula el número total de unidades agregadas a la cesta de compra.
+   * @returns {number} Sumatoria de cantidades de todos los artículos.
+   */
   function getCartTotalUnits() {
     return state.cart.reduce((sum, item) => sum + item.cantidad, 0);
   }
 
   /**
-   * Renderiza el selector y gestor de direcciones EN VIVO directamente dentro del Carrito.
-   * Nota: Las direcciones aquí NO muestran fecha de entrega; el estimado solo se calcula al pagar.
+   * Renderiza el selector de direcciones de entrega y creación rápida directamente dentro del carrito.
+   * Nota: El estimado de entrega exacto se liquida en la pasarela de pagos según la ruta departamental.
    */
   function renderCartLiveAddressManager() {
     const box = document.getElementById('cartLiveAddressBox');
@@ -1289,6 +1511,9 @@
     `;
   }
 
+  /**
+   * Persiste el carrito en localStorage y actualiza la lista visual de productos, contadores e importes.
+   */
   function saveAndRenderCart() {
     localStorage.setItem('danillanos_cart', JSON.stringify(state.cart));
     const totalUnits = getCartTotalUnits();
@@ -1363,6 +1588,9 @@
       .join('');
   }
 
+  /**
+   * Inicializa los controladores de apertura, cierre e interacción del cajón lateral del carrito.
+   */
   function initSharedCartDrawer() {
     saveAndRenderCart();
     const toggleBtn = document.getElementById('cartToggleBtn');
@@ -1513,9 +1741,10 @@
   }
 
   // ==========================================================================
-  // 3. GEOCODIFICACIÓN INVERSA AUTOMÁTICA EN EL MAPA
-  //    (Las direcciones en Perfil NO muestran estimado; el estimado se muestra SOLO al pagar en pagos.html)
+  // 3. GEOCODIFICACIÓN INVERSA Y CRONOGRAMA DE RUTAS DEL META
   // ==========================================================================
+
+  /** Catálogo de barrios representativos de Villavicencio para georreferenciación instantánea. */
   const VILLAVICENCIO_BARRIOS = [
     { nombre: 'Barrio Siete de Agosto', lat: 4.1392, lng: -73.6351, via: 'Av. 40 # 26C' },
     { nombre: 'Avenida Los Maracos', lat: 4.1365, lng: -73.6215, via: 'Calle 15 # 12' },
@@ -1528,20 +1757,10 @@
     { nombre: 'Vía Catama', lat: 4.1290, lng: -73.5980, via: 'Troncal del Llano Km 2' }
   ];
 
-  // ============================================================================
-  // CRONOGRAMA OFICIAL DE RUTAS DEPARTAMENTALES DEL META Y VILLAVICENCIO
-  // - Martes: Pto Lopez y San Carlos
-  // - Miércoles: Mesetas - Vista Hermosa - Lejanías
-  // - Jueves: 
-  //     Ruta 1: San Martín - Granada - Fuente de Oro - Pto Lleras
-  //     Ruta 2: Castilla - Guamal - Cubarral - El Dorado
-  // - Viernes:
-  //     Ruta 1: Pto Gaitán
-  //     Ruta 2: Restrepo - Cumaral - Medina - Paratebueno
-  // - Sábado: Acacías
-  // Regla: Cualquier pedido antes de las 00:00 horas del día respectivo se entrega en su fecha;
-  //        pasadas las 00:00, se reprograma para el siguiente ciclo semanal.
-  // ============================================================================
+  /**
+   * Cronograma logístico oficial de rutas de distribución departamental (Meta y Villavicencio).
+   * Define los días de entrega por zona geográfica y la regla de corte a las 00:00 horas.
+   */
   const DELIVERY_ROUTES = [
     {
       diaSemana: 2, // Martes
@@ -1587,6 +1806,11 @@
     }
   ];
 
+  /**
+   * Localiza la ruta departamental de reparto programada para un municipio del Meta.
+   * @param {string} muniName - Nombre del municipio a evaluar.
+   * @returns {Object|null} Información de la ruta asignada o null si no se encuentra cobertura.
+   */
   function findRouteForMunicipio(muniName) {
     if (!muniName) return null;
     const clean = muniName
@@ -1614,6 +1838,13 @@
     return null;
   }
 
+  /**
+   * Calcula la fecha y franja horaria estimada de entrega según el cronograma oficial de rutas.
+   * Aplica la regla de corte a las 00:00 del día correspondiente de ruta semanal.
+   * @param {string} muniName - Municipio de entrega.
+   * @param {Date} [orderDate=new Date()] - Fecha en la que se efectúa el pedido.
+   * @returns {Object} Estimación calculada con fecha de entrega, nombre del día y ruta logística.
+   */
   function calculateEstimatedDelivery(muniName, orderDate = new Date()) {
     const route = findRouteForMunicipio(muniName);
     const now = new Date(orderDate);
@@ -1651,8 +1882,8 @@
       }
     }
 
-    // Regla de corte: Pedido hecho antes de las 00:00 del día de ruta -> se entrega ese día.
-    // Pasadas las 00:00 -> se programa para el día correspondiente de la próxima semana.
+    // Regla de corte: Orden recibida antes de las 00:00 del día de ruta se entrega en la jornada;
+    // posterior a dicho horario, se programa para el siguiente ciclo semanal.
     const currentDayOfWeek = now.getDay();
     const targetDayOfWeek = route.diaSemana;
 
@@ -1681,6 +1912,11 @@
     };
   }
 
+  /**
+   * Evalúa si un pedido completó su entrega en el transcurso del día actual.
+   * @param {Object} order - Objeto con datos del pedido.
+   * @returns {boolean} True si la fecha de entrega coincide con el día de hoy.
+   */
   function isDeliveredToday(order) {
     if (order.estado !== 'entregado') return false;
     const dStr = order.fecha_entrega || order.actualizado_en || order.creado_en;
@@ -1695,6 +1931,12 @@
     );
   }
 
+  /**
+   * Actualiza los distintivos de cobertura y tiempos de entrega en la interfaz según las coordenadas geográficas.
+   * @param {number} lat - Latitud de la ubicación de entrega.
+   * @param {number} lng - Longitud de la ubicación de entrega.
+   * @param {string} [resolvedMuni=''] - Nombre del municipio geocodificado.
+   */
   function updateZoneBannerUI(lat, lng, resolvedMuni = '') {
     const insideVcio = isInsideVillavicencio(lat, lng);
     const zoneIndicator = document.getElementById('zoneLiveIndicator');
@@ -1708,7 +1950,7 @@
     const deliveryInfo = calculateEstimatedDelivery(resolvedMuni || (insideVcio ? 'Villavicencio' : 'Acacías'), new Date());
 
     if (CURRENT_PAGE === 'pagos') {
-      // AL MOMENTO DE PAGAR: aquí se calcula y presenta el Estimado de Entrega según ruta y corte de las 00:00
+      // En pasarela de pagos: cálculo y presentación del estimado de entrega según ruta y corte
       if (insideVcio) {
         zoneIndicator.className = 'zone-live-indicator is-villavicencio';
         if (zoneIcon) zoneIcon.textContent = 'bolt';
@@ -1723,7 +1965,7 @@
         if (etaSummary) etaSummary.textContent = deliveryInfo.texto;
       }
     } else {
-      // EN PERFIL / GESTIÓN DE DIRECCIONES
+      // En perfil de usuario: indicación de zona de cobertura geográfica
       if (insideVcio) {
         zoneIndicator.className = 'zone-live-indicator is-villavicencio';
         if (zoneIcon) zoneIcon.textContent = 'location_on';
@@ -1738,6 +1980,12 @@
     }
   }
 
+  /**
+   * Ejecuta geocodificación inversa para transformar coordenadas lat/lng en nomenclatura de dirección local.
+   * @param {number} lat - Latitud geográfica.
+   * @param {number} lng - Longitud geográfica.
+   * @param {string|null} [municipioOverride=null] - Forzar municipio específico si se seleccionó manualmente.
+   */
   async function reverseGeocodeAndAutofill(lat, lng, municipioOverride = null) {
     const latInput = document.getElementById('addrLat');
     const lngInput = document.getElementById('addrLng');
@@ -1817,11 +2065,16 @@
         }
       }
     } catch (_) {
-      // Ya autorellenado con nomenclatura local instantánea
+      // Fallback: se conserva la nomenclatura local generada mediante el algoritmo de proximidad
     }
   }
 
 
+  /**
+   * Construye el marcador visual característico de pin rojo con efecto de pulso para Leaflet.
+   * @param {string} [labelText='★'] - Carácter o número a mostrar en el núcleo del marcador.
+   * @returns {L.DivIcon|undefined} Instancia de icono Leaflet.
+   */
   function createBrandRedPinIcon(labelText = '★') {
     if (typeof L === 'undefined') return undefined;
     return L.divIcon({
@@ -1838,6 +2091,10 @@
     });
   }
 
+  /**
+   * Construye el marcador distintivo para la sede central y centro de despacho de Danillanos.
+   * @returns {L.DivIcon|undefined} Instancia de icono Leaflet.
+   */
   function createHqPinIcon() {
     if (typeof L === 'undefined') return undefined;
     return L.divIcon({
@@ -1849,6 +2106,10 @@
     });
   }
 
+  /**
+   * Inicializa el mapa interactivo Leaflet de cobertura urbana y departamental del Meta.
+   * @param {string} containerId - Identificador del elemento HTML contenedor del mapa.
+   */
   function setupInteractiveCoverageMap(containerId) {
     const mapEl = document.getElementById(containerId);
     if (!mapEl || typeof L === 'undefined') return;
@@ -1929,6 +2190,10 @@
   // ==========================================================================
   // 4. PÁGINA TIENDA PRINCIPAL (index.html)
   // ==========================================================================
+
+  /**
+   * Inicializa la vista principal de la tienda (index.html), carrusel interactivo y catálogo de productos.
+   */
   function initStorePage() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('q')) {
@@ -2008,6 +2273,9 @@
     }
   }
 
+  /**
+   * Configura el carrusel publicitario superior con rotación automática, barra de progreso y soporte táctil swipe.
+   */
   function initHeroCarousel() {
     const track = document.getElementById('carouselTrack');
     const dots = document.getElementById('carouselDots');
@@ -2016,6 +2284,9 @@
     const nextBtn = document.getElementById('carouselNextBtn');
     if (!track || !dots || !progressBar) return;
 
+    /**
+     * Construye y renderiza dinámicamente las diapositivas del carrusel en el DOM.
+     */
     function renderSlides() {
       track.innerHTML = '';
       dots.innerHTML = '';
@@ -2067,6 +2338,9 @@
       });
     }
 
+    /**
+     * Actualiza la posición horizontal de desplazamiento (CSS transform) del carril de diapositivas.
+     */
     function updateTransform() {
       track.style.transition = 'transform 0.45s cubic-bezier(0.22, 1, 0.36, 1)';
       track.style.transform = `translate3d(-${state.carousel.currentIndex * 100}%, 0, 0)`;
@@ -2078,6 +2352,10 @@
       );
     }
 
+    /**
+     * Transiciona el carrusel hacia la diapositiva en el índice especificado.
+     * @param {number} idx - Índice destino de la diapositiva.
+     */
     function goToSlide(idx) {
       const total = state.slides.length;
       if (!total) return;
@@ -2087,6 +2365,10 @@
       updateTransform();
     }
 
+    /**
+     * Bucle de temporización con requestAnimationFrame para la rotación automática y la barra de progreso.
+     * @param {number} ts - Marca de tiempo del cuadro de animación.
+     */
     function tick(ts) {
       if (!state.carousel.lastFrameTime) state.carousel.lastFrameTime = ts;
       const delta = ts - state.carousel.lastFrameTime;
@@ -2108,9 +2390,7 @@
     prevBtn?.addEventListener('click', () => goToSlide(state.carousel.currentIndex - 1));
     nextBtn?.addEventListener('click', () => goToSlide(state.carousel.currentIndex + 1));
 
-    // =========================================================================
-    // Deslizamiento con el dedo en móvil (Swipe táctil fluido izquierda/derecha)
-    // =========================================================================
+    // Control de gestos táctiles (swipe) para navegación fluida en dispositivos móviles
     let touchStartX = 0;
     let touchStartY = 0;
     let isSwiping = false;
@@ -2143,7 +2423,7 @@
         const diffY = currentY - touchStartY;
 
         if (!isHorizontalSwipe) {
-          // Si el desplazamiento es predominantemente vertical, permitir scroll natural de la página
+          // Permitir scroll vertical natural si el desplazamiento vertical predomina sobre el horizontal
           if (Math.abs(diffY) > Math.abs(diffX)) {
             isSwiping = false;
             state.carousel.isPaused = false;
@@ -2165,6 +2445,10 @@
       { passive: false }
     );
 
+    /**
+     * Concluye el gesto táctil swipe y determina si se avanza o retrocede la diapositiva.
+     * @param {TouchEvent} e - Evento táctil de finalización (touchend o touchcancel).
+     */
     function endTouchSwipe(e) {
       if (!isSwiping && !isHorizontalSwipe) return;
       isSwiping = false;
@@ -2178,20 +2462,20 @@
         const threshold = 38; // 38px de umbral para cambiar de diapositiva
 
         if (diffX < -threshold) {
-          // Deslizó hacia la izquierda -> avanzar a la siguiente
+          // Desplazamiento hacia la izquierda: avanzar a la siguiente diapositiva
           goToSlide(state.carousel.currentIndex + 1);
         } else if (diffX > threshold) {
-          // Deslizó hacia la derecha -> regresar a la anterior
+          // Desplazamiento hacia la derecha: retroceder a la diapositiva anterior
           goToSlide(state.carousel.currentIndex - 1);
         } else {
-          // Umbral no alcanzado -> volver a centrar suavemente la diapositiva actual
+          // Umbral no superado: recentrar suavemente la diapositiva en curso
           updateTransform();
         }
       } else {
         updateTransform();
       }
 
-      // Reiniciar wasDragging después de que el evento click termine de evaluarse
+      // Restablecer indicador de arrastre tras procesar eventos de pulsación
       setTimeout(() => {
         wasDragging = false;
       }, 120);
@@ -2222,6 +2506,10 @@
     state.carousel.rafId = requestAnimationFrame(tick);
   }
 
+  /**
+   * Aplica un filtro de categoría sobre el catálogo principal de productos en la tienda.
+   * @param {string} catSlug - Slug de la categoría seleccionada ('todos', 'embutidos', etc.).
+   */
   function setStoreCategoryFilter(catSlug) {
     state.filteredCategory = catSlug;
     state.visibleProductsLimit = catSlug === 'todos' ? 36 : 40;
@@ -2231,6 +2519,9 @@
     renderStoreProducts();
   }
 
+  /**
+   * Renderiza la cuadrícula de productos en el catálogo de la tienda aplicando filtros y límites de paginación.
+   */
   function renderStoreProducts() {
     const grid = document.getElementById('productsGrid');
     const banner = document.getElementById('searchStatusBanner');
@@ -2336,10 +2627,10 @@
   }
 
   // ==========================================================================
-  // 5. PÁGINA AMPLIA DE PERFIL, MAPA, LÍNEA DE 4 ETAPAS, CANCELACIÓN ANTES DE ENVÍO, HISTORIAL Y SOPORTE CON FILTROS (perfil.html)
+  // 5. PÁGINA DE PERFIL, SEGUIMIENTO, PERSISTENCIA LOCAL Y SOPORTE (perfil.html)
   // ==========================================================================
 
-  // Almacenamiento local sincronizado para garantizar CERO errores 404 incluso si el servidor Node no se ha reiniciado
+  /** Almacén local de contingencia para usuarios administrativos y operativos. */
   const DEFAULT_STAFF_USERS = [
     {
       id: 1,
@@ -2355,6 +2646,10 @@
     }
   ];
 
+  /**
+   * Recupera el almacén local de cuentas de personal y usuarios para funcionamiento autónomo.
+   * @returns {Array<Object>} Lista de usuarios registrados.
+   */
   function getLocalUsersStore() {
     try {
       const raw = localStorage.getItem('danillanos_users_store');
@@ -2379,10 +2674,18 @@
     return [...DEFAULT_STAFF_USERS];
   }
 
+  /**
+   * Persiste la lista de usuarios en el almacenamiento local del navegador.
+   * @param {Array<Object>} list - Colección de usuarios a guardar.
+   */
   function saveLocalUsersStore(list) {
     localStorage.setItem('danillanos_users_store', JSON.stringify(list));
   }
 
+  /**
+   * Obtiene el mapa de modificaciones y cambios de estado locales aplicados sobre pedidos.
+   * @returns {Object.<string, Object>} Diccionario de sobreescrituras indexado por ID de pedido.
+   */
   function getOrderOverridesMap() {
     try {
       return JSON.parse(localStorage.getItem('danillanos_orders_overrides') || '{}');
@@ -2391,12 +2694,22 @@
     }
   }
 
+  /**
+   * Guarda un parche de actualización para un pedido en el registro de sobreescrituras local.
+   * @param {number|string} orderId - Identificador del pedido.
+   * @param {Object} patch - Propiedades modificadas del pedido.
+   */
   function saveOrderOverride(orderId, patch) {
     const map = getOrderOverridesMap();
     map[orderId] = { ...(map[orderId] || {}), ...patch };
     localStorage.setItem('danillanos_orders_overrides', JSON.stringify(map));
   }
 
+  /**
+   * Fusiona la lista de pedidos con las sobreescrituras locales registradas en el navegador.
+   * @param {Array<Object>} [orders=[]] - Lista original de pedidos.
+   * @returns {Array<Object>} Pedidos combinados con las últimas modificaciones locales.
+   */
   function applyOrderOverrides(orders = []) {
     const map = getOrderOverridesMap();
     return orders.map((ord) => {
@@ -2408,6 +2721,10 @@
 
   const DEFAULT_STAFF_ORDERS = [];
 
+  /**
+   * Recupera la colección de pedidos generados localmente por el usuario en esta sesión.
+   * @returns {Array<Object>} Lista de pedidos creados localmente.
+   */
   function getLocalCreatedOrders() {
     try {
       const raw = localStorage.getItem('danillanos_local_orders');
@@ -2419,6 +2736,10 @@
     return [];
   }
 
+  /**
+   * Registra un nuevo pedido en la lista local de compras del cliente.
+   * @param {Object} orderObj - Objeto completo del pedido.
+   */
   function saveLocalCreatedOrder(orderObj) {
     const list = getLocalCreatedOrders();
     if (!list.some((o) => Number(o.id) === Number(orderObj.id))) {
@@ -2427,6 +2748,10 @@
     }
   }
 
+  /**
+   * Construye el dataset de pedidos para paneles operativos combinando registros locales y contingencias.
+   * @returns {Array<Object>} Lista unificada de órdenes operativas.
+   */
   function getFallbackStaffOrders() {
     const map = new Map();
     DEFAULT_STAFF_ORDERS.forEach((o) => map.set(Number(o.id), { ...o }));
@@ -2435,6 +2760,10 @@
     return applyOrderOverrides(combined);
   }
 
+  /**
+   * Recupera el registro local de tickets de soporte y mensajes almacenados en el navegador.
+   * @returns {Array<Object>} Lista de tickets de soporte.
+   */
   function getLocalTicketsStore() {
     try {
       const raw = localStorage.getItem('danillanos_tickets_store');
@@ -2454,10 +2783,19 @@
     return [];
   }
 
+  /**
+   * Persiste la lista de tickets de soporte en el almacenamiento local.
+   * @param {Array<Object>} list - Colección de tickets a guardar.
+   */
   function saveLocalTicketsStore(list) {
     localStorage.setItem('danillanos_tickets_store', JSON.stringify(list));
   }
 
+  /**
+   * Sincroniza y fusiona tickets provenientes de la API REST con la persistencia local del cliente.
+   * @param {Array<Object>} [serverTickets=[]] - Tickets recibidos del servidor.
+   * @returns {Array<Object>} Colección consolidada de tickets con sus respectivos mensajes.
+   */
   function mergeTicketsWithLocal(serverTickets = []) {
     if (Array.isArray(serverTickets)) {
       const merged = serverTickets.map((t) => {
@@ -2491,6 +2829,11 @@
     return [];
   }
 
+  /**
+   * Genera el código alfanumérico estandarizado de comprobante fiscal para una orden.
+   * @param {number|string} orderId - Número del pedido.
+   * @returns {string} Código de factura formateado (ej. "FAC-DN-00105").
+   */
   function getInvoiceCode(orderId) {
     return `FAC-DN-${String(orderId || 1).padStart(5, '0')}`;
   }
@@ -2522,7 +2865,7 @@
     };
     const estadoTexto = statusLabelMap[ord.estado] || (ord.estado ? String(ord.estado).toUpperCase() : 'RECIBIDO EN TIENDA');
 
-    // Dientes de sierra SVG (triángulos exactos de 0 a 100)
+    // Patrón geométrico dentado en formato SVG para emular el borde de corte del papel térmico
     const topTeeth =
       '0,8 1.25,0 2.5,8 3.75,0 5,8 6.25,0 7.5,8 8.75,0 10,8 11.25,0 12.5,8 13.75,0 15,8 16.25,0 17.5,8 18.75,0 20,8 21.25,0 22.5,8 23.75,0 25,8 26.25,0 27.5,8 28.75,0 30,8 31.25,0 32.5,8 33.75,0 35,8 36.25,0 37.5,8 38.75,0 40,8 41.25,0 42.5,8 43.75,0 45,8 46.25,0 47.5,8 48.75,0 50,8 51.25,0 52.5,8 53.75,0 55,8 56.25,0 57.5,8 58.75,0 60,8 61.25,0 62.5,8 63.75,0 65,8 66.25,0 67.5,8 68.75,0 70,8 71.25,0 72.5,8 73.75,0 75,8 76.25,0 77.5,8 78.75,0 80,8 81.25,0 82.5,8 83.75,0 85,8 86.25,0 87.5,8 88.75,0 90,8 91.25,0 92.5,8 93.75,0 95,8 96.25,0 97.5,8 98.75,0 100,8';
     const bottomTeeth =
@@ -2646,10 +2989,19 @@
     `;
   }
 
+  /**
+   * Envuelve el comprobante térmico en el contenedor modal de previsualización para el cliente o personal.
+   * @param {Object} ord - Objeto del pedido.
+   * @returns {string} HTML del contenedor modal de facturación.
+   */
   function buildInvoiceHtmlForOrder(ord) {
     return buildThermalPaperReceiptHtml(ord);
   }
 
+  /**
+   * Abre la ventana modal interactiva con la factura detallada del pedido.
+   * @param {Object} ord - Objeto del pedido a visualizar.
+   */
   function openInvoiceModalByOrder(ord) {
     if (!ord) return;
     const backdrop = document.getElementById('invoiceModalBackdrop');
@@ -2659,6 +3011,10 @@
     backdrop.classList.remove('hidden');
   }
 
+    /**
+     * Ejecuta la animación de salida y oculta el contenedor modal especificado.
+     * @param {HTMLElement} backdrop - Elemento telón de fondo del modal.
+     */
     function closeModalWithAnimation(backdrop) {
     if (!backdrop || backdrop.classList.contains('hidden')) return;
     backdrop.classList.add('is-closing');
@@ -2668,6 +3024,9 @@
     }, 220);
   }
 
+  /**
+   * Configura los controladores globales de eventos para apertura e impresión de facturas electrónicas.
+   */
   function initSharedInvoiceModalEvents() {
     const backdrop = document.getElementById('invoiceModalBackdrop');
     const closeBtn = document.getElementById('btnCloseInvoiceModal');
@@ -2680,6 +3039,10 @@
 
   let customerTabSliderInitialized = false;
 
+  /**
+   * Ajusta visualmente la barra indicadora deslizante bajo la pestaña activa del perfil del cliente.
+   * @param {boolean} [immediate=false] - Si es true, omite la animación de transición.
+   */
   function updateCustomerTabSlider(immediate = false) {
     const tabsBar = document.getElementById('customerProfileTabsBar');
     const slider = document.getElementById('customerTabSlider');
@@ -2717,6 +3080,10 @@
     slider.style.height = `${btnRect.height}px`;
   }
 
+  /**
+   * Cambia la pestaña activa en la vista de perfil del cliente ('cuenta', 'direcciones', 'pedidos', 'soporte').
+   * @param {string} tabName - Nombre de la pestaña destino.
+   */
   function switchCustomerProfileTab(tabName) {
     state.activeProfileTab = tabName || 'pedidos';
     try {
@@ -2745,6 +3112,9 @@
     setTimeout(updateCustomerTabSlider, 50);
   }
 
+  /**
+   * Sincroniza la pestaña activa del perfil a partir del fragmento hash de la URL del navegador.
+   */
   function syncProfileTabFromHash() {
     const h = window.location.hash;
     if (h === '#direcciones-mapa-section' || h === '#mi-cuenta' || h === '#cuenta-section') switchCustomerProfileTab('direcciones');
@@ -2754,11 +3124,18 @@
   }
 
   // ==========================================================================
-  // GESTION DE CONTRASENA Y POP-UP CUSTOMIZADO PARA ASIGNAR / CAMBIAR PASSWORD
+  // GESTIÓN DE CONTRASEÑA Y DIÁLOGO MODAL DE CREDENCIALES
   // ==========================================================================
+
+  /** Función callback pendiente tras asignar o actualizar contraseña. */
   let currentPasswordModalCallback = null;
   let currentPasswordModalRequiredForLogout = false;
 
+  /**
+   * Comprueba si el usuario autenticado ingresó mediante Google OAuth y aún no ha configurado contraseña propia.
+   * @param {Object} [user=state.user] - Datos del usuario.
+   * @returns {boolean} True si la cuenta proviene de Google y carece de contraseña tradicional.
+   */
   function isGoogleUserWithoutPassword(user = state.user) {
     if (!user) return false;
     const isGoogle = Boolean(
@@ -2769,6 +3146,11 @@
     return isGoogle && !hasPass;
   }
 
+  /**
+   * Gestiona el cierre seguro de sesión, exigiendo configuración de clave a usuarios federados de Google.
+   * @param {Function} onSuccess - Callback a ejecutar tras completar satisfactoriamente el cierre de sesión.
+   * @returns {boolean} True si el logout procedió inmediatamente sin interrupciones.
+   */
   function attemptUserLogout(onSuccess) {
     if (isGoogleUserWithoutPassword(state.user)) {
       openPasswordModal({
@@ -2791,6 +3173,9 @@
     return true;
   }
 
+  /**
+   * Asegura que la estructura HTML del diálogo modal de contraseña exista dentro del DOM.
+   */
   function ensureAccountPasswordModalInDOM() {
     if (document.getElementById('accountPasswordModal')) return;
 
@@ -2921,6 +3306,12 @@
     }
   }
 
+  /**
+   * Despliega la ventana modal para creación o cambio de contraseña de acceso a la cuenta.
+   * @param {Object} [options={}] - Parámetros de invocación.
+   * @param {boolean} [options.isRequiredForLogout=false] - Obligatorio antes de desloguear cuenta de Google.
+   * @param {Function|null} [options.onPasswordSet=null] - Función a ejecutar tras guardar exitosamente.
+   */
   function openPasswordModal({ isRequiredForLogout = false, onPasswordSet = null } = {}) {
     ensureAccountPasswordModalInDOM();
     initAccountPasswordModal();
@@ -2991,6 +3382,9 @@
     }, 100);
   }
 
+  /**
+   * Oculta y limpia el formulario modal de administración de contraseña.
+   */
   function closePasswordModal() {
     const modal = document.getElementById('accountPasswordModal');
     if (!modal) return;
@@ -2999,6 +3393,10 @@
     currentPasswordModalRequiredForLogout = false;
   }
 
+  /**
+   * Procesa la validación y envío seguro del formulario de actualización o creación de clave.
+   * @param {Event} e - Evento de envío del formulario.
+   */
   async function handlePasswordFormSubmit(e) {
     e.preventDefault();
     const feedbackEl = document.getElementById('pwdModalFeedback');
@@ -3013,6 +3411,10 @@
 
     const hasPass = Boolean(state.user && state.user.has_password);
 
+    /**
+     * Presenta un mensaje de error dentro del diálogo modal de contraseña.
+     * @param {string} msg - Texto explicativo del error.
+     */
     function showError(msg) {
       if (!feedbackEl) return;
       feedbackEl.textContent = msg;
@@ -3023,6 +3425,10 @@
       feedbackEl.classList.remove('hidden');
     }
 
+    /**
+     * Presenta un mensaje de confirmación exitosa dentro del diálogo modal de contraseña.
+     * @param {string} msg - Texto informativo de éxito.
+     */
     function showSuccess(msg) {
       if (!feedbackEl) return;
       feedbackEl.textContent = msg;
@@ -3110,6 +3516,9 @@
     }
   }
 
+  /**
+   * Configura los controladores de eventos para apertura e interacción del modal de contraseña.
+   */
   function initAccountPasswordModal() {
     const modal = document.getElementById('accountPasswordModal');
     if (!modal || modal._pwdInitialized) return;
@@ -3150,6 +3559,9 @@
     }
   });
 
+  /**
+   * Solicita al servidor los datos actualizados de la sesión del usuario para refrescar credenciales.
+   */
   async function refreshCurrentUserSession() {
     if (!state.token) return;
     try {
@@ -3216,6 +3628,9 @@
     } catch (_) {}
   }
 
+  /**
+   * Inicializa la vista de perfil de usuario (perfil.html), pestañas, mapa de direcciones y soporte.
+   */
   function initPerfilPage() {
     initSharedInvoiceModalEvents();
     initAccountPasswordModal();
@@ -3256,6 +3671,10 @@
     const loginFormPanel = document.getElementById('loginFormPanel');
     const registerFormPanel = document.getElementById('registerFormPanel');
 
+    /**
+     * Ajusta la altura del viewport de autenticación según el formulario activo (inicio de sesión o registro).
+     * @param {string} [mode] - Modo seleccionado ('login' o 'register').
+     */
     function syncAuthViewportHeight(mode) {
       syncAuthViewportHeightGlobal(mode);
     }
@@ -3269,6 +3688,10 @@
       if (registerFormPanel) authResizeObs.observe(registerFormPanel);
     }
 
+    /**
+     * Conmuta la animación horizontal deslizante entre el formulario de inicio de sesión y el de registro.
+     * @param {('login'|'register')} mode - Modo destino.
+     */
     function setAuthSlideMode(mode) {
       const isRegister = mode === 'register';
       tabLoginBtn?.classList.toggle('active', !isRegister);
@@ -3277,7 +3700,7 @@
       authTabsBar?.classList.toggle('is-register-mode', isRegister);
       loginFormPanel?.classList.toggle('is-active', !isRegister);
       registerFormPanel?.classList.toggle('is-active', isRegister);
-      // Fallback para estructuras sin carril deslizante
+      // Respaldo de navegación para contenedores que no cuenten con carril de animación deslizante
       if (!authFormsViewport) {
         loginForm?.classList.toggle('hidden', isRegister);
         registerForm?.classList.toggle('hidden', !isRegister);
@@ -3296,7 +3719,7 @@
       syncAuthViewportHeight(isReg ? 'register' : 'login');
     });
 
-    // Limpiar alertas de feedback al tipear
+    // Limpieza de avisos de validación ante modificaciones del usuario en los campos de entrada
     document.getElementById('loginEmail')?.addEventListener('input', () => showAuthInlineFeedback('login', ''));
     document.getElementById('loginPassword')?.addEventListener('input', () => showAuthInlineFeedback('login', ''));
     document.getElementById('regEmail')?.addEventListener('input', () => showAuthInlineFeedback('register', ''));
@@ -3308,7 +3731,7 @@
       const email = document.getElementById('loginEmail').value.trim();
       const password = document.getElementById('loginPassword').value;
 
-      // Verificar si la cuenta fue desactivada o cambió de rol por el Administrador
+      // Comprobación de estado activo y actualización de rol operacional asignado por Administración
       const localUsers = getLocalUsersStore();
       const localMatch = localUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
       if (localMatch && localMatch.activo === false) {
@@ -3337,7 +3760,7 @@
         }
         renderPerfilPageAuthState();
       } catch (err) {
-        // Respaldo local en caso de que el servidor Node no esté activo al probar en móvil
+        // Contingencia local autónoma en caso de interrupción en la conectividad del servidor
         if (localMatch) {
           const fallbackUser = {
             ...localMatch,
@@ -3401,16 +3824,17 @@
       }
     });
 
-    // ========================================================================
-    // INTEGRACIÓN NATIVA GOOGLE IDENTITY SERVICES (GIS OAUTH 2.0)
-    // Client ID oficial de Danillanos para login y registro inmediato
-    // ========================================================================
+    // Integración oficial de autenticación con Google Identity Services (GIS OAuth 2.0)
     const GOOGLE_CLIENT_ID =
       CONFIG.auth?.googleClientId ||
       '394071429874-5ev2n04b6j7akvqg0rtaene6461smr10.apps.googleusercontent.com';
 
     let googleTokenClient = null;
 
+    /**
+     * Procesa la respuesta exitosa de credenciales o token de Google y autentica con el backend.
+     * @param {Object} googlePayload - Carga útil con credenciales o perfil devuelto por Google.
+     */
     async function handleGoogleLoginSuccess(googlePayload) {
       try {
         const res = await fetch(`${CONFIG.api.baseUrl}/auth/google`, {
@@ -3435,10 +3859,13 @@
       }
     }
 
+    /**
+     * Inicializa los clientes oficiales de Google Identity Services (One Tap y Token Client OAuth 2.0).
+     */
     function initGoogleIdentityClient() {
       if (typeof window.google === 'undefined') return;
 
-      // 1. Inicializar receptor de credenciales / One Tap
+      // Configuración del receptor de credenciales One Tap de Google
       if (window.google.accounts?.id) {
         try {
           window.google.accounts.id.initialize({
@@ -3454,7 +3881,7 @@
         } catch (_) {}
       }
 
-      // 2. Inicializar cliente de token OAuth 2.0 (ventana emergente oficial de Google)
+      // Inicialización del cliente de token OAuth 2.0 con ventana emergente oficial
       if (window.google.accounts?.oauth2) {
         try {
           googleTokenClient = window.google.accounts.oauth2.initTokenClient({
@@ -3493,13 +3920,13 @@
     }
 
     document.getElementById('btnGoogleAuth')?.addEventListener('click', () => {
-      // 1. Flujo primario: Ventana emergente oficial de Google OAuth 2.0
+      // Flujo de autenticación primario mediante ventana emergente OAuth 2.0
       if (googleTokenClient) {
         googleTokenClient.requestAccessToken({ prompt: 'select_account' });
         return;
       }
 
-      // 2. Flujo secundario: Google One Tap si ya cargó id
+      // Flujo alternativo mediante notificación Google One Tap
       if (window.google?.accounts?.id) {
         window.google.accounts.id.prompt((notification) => {
           if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
@@ -3509,10 +3936,13 @@
         return;
       }
 
-      // 3. Flujo de contingencia si un bloqueador de anuncios o falta de internet impide cargar el SDK de Google
+      // Modal de contingencia ante bloqueadores de scripts o ausencia de conectividad con Google
       fallbackManualGooglePrompt();
     });
 
+    /**
+     * Despliega un diálogo asistido de contingencia si el SDK de Google es bloqueado por extensiones del navegador.
+     */
     async function fallbackManualGooglePrompt() {
       const googleEmail = prompt(
         'Acceso con Google:\nIngresa tu correo de Gmail:',
@@ -3603,14 +4033,15 @@
       }
     });
 
-    // ========================================================================
-    // MODAL Y FORMULARIO DE EDICIÓN DE PERFIL COMERCIAL Y DATOS DEL TITULAR
-    // ========================================================================
+    // Controlador del diálogo modal para edición de datos comerciales y tributarios del usuario
     const editProfileBackdrop = document.getElementById('editProfileModalBackdrop');
     const editProfileForm = document.getElementById('editProfileForm');
     const btnCloseEditProfile = document.getElementById('btnCloseEditProfileModal');
     const btnCancelEditProfile = document.getElementById('btnCancelEditProfile');
 
+    /**
+     * Abre el modal para editar datos comerciales y tributarios del titular de la cuenta.
+     */
     function openEditProfileModal() {
       if (!state.user || !editProfileBackdrop) return;
       const nomInput = document.getElementById('editProfileNombre');
@@ -3627,6 +4058,9 @@
       editProfileBackdrop.classList.remove('hidden');
     }
 
+    /**
+     * Cierra el diálogo modal de edición de datos de perfil.
+     */
     function closeEditProfileModal() {
       if (editProfileBackdrop) editProfileBackdrop.classList.add('hidden');
     }
@@ -3637,6 +4071,10 @@
       if (e.target === editProfileBackdrop) closeEditProfileModal();
     });
 
+    /**
+     * Alterna o fuerza la visibilidad del formulario interactivo para registrar una nueva dirección con mapa.
+     * @param {boolean|null} [forceOpen=null] - Estado forzado (true para abrir, false para cerrar).
+     */
     function toggleAddAddressSection(forceOpen = null) {
       const ws = document.getElementById('addressRegistrationWorkspace');
       const btnText = document.getElementById('toggleAddAddressBtnText');
@@ -3660,6 +4098,10 @@
       }
     }
 
+    /**
+     * Habilita o deshabilita los campos editables del perfil de usuario en la interfaz.
+     * @param {boolean} isEditing - Si es true, activa el modo de edición.
+     */
     function setProfileEditingState(isEditing) {
       const pencilBtn = document.getElementById('btnToggleProfileEdit');
       const pencilIcon = document.getElementById('btnToggleProfileEditIcon');
@@ -3688,6 +4130,9 @@
       }
     }
 
+    /**
+     * Descarta las modificaciones en curso del perfil y restablece los valores almacenados.
+     */
     function cancelInlineProfileChanges() {
       if (!state.user) return;
       const nomInput = document.getElementById('inlineProfileNombre');
@@ -3708,6 +4153,9 @@
       setProfileEditingState(false);
     }
 
+    /**
+     * Valida y transmite los cambios del perfil del titular hacia la API REST del backend.
+     */
     async function saveInlineProfileChanges() {
       if (!state.user) return;
       const nomInput = document.getElementById('inlineProfileNombre');
@@ -3800,7 +4248,7 @@
       renderPerfilPageAuthState();
       setProfileEditingState(false);
 
-      // Update static bold elements
+      // Actualización de identificadores informativos en el perfil
       const sNom = document.getElementById('staticProfileNombre');
       if (sNom) sNom.textContent = state.user.nombre_completo || state.user.username || 'No registrado';
       const sEmp = document.getElementById('staticProfileEmpresa');
@@ -3810,7 +4258,7 @@
       const sTel = document.getElementById('staticProfileTelefono');
       if (sTel) sTel.textContent = state.user.telefono || 'No registrado';
 
-      // Feedback message in inlineProfileSaveMsg
+      // Notificación en línea sobre el resultado de la actualización de perfil
       const saveFeedbackEl = document.getElementById('inlineProfileSaveMsg') || document.getElementById('companyEditFeedback');
       if (saveFeedbackEl) {
         saveFeedbackEl.style.display = 'block';
@@ -3848,7 +4296,7 @@
       toggleAddAddressSection(false);
     });
 
-    // Eventos de filtrado en Historial de Compras del Cliente
+    // Asignación de controladores de filtrado dinámico en el historial de compras
     ['custHistorySearchInput', 'custHistoryStatusFilter', 'custHistoryZoneFilter', 'custHistoryPayFilter'].forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -3857,7 +4305,7 @@
       });
     });
 
-    // Eventos de filtrado de pedidos/facturas en formulario de Soporte y filtro de tickets
+    // Controladores de eventos para asociación de pedidos en el centro de atención al cliente
     document.getElementById('supOrderFilterInput')?.addEventListener('input', (e) => {
       populateCustomerSupportOrderSelect(e.target.value);
     });
@@ -3870,13 +4318,17 @@
       });
     });
 
-    // Adjuntar Imagen en Soporte
+    // Manejador de previsualización y codificación de imagen fotográfica adjunta en ticket
     const supImageInput = document.getElementById('supImageInput');
     const supPreviewWrap = document.getElementById('supImagePreviewWrap');
     const supPreviewImg = document.getElementById('supImagePreview');
     const btnSimulateSupImage = document.getElementById('btnSimulateSupImage');
     const btnClearSupImage = document.getElementById('btnClearSupImage');
 
+    /**
+     * Actualiza el borrador de imagen adjunta como evidencia para un nuevo ticket de soporte.
+     * @param {string|null} dataUrl - Cadena en formato base64 con la imagen o null para removerla.
+     */
     function setSupportCustomerPhoto(dataUrl) {
       state.supportCustomerImageDraft = dataUrl;
       if (dataUrl && supPreviewImg && supPreviewWrap) {
@@ -3905,7 +4357,7 @@
 
     btnClearSupImage?.addEventListener('click', () => setSupportCustomerPhoto(null));
 
-    // Desplegable de Nuevo Ticket en Ventana de Soporte (con botón en la esquina superior derecha y padding generoso)
+    // Control de despliegue del formulario para radicar nuevo ticket de atención PQRS
     const btnToggleNewTicket = document.getElementById('btnToggleNewTicket');
     const formWrapper = document.getElementById('customerSupportFormWrapper');
     const btnCloseNewTicket = document.getElementById('btnCloseNewTicketBtn');
@@ -3913,6 +4365,10 @@
     const toggleIcon = document.getElementById('btnToggleNewTicketIcon');
     const toggleText = document.getElementById('btnToggleNewTicketText');
 
+    /**
+     * Alterna la visibilidad del formulario para radicar un nuevo caso o ticket de atención PQRS.
+     * @param {boolean} [forceOpen] - Estado forzado de apertura.
+     */
     function toggleNewTicketMenu(forceOpen) {
       if (!formWrapper) return;
       const willOpen =
@@ -3994,6 +4450,9 @@
     });
   }
 
+  /**
+   * Renderiza el estado de autenticación en la vista de perfil (tarjetas de acceso o panel de usuario).
+   */
   function renderPerfilPageAuthState() {
     const guestBox = document.getElementById('guestAuthContainer');
     const loggedBanner = document.getElementById('loggedProfileBanner');
@@ -4191,6 +4650,9 @@
     }
   }
 
+  /**
+   * Renderiza la libreta de direcciones guardadas del cliente con opciones para editar o eliminar.
+   */
   function renderSavedAddressesList() {
     const listEl = document.getElementById('savedAddressesList');
     const badge = document.getElementById('addressCountBadge');
@@ -4232,6 +4694,11 @@
       .join('');
   }
 
+  /**
+   * Puebla el desplegable de asociación de pedidos en el formulario de creación de tickets de soporte.
+   * @param {string} [filterText=''] - Texto opcional para filtrar los pedidos mostrados.
+   * @param {number|string|null} [preselectOrderId=null] - ID de orden a seleccionar por defecto.
+   */
   function populateCustomerSupportOrderSelect(filterText = '', preselectOrderId = null) {
     const selectEl = document.getElementById('supOrderId');
     if (!selectEl) return;
@@ -4266,6 +4733,9 @@
         .join('');
   }
 
+  /**
+   * Consulta al backend el historial de pedidos del cliente y actualiza las vistas correspondientes.
+   */
   async function loadCustomerOrdersList() {
     const activeContainer = document.getElementById('myOrdersListContainer');
     if (!activeContainer || !state.user) return;
@@ -4295,6 +4765,12 @@
     }
   }
 
+  /**
+   * Evalúa si un pedido satisface los criterios de búsqueda y filtros combinados.
+   * @param {Object} ord - Objeto del pedido a verificar.
+   * @param {Object} filters - Filtros de consulta (texto, estado, zona geográfica, método de pago).
+   * @returns {boolean} True si el pedido cumple todos los filtros activos.
+   */
   function matchesOrderFilters(ord, { query = '', status = 'todos', zone = 'todas', pay = 'todos' }) {
     const q = (query || '').trim().toLowerCase();
     if (q) {
@@ -4345,6 +4821,9 @@
     return true;
   }
 
+  /**
+   * Renderiza la vista de pedidos activos con línea de tiempo en 4 etapas y el historial colapsable.
+   */
   function renderCustomerOrdersViews() {
     const activeContainer = document.getElementById('myOrdersListContainer');
     const historyContainer = document.getElementById('myOrderHistoryContainer');
@@ -4361,7 +4840,7 @@
 
     if (state.customerExpandedOrderIds === null) {
       state.customerExpandedOrderIds = new Set();
-      // Solo abrimos el primer pedido si es un pedido ACTIVO en curso. En historial van todos colapsados por defecto.
+      // Expansión predeterminada: únicamente la primera orden activa en progreso se presenta desplegada
       if (activeOrders.length > 0) state.customerExpandedOrderIds.add(activeOrders[0].id);
     }
 
@@ -4682,7 +5161,7 @@
         if (card) {
           const wasExpanded = card.classList.contains('is-expanded');
 
-          // Solo se permite tener 1 pedido desplegado a la vez (cerrar todos los demás en curso e historial)
+          // Comportamiento de acordeón exclusivo: únicamente se mantiene abierta una orden a la vez
           document.querySelectorAll('.customer-order-accordion.is-expanded').forEach((otherCard) => {
             otherCard.classList.remove('is-expanded');
             const otherBtn = otherCard.querySelector('[data-toggle-cust-order]');
@@ -4695,7 +5174,7 @@
             headerBtn.setAttribute('aria-expanded', 'true');
             state.customerExpandedOrderIds.add(ordId);
 
-            // Desactivar el punto de notificación integrado al expandir el envío
+            // Limpieza del indicador luminoso de novedad al visualizar el detalle del despacho
             const targetOrd = (state.customerOrders || []).find((o) => Number(o.id) === ordId);
             if (targetOrd) {
               markOrderStatusSeen(ordId, targetOrd.estado);
@@ -4714,7 +5193,7 @@
   }
 
   /**
-   * Ventana 4 del Cliente: Mis Tickets Abiertos y MiniChat con Soporte (Cero 404s)
+   * Módulo de atención de soporte al cliente, tickets PQRS y canal de mensajería con soporte de adjuntos.
    */
     async function closeTicketAsCustomer(ticketId) {
     const tkId = Number(ticketId);
@@ -4753,12 +5232,15 @@
     });
   }
 
-async function loadCustomerSupportTickets() {
+  /**
+   * Carga los tickets de soporte del cliente desde la API con respaldo inmediato en persistencia local.
+   */
+  async function loadCustomerSupportTickets() {
     const container = document.getElementById('customerTicketsListContainer');
     const badge = document.getElementById('tabTicketsCount');
     if (!container || !state.user) return;
 
-    // 1. Cargar inmediatamente desde almacenamiento local para que la vista nunca quede vacía
+    // Carga preliminar instantánea desde persistencia local para asegurar continuidad visual
     const localTickets = getLocalTicketsStore().filter(
       (t) => !t.usuario_id || Number(t.usuario_id) === Number(state.user.id) || Number(state.user.id) === 1
     );
@@ -4768,7 +5250,7 @@ async function loadCustomerSupportTickets() {
     if (badge) badge.textContent = String(state.customerTickets.length);
     renderCustomerSupportTicketsList();
 
-    // 2. Sincronizar de inmediato con el backend sin depender de clics manuales en filtros
+    // Sincronización en segundo plano con la API REST del backend
     try {
       const res = await fetch(`${CONFIG.api.baseUrl}/mis-tickets`, { headers: getAuthHeaders() });
       if (res.ok) {
@@ -4784,6 +5266,9 @@ async function loadCustomerSupportTickets() {
     } catch (_) {}
   }
 
+  /**
+   * Renderiza la lista de tickets de soporte y el canal de mensajería con soporte de adjuntos de imagen.
+   */
   function renderCustomerSupportTicketsList() {
     const container = document.getElementById('customerTicketsListContainer');
     const badge = document.getElementById('tabTicketsCount');
@@ -4961,7 +5446,7 @@ async function loadCustomerSupportTickets() {
     };
 
     container.onclick = async (e) => {
-      // Alternar colapso del chat en vivo por parte del usuario
+      // Alternar despliegue del panel de conversación del ticket seleccionado
       const toggleBtn = e.target.closest('[data-toggle-cust-ticket]');
       if (toggleBtn && !e.target.closest('[data-cust-resolve-ticket]')) {
         const id = Number(toggleBtn.getAttribute('data-toggle-cust-ticket'));
@@ -4977,7 +5462,7 @@ async function loadCustomerSupportTickets() {
         return;
       }
 
-      // Quitar foto adjunta en borrador
+      // Descartar archivo fotográfico adjunto en el borrador del mensaje
       const removeDraftBtn = e.target.closest('[data-remove-cust-draft]');
       if (removeDraftBtn) {
         const tkId = Number(removeDraftBtn.getAttribute('data-remove-cust-draft'));
@@ -4987,7 +5472,7 @@ async function loadCustomerSupportTickets() {
         return;
       }
 
-      // Si el cliente interactúa con el ticket, marcamos como visto para quitar el punto rojo
+      // Registro de lectura del ticket para desactivar el indicador visual de notificación
       const cardEl = e.target.closest('[data-cust-ticket-card]');
       if (cardEl) {
         const cardTkId = Number(cardEl.getAttribute('data-cust-ticket-card'));
@@ -4999,7 +5484,7 @@ async function loadCustomerSupportTickets() {
         }
       }
 
-      // Cerrar ticket por parte del cliente
+      // Conclusión y cierre del caso asistencial por solicitud del cliente
       const resolveBtn = e.target.closest('[data-cust-resolve-ticket]');
       if (resolveBtn) {
         const tkId = Number(resolveBtn.getAttribute('data-cust-resolve-ticket'));
@@ -5009,7 +5494,7 @@ async function loadCustomerSupportTickets() {
         return;
       }
 
-      // Enviar mensaje en el chat con texto y/o foto
+      // Transmisión de mensaje con texto y evidencia fotográfica opcional
       const sendBtn = e.target.closest('[data-send-cust-chat]');
       if (!sendBtn) return;
       const tkId = Number(sendBtn.getAttribute('data-send-cust-chat'));
@@ -5053,15 +5538,19 @@ async function loadCustomerSupportTickets() {
   }
 
   // ==========================================================================
-  // 6. PASARELA DE PAGOS EN 3 PASOS ANIMADOS (DERECHA A IZQUIERDA) + FACTURA VISUAL + RETORNO EN 10S (pagos.html)
+  // 6. PASARELA DE PAGOS EN 3 PASOS ANIMADOS Y FACTURACIÓN DIGITAL (pagos.html)
   // ==========================================================================
+
+  /**
+   * Puebla el desplegable de direcciones de entrega en la pasarela de pagos con opción de pin en mapa.
+   */
   function populateCheckoutSavedAddressesDropdown() {
     const addrSelect = document.getElementById('checkoutAddressSelect');
     if (!addrSelect) return;
 
     addrSelect.innerHTML = '';
 
-    // Listamos primero las direcciones guardadas del usuario
+    // Carga de direcciones previamente guardadas en la libreta del cliente
     state.direcciones.forEach((d, idx) => {
       const opt = document.createElement('option');
       opt.value = String(idx);
@@ -5069,7 +5558,7 @@ async function loadCustomerSupportTickets() {
       addrSelect.appendChild(opt);
     });
 
-    // Opción para desplegar el mapa interactivo si desea buscar o marcar nueva ubicación
+    // Opción interactiva para ubicar un nuevo punto geográfico sobre el mapa
     const mapOpt = document.createElement('option');
     mapOpt.value = 'map_pin';
     mapOpt.textContent = `🗺️ Marcar o buscar nueva ubicación en el mapa interactivo`;
@@ -5088,6 +5577,10 @@ async function loadCustomerSupportTickets() {
     }
   }
 
+  /**
+   * Transiciona la pasarela de compras hacia el paso especificado con animación horizontal de desplazamiento.
+   * @param {number} stepNum - Número del paso a activar (1: Dirección, 2: Pago, 3: Factura final).
+   */
   function goToCheckoutStep(stepNum) {
     state.checkoutWizardStep = stepNum;
     const track = document.getElementById('checkoutWizardTrack');
@@ -5151,6 +5644,13 @@ async function loadCustomerSupportTickets() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  /**
+   * Renderiza la representación visual de factura electrónica una vez aprobado el pago.
+   * @param {Object} orderData - Datos de la orden generada.
+   * @param {Object} payload - Carga útil enviada en la transacción.
+   * @param {Array<Object>} itemsList - Lista de productos facturados.
+   * @param {number} totalAmount - Total general abonado.
+   */
   function renderVisualInvoiceCard(orderData, payload, itemsList, totalAmount) {
     const invoiceEl = document.getElementById('danillanosVisualInvoice');
     if (!invoiceEl) return;
@@ -5174,8 +5674,11 @@ async function loadCustomerSupportTickets() {
     });
   }
 
+  /**
+   * Inicializa la pasarela de pagos en 3 pasos (pagos.html), métodos de liquidación y mapa de entrega.
+   */
   function initPagosPage() {
-    // Si no hay productos en el carrito, 404 a la página de pagos
+    // Redirección preventiva si se ingresa a la pasarela con el carrito vacío
     if (!Array.isArray(state.cart) || state.cart.length === 0) {
       window.location.replace('404.html');
       return;
@@ -5337,6 +5840,10 @@ async function loadCustomerSupportTickets() {
     });
   }
 
+  /**
+   * Alterna la visibilidad del mapa interactivo de fijación de pin en la pasarela de pagos.
+   * @param {boolean} showMap - Si es true, expande el contenedor del mapa.
+   */
   function toggleCheckoutMapVisibility(showMap) {
     const mapCollapsible = document.getElementById('checkoutMapCollapsible');
     const muniInput = document.getElementById('addrMunicipio');
@@ -5379,6 +5886,10 @@ async function loadCustomerSupportTickets() {
     }
   }
 
+  /**
+   * Carga los datos de una dirección guardada en los campos de checkout y recalcula las tarifas de entrega.
+   * @param {number} idx - Índice de la dirección en el arreglo state.direcciones.
+   */
   function applySavedAddressToCheckout(idx) {
     const dir = state.direcciones[idx];
     if (!dir) return;
@@ -5415,10 +5926,13 @@ async function loadCustomerSupportTickets() {
       state.maps.addressMarker.setLatLng([dir.lat, dir.lng]).openPopup();
     }
 
-    // Al seleccionar una dirección guardada conocida, ocultamos el mapa animado para ahorrar espacio
+    // Ocultar mapa interactivo al seleccionar una dirección conocida para optimizar espacio visual
     toggleCheckoutMapVisibility(false);
   }
 
+  /**
+   * Renderiza el resumen de artículos, cantidades y cálculos de subtotal en el lateral de la pasarela de pago.
+   */
   function renderCheckoutPageItems() {
     const listEl = document.getElementById('checkoutItemsListContainer');
     const countText = document.getElementById('checkoutItemsCountText');
@@ -5488,6 +6002,10 @@ async function loadCustomerSupportTickets() {
     };
   }
 
+  /**
+   * Actualiza el panel informativo y las instrucciones de transferencia según el método de pago seleccionado.
+   * @param {string} method - Método de pago ('bancolombia' | 'nequi' | 'daviplata' | 'contraentrega').
+   */
   function renderPaymentVisualBox(method) {
     state.selectedPayMethod = method || 'bancolombia';
     document.querySelectorAll('#paymentMethodsGrid .payment-method-card').forEach((c) => {
@@ -5604,9 +6122,10 @@ async function loadCustomerSupportTickets() {
   }
 
   // ==========================================================================
-  // 7. PÁGINA DEDICADA DEL PANEL DE CONTROL (panel.html) + HISTORIALES CON FILTROS PARA TODOS LOS ROLES
+  // 7. PANEL DE CONTROL OPERACIONAL MULTIRROL (panel.html)
   // ==========================================================================
-  // Chequeo reactivo para resetear la barra de progreso de entregadores automáticamente a las 00:00
+
+  // Verificación periódica para reiniciar contadores de entregas diarias a las 00:00 horas
   let lastCheckedDay = new Date().getDate();
   setInterval(() => {
     const curDay = new Date().getDate();
@@ -5618,6 +6137,9 @@ async function loadCustomerSupportTickets() {
     }
   }, 15000);
 
+  /**
+   * Inicializa el centro de operaciones multirrol (panel.html) y restringe acceso a usuarios sin privilegios.
+   */
   function initPanelPage() {
     syncCurrentUserRoleFromLocalStore();
     if (!isStaffUser()) {
@@ -5683,7 +6205,7 @@ async function loadCustomerSupportTickets() {
       document.getElementById(id)?.addEventListener('click', loadStaffDataAndRender);
     });
 
-    // Botón para expandir o colapsar todos los tickets del Asistente
+    // Alternar expansión o contracción global de todos los tickets en la bandeja de soporte
     document.getElementById('btnToggleAllAssistantTickets')?.addEventListener('click', () => {
       if (!state.expandedStaffTickets) state.expandedStaffTickets = new Set();
       const allTkIds = (state.staffTickets || []).map((t) => Number(t.id));
@@ -5701,7 +6223,7 @@ async function loadCustomerSupportTickets() {
 
     const workspace = document.getElementById('staffWorkspace');
     workspace?.addEventListener('click', async (e) => {
-      // Alternar colapso de ticket para Asistente de Soporte
+      // Alternar visibilidad de conversación de ticket individual
       const toggleTicketEl = e.target.closest('[data-toggle-staff-ticket]');
       if (toggleTicketEl && !e.target.closest('[data-staff-view-invoice]')) {
         const id = Number(toggleTicketEl.getAttribute('data-toggle-staff-ticket'));
@@ -5716,7 +6238,7 @@ async function loadCustomerSupportTickets() {
         renderSoportePanel();
         return;
       }
-      // Abrir factura electrónica desde cualquier tarjeta del panel
+      // Previsualización de factura térmica asociada al pedido seleccionado
       const viewInvBtn = e.target.closest('[data-staff-view-invoice]');
       if (viewInvBtn) {
         const ordId = Number(viewInvBtn.getAttribute('data-staff-view-invoice'));
@@ -5725,7 +6247,7 @@ async function loadCustomerSupportTickets() {
         return;
       }
 
-      // Expandir / contraer acordeón de historial en cualquier rol (máximo 1 abierto a la vez)
+      // Control de acordeón exclusivo en listas de historial operativo
       const toggleHistHeader = e.target.closest('[data-toggle-staff-hist]');
       if (toggleHistHeader && !e.target.closest('[data-staff-view-invoice]') && !e.target.closest('[data-emp-cancel]')) {
         const ordId = Number(toggleHistHeader.getAttribute('data-toggle-staff-hist'));
@@ -5739,7 +6261,7 @@ async function loadCustomerSupportTickets() {
         return;
       }
 
-      // Expandir / colapsar paradas verticales del entregador (estilo Rappi, máximo 1 abierta a la vez)
+      // Control de acordeón exclusivo para las paradas de ruta del repartidor
       const toggleStopHeader = e.target.closest('[data-toggle-driver-stop]');
       if (toggleStopHeader && !e.target.closest('a') && !e.target.closest('button:not([data-toggle-driver-stop])')) {
         const ordId = Number(toggleStopHeader.getAttribute('data-toggle-driver-stop'));
@@ -5755,7 +6277,7 @@ async function loadCustomerSupportTickets() {
         return;
       }
 
-      // Confirmar pedido en Bodega (con asignación de entregador)
+      // Confirmación de orden en bodega y asignación de repartidor
       const clickedOrderCard = e.target.closest('[data-emp-order-id]');
       if (clickedOrderCard) {
         const orderIdToMark = Number(clickedOrderCard.getAttribute('data-emp-order-id'));
@@ -5792,7 +6314,7 @@ async function loadCustomerSupportTickets() {
         return;
       }
 
-      // Despachar a Reparto (con asignación de entregador)
+      // Despacho a ruta de reparto y actualización de estado logístico
       const dispatchBtn = e.target.closest('[data-emp-dispatch]');
       if (dispatchBtn) {
         const id = Number(dispatchBtn.getAttribute('data-emp-dispatch'));
@@ -5816,7 +6338,7 @@ async function loadCustomerSupportTickets() {
         return;
       }
 
-      // Cancelar pedido desde el personal
+      // Anulación de pedido por parte del personal operativo
       const cancelBtn = e.target.closest('[data-emp-cancel]');
       if (cancelBtn) {
         const id = Number(cancelBtn.getAttribute('data-emp-cancel'));
@@ -5837,7 +6359,7 @@ async function loadCustomerSupportTickets() {
         return;
       }
 
-      // Simular foto de entrega del repartidor
+      // Generación de comprobante fotográfico simulado de entrega
       const simPhotoBtn = e.target.closest('[data-driver-simulate-photo]');
       if (simPhotoBtn) {
         const id = Number(simPhotoBtn.getAttribute('data-driver-simulate-photo'));
@@ -5847,7 +6369,7 @@ async function loadCustomerSupportTickets() {
         return;
       }
 
-      // Finalizar entrega con foto
+      // Registro de entrega finalizada con comprobante de recepción
       const completeBtn = e.target.closest('[data-driver-complete]');
       if (completeBtn) {
         const id = Number(completeBtn.getAttribute('data-driver-complete'));
@@ -5879,7 +6401,7 @@ async function loadCustomerSupportTickets() {
         return;
       }
 
-      // Quitar foto adjunta en borrador para staff
+      // Eliminación de archivo fotográfico adjunto en borrador de respuesta
       const removeStaffDraftBtn = e.target.closest('[data-remove-staff-draft]');
       if (removeStaffDraftBtn) {
         const id = Number(removeStaffDraftBtn.getAttribute('data-remove-staff-draft'));
@@ -5889,7 +6411,7 @@ async function loadCustomerSupportTickets() {
         return;
       }
 
-      // Enviar mensaje en el MiniChat de Soporte (Cero 404s)
+      // Envío de respuesta asistencial en canal de soporte con persistencia dual
       const sendSupportChatBtn = e.target.closest('[data-staff-send-chat]');
       if (sendSupportChatBtn) {
         const id = Number(sendSupportChatBtn.getAttribute('data-staff-send-chat'));
@@ -5939,7 +6461,7 @@ async function loadCustomerSupportTickets() {
         return;
       }
 
-      // Marcar ticket como resuelto
+      // Conclusión y resolución formal del ticket de asistencia
       const resolveBtn = e.target.closest('[data-resolve-ticket]');
       if (resolveBtn) {
         const id = Number(resolveBtn.getAttribute('data-resolve-ticket'));
@@ -5978,7 +6500,7 @@ async function loadCustomerSupportTickets() {
         return;
       }
 
-      // Admin: Editar producto del catálogo
+      // Administración: Edición de producto en catálogo comercial
       const editProdBtn = e.target.closest('[data-admin-edit-prod]');
       if (editProdBtn) {
         const prodId = Number(editProdBtn.getAttribute('data-admin-edit-prod'));
@@ -5987,7 +6509,7 @@ async function loadCustomerSupportTickets() {
         return;
       }
 
-      // Admin: Eliminar producto del catálogo (Cero 404s)
+      // Administración: Eliminación de producto del catálogo con persistencia dual
       const delProdBtn = e.target.closest('[data-admin-del-prod]');
       if (delProdBtn) {
         const prodId = Number(delProdBtn.getAttribute('data-admin-del-prod'));
@@ -6007,7 +6529,7 @@ async function loadCustomerSupportTickets() {
         return;
       }
 
-      // Admin: Activar / Desactivar cuenta de empleado o usuario (Cero 404s)
+      // Administración: Alternar estado activo/inactivo de cuenta de usuario o funcionario
       const toggleUserBtn = e.target.closest('[data-admin-toggle-user]');
       if (toggleUserBtn) {
         const userId = Number(toggleUserBtn.getAttribute('data-admin-toggle-user'));
@@ -6075,7 +6597,7 @@ async function loadCustomerSupportTickets() {
         return;
       }
 
-      // Admin: Cambiar rol de empleado / usuario (Cero 404s)
+      // Administración: Modificación de rol operacional de usuario
       const roleSelect = e.target.closest('[data-admin-role-select]');
       if (roleSelect) {
         const userId = Number(roleSelect.getAttribute('data-admin-role-select'));
@@ -6113,6 +6635,9 @@ async function loadCustomerSupportTickets() {
     });
   }
 
+  /**
+   * Conecta los controles de filtrado y búsqueda en los historiales de órdenes y tickets del personal.
+   */
   function initStaffFilterEvents() {
     const bindFilters = (ids, renderFn) => {
       ids.forEach((id) => {
@@ -6154,6 +6679,9 @@ async function loadCustomerSupportTickets() {
     );
   }
 
+  /**
+   * Construye el menú de navegación lateral del panel operativo adaptado al rol del funcionario.
+   */
   function renderStaffSidebar() {
     if (!state.user) return;
     const roleNames = {
@@ -6219,6 +6747,9 @@ async function loadCustomerSupportTickets() {
       .join('');
   }
 
+  /**
+   * Obtiene del servidor los pedidos y tickets operativos para mostrarlos en el panel correspondiente.
+   */
   async function loadStaffDataAndRender() {
     const activeLocalDrivers = getLocalUsersStore().filter(
       (u) => normalizeRole(u.rol) === 'entregador' && u.activo !== false
@@ -6230,8 +6761,7 @@ async function loadCustomerSupportTickets() {
       });
 
       if (!res.ok) {
-        // Si el usuario ya fue verificado como personal (ej. rol cambiado a empleado por el Admin),
-        // cargar datos de respaldo sin redirigir a 404.html
+        // Carga de datos operativos de respaldo ante contingencias de red
         state.staffOrders = getFallbackStaffOrders();
         state.staffTickets = getLocalTicketsStore();
         state.staffDrivers = activeLocalDrivers;
@@ -6271,6 +6801,9 @@ async function loadCustomerSupportTickets() {
     }
   }
 
+  /**
+   * Delega el renderizado de la pestaña activa en el panel según el rol o submódulo seleccionado.
+   */
   function renderActiveStaffTab() {
     document.getElementById('panelViewAdmin')?.classList.toggle('hidden', state.activeStaffTab !== 'admin');
     document.getElementById('panelViewCatalogo')?.classList.toggle('hidden', state.activeStaffTab !== 'catalogo');
@@ -6288,10 +6821,10 @@ async function loadCustomerSupportTickets() {
   }
 
   /**
-   * Renderizador compartido de Historial de Pedidos y Facturas Colapsable para Admin, Empleado, Entregador y Soporte
-   */
-  /**
-   * Renderizador compartido de Historial de Pedidos y Facturas Colapsable para Admin, Empleado, Entregador y Soporte
+   * Genera el listado colapsable unificado de órdenes para los historiales de Admin, Empleado, Repartidor y Soporte.
+   * @param {Array<Object>} list - Colección de pedidos a renderizar.
+   * @param {string} containerId - Identificador del contenedor DOM destino.
+   * @param {string} emptyMessage - Mensaje explicativo cuando la lista se encuentra vacía.
    */
   function renderCollapsibleStaffOrdersList(list, containerId, emptyMessage) {
     const container = document.getElementById(containerId);
@@ -6438,8 +6971,12 @@ async function loadCustomerSupportTickets() {
   }
 
   // ==========================================================================
-  // SUB-PANELES EXCLUSIVOS DE ADMINISTRADOR: CATÁLOGO (CRUD) Y EMPLEADOS/ROLES
+  // MÓDULOS DE ADMINISTRACIÓN: CATÁLOGO (CRUD), USUARIOS Y ROLES
   // ==========================================================================
+
+  /**
+   * Configura los controladores de eventos para la administración de productos en el catálogo comercial.
+   */
   function initAdminCatalogEvents() {
     const catSelect = document.getElementById('admProdCategoria');
     if (catSelect && CONFIG.categories) {
@@ -6448,6 +6985,9 @@ async function loadCustomerSupportTickets() {
         .join('');
     }
 
+        /**
+         * Despliega el formulario modal para vincular un nuevo colaborador a la nómina de la empresa.
+         */
         function openAdminEmployeeForm() {
       const card = document.getElementById('adminEmployeeFormCard');
       if (!card) return;
@@ -6456,6 +6996,9 @@ async function loadCustomerSupportTickets() {
       document.getElementById('adminNewEmpEmail')?.focus();
     }
 
+    /**
+     * Oculta el formulario modal de vinculación de colaboradores.
+     */
     function closeAdminEmployeeForm() {
       const card = document.getElementById('adminEmployeeFormCard');
       if (!card || card.classList.contains('hidden')) return;
@@ -6540,7 +7083,7 @@ async function loadCustomerSupportTickets() {
       renderAdminCatalogoPanel();
     });
 
-    // Formulario de Administrador para Vincular Correo Electrónico como Empleado
+    // Manejador del formulario administrativo para vincular cuentas de personal
     const newEmpForm = document.getElementById('adminNewEmployeeForm');
     const newEmpMsg = document.getElementById('adminNewEmpMsg');
     newEmpForm?.addEventListener('submit', async (e) => {
@@ -6599,7 +7142,7 @@ async function loadCustomerSupportTickets() {
         return;
       }
 
-      // El usuario existe en la plataforma y su rol fue actualizado exitosamente
+      // Actualización satisfactoria del rol operacional de la cuenta
       const usersList = getLocalUsersStore();
       const existingUserIdx = usersList.findIndex((u) => (u.email || '').toLowerCase() === email);
       if (existingUserIdx !== -1) {
@@ -6623,6 +7166,10 @@ async function loadCustomerSupportTickets() {
     });
   }
 
+  /**
+   * Abre el formulario modal para crear un nuevo producto o editar las propiedades de uno existente.
+   * @param {Object|null} [prod=null] - Objeto del producto a editar o null para registrar uno nuevo.
+   */
   function openAdminProductForm(prod = null) {
     const card = document.getElementById('adminCatalogFormCard');
     const title = document.getElementById('adminCatalogFormTitle');
@@ -6650,6 +7197,9 @@ async function loadCustomerSupportTickets() {
     }
   }
 
+  /**
+   * Renderiza la tabla de gestión de inventario y catálogo para el Administrador con opciones CRUD.
+   */
   function renderAdminCatalogoPanel() {
     const listEl = document.getElementById('adminCatalogListContainer');
     const badge = document.getElementById('adminCatalogTotalBadge');
@@ -6695,6 +7245,9 @@ async function loadCustomerSupportTickets() {
       .join('');
   }
 
+  /**
+   * Carga y renderiza el módulo de administración de usuarios, asignación de roles y vinculación de personal.
+   */
   async function loadAdminUsersAndRender() {
     const container = document.getElementById('adminUsersListContainer');
     if (!container) return;
@@ -6789,6 +7342,9 @@ async function loadCustomerSupportTickets() {
     enhanceAllCustomSelects(container);
   }
 
+  /**
+   * Renderiza el panel principal de control gerencial con indicadores clave de rendimiento (KPIs) y gráficos.
+   */
   function renderAdminDashboard() {
     const orders = state.staffOrders;
     const valid = orders.filter((o) => o.estado !== 'cancelado');
@@ -6893,7 +7449,7 @@ async function loadCustomerSupportTickets() {
       </div>
     `;
 
-    // Renderizar Historial General de Pedidos y Facturas del Administrador con Filtros
+    // Renderizado del historial gerencial de órdenes y facturación con filtros consolidados
     const admQuery = document.getElementById('adminOrderSearchInput')?.value || '';
     const admStatus = document.getElementById('adminOrderStatusFilter')?.value || 'todos';
     const admZone = document.getElementById('adminOrderZoneFilter')?.value || 'todas';
@@ -6919,9 +7475,7 @@ async function loadCustomerSupportTickets() {
   }
 
   /**
-   * Panel Empleado General:
-   * 1. Cola activa por confirmar / despachar (con buscador y filtro de zona)
-   * 2. Historial de Pedidos Aceptados y Facturas (con buscador y filtros por estado, zona y medio de pago)
+   * Renderiza el panel de bodega y empaque con la cola de pedidos pendientes por confirmar y despachar.
    */
   function renderEmpleadoPanel() {
     const activeQuery = document.getElementById('empActiveSearchInput')?.value || '';
@@ -7042,7 +7596,7 @@ async function loadCustomerSupportTickets() {
       }
     }
 
-    // Historial de Pedidos Aceptados y Gestionados por Empleado
+    // Historial de pedidos confirmados y gestionados por el funcionario de bodega
     const empAcceptedAll = state.staffOrders.filter((o) =>
       ['en_proceso', 'en_camino', 'entregado', 'cancelado'].includes(o.estado)
     );
@@ -7073,15 +7627,11 @@ async function loadCustomerSupportTickets() {
   }
 
   /**
-   * Panel Entregador:
-   * 1. Barra superior: Progreso (X de Y completados)
-   * 2. Mapa limpio + Botón Google Maps
-   * 3. Puntos verticales conectados (o | o | o)
-   * 4. Historial de Pedidos Entregados con filtros y buscador
+   * Renderiza el panel operativo del conductor con progreso diario, mapa interactivo de paradas y hoja de ruta.
    */
   function renderEntregadorPanel() {
     const allDriverOrders = state.staffOrders.filter((o) => o.estado !== 'cancelado');
-    // Reset a las 00:00 horas: solo se cuentan las entregas realizadas el día de hoy
+    // Filtro temporal: cómputo exclusivo de las entregas formalizadas durante la jornada en curso
     const completedTodayCount = allDriverOrders.filter(isDeliveredToday).length;
     const active = state.staffOrders.filter(
       (o) => o.estado === 'en_camino' || o.estado === 'en_proceso' || o.estado === 'pendiente'
@@ -7293,6 +7843,9 @@ async function loadCustomerSupportTickets() {
     renderEntregadorHistorySection();
   }
 
+  /**
+   * Renderiza la sección de historial de pedidos entregados y facturación del repartidor con filtros avanzados.
+   */
   function renderEntregadorHistorySection() {
     const deliveredOrders = state.staffOrders.filter((o) => o.estado === 'entregado');
     const drvQuery = document.getElementById('driverHistorySearchInput')?.value || '';
@@ -7317,9 +7870,7 @@ async function loadCustomerSupportTickets() {
   }
 
   /**
-   * Panel Soporte:
-   * 1. Tickets de Clientes y MiniChat con Buscador y Filtro de Estado
-   * 2. Historial y Buscador Filtrable de Pedidos, Facturas, Entregas y Reembolsos
+   * Renderiza el panel de atención de soporte al cliente, cola de tickets PQRS y chat interactivo con fotos.
    */
   function renderSoportePanel() {
     if (state.staffTickets === null || state.staffTickets === undefined) {
@@ -7466,7 +8017,7 @@ async function loadCustomerSupportTickets() {
             })
             .join('');
 
-    // 2. Historial y Filtro de Pedidos, Facturas, Entregas y Reembolsos para Soporte
+    // Historial consolidado de pedidos, entregas y resoluciones asistenciales para el equipo de soporte
     const supOrdQuery = document.getElementById('soporteOrderSearchInput')?.value || '';
     const supOrdStatus = document.getElementById('soporteOrderStatusFilter')?.value || 'todos';
     const supOrdZone = document.getElementById('soporteOrderZoneFilter')?.value || 'todas';
@@ -7494,8 +8045,12 @@ async function loadCustomerSupportTickets() {
   }
 
   // ==========================================================================
-  // INICIALIZACIÓN SEGÚN LA PÁGINA ACTUAL
+  // INICIALIZADOR PRINCIPAL DEL DOM SEGÚN LA VISTA ACTIVA
   // ==========================================================================
+
+  /**
+   * Escuchador del evento DOMContentLoaded para inicializar módulos según la página en ejecución.
+   */
   document.addEventListener('DOMContentLoaded', () => {
     initSharedHeaderAndTheme();
     refreshCurrentUserSession();
@@ -7509,8 +8064,13 @@ async function loadCustomerSupportTickets() {
 
 
   // ==========================================================================
-  // COMPONENTE DE DROPDOWNS PERSONALIZADOS FLUIDOS (NO NATIVOS)
+  // COMPONENTE DE MENÚS DESPLEGABLES PERSONALIZADOS ACCESIBLES
   // ==========================================================================
+
+  /**
+   * Transforma un elemento <select> HTML nativo en un menú desplegable accesible y estilizado con animaciones fluidas.
+   * @param {HTMLSelectElement} selectEl - Elemento select original a enriquecer.
+   */
   function enhanceCustomSelect(selectEl) {
     if (!selectEl || selectEl.dataset.customized === 'true') {
       if (selectEl && typeof selectEl._syncCustomSelect === 'function') {
@@ -7555,6 +8115,9 @@ async function loadCustomerSupportTickets() {
     menu.setAttribute('role', 'listbox');
     wrapper.appendChild(menu);
 
+    /**
+     * Sincroniza la lista de opciones estilizadas del menú desplegable a partir de los <option> del <select> nativo.
+     */
     function syncOptionsFromSelect() {
       menu.innerHTML = '';
       const opts = Array.from(selectEl.options || []);
@@ -7608,6 +8171,9 @@ async function loadCustomerSupportTickets() {
 
     selectEl._syncCustomSelect = syncOptionsFromSelect;
 
+    /**
+     * Despliega el menú de opciones personalizadas y enfoca el componente interactivo.
+     */
     function openDropdown() {
       document.querySelectorAll('.custom-select-wrapper.is-open').forEach((w) => {
         if (w !== wrapper) {
@@ -7620,6 +8186,9 @@ async function loadCustomerSupportTickets() {
       trigger.setAttribute('aria-expanded', 'true');
     }
 
+    /**
+     * Contrae el menú de opciones personalizadas.
+     */
     function closeDropdown() {
       wrapper.classList.remove('is-open');
       trigger.setAttribute('aria-expanded', 'false');
@@ -7655,7 +8224,7 @@ async function loadCustomerSupportTickets() {
   }
 
   
-  // Auto-Enhancement para selects generados dinámicamente
+  // Observador de mutaciones para enriquecer automáticamente selects generados dinámicamente en el DOM
   try {
     const autoSelectObserver = new MutationObserver((mutations) => {
       let hasNewSelect = false;
@@ -7683,6 +8252,10 @@ async function loadCustomerSupportTickets() {
     autoSelectObserver.observe(document.body, { childList: true, subtree: true });
   } catch (_) {}
 
+  /**
+   * Localiza y enriquece todos los elementos <select> nativos dentro de un subárbol del DOM.
+   * @param {ParentNode} [root=document] - Raíz del documento o contenedor donde buscar selects.
+   */
   function enhanceAllCustomSelects(root = document) {
     if (!root) return;
     const selects = root.querySelectorAll('select:not([data-customized="true"])');
@@ -7693,7 +8266,7 @@ async function loadCustomerSupportTickets() {
     });
   }
 
-  // Cierre global de dropdowns
+  // Cierre global de menús desplegables al interactuar fuera del componente o pulsar tecla Escape
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.custom-select-wrapper')) {
       document.querySelectorAll('.custom-select-wrapper.is-open').forEach((w) => {
@@ -7716,8 +8289,12 @@ async function loadCustomerSupportTickets() {
 
 
   // ==========================================================================
-  // ENVIADO DE MENSAJES CON ENTER EN COMPUTADOR
+  // ESCUCHADOR GLOBAL DE TECLADO PARA ENVÍO RÁPIDO DE MENSAJES CON TECLA ENTER
   // ==========================================================================
+
+  /**
+   * Permite el despacho inmediato de mensajes de soporte mediante la pulsación de la tecla Enter en teclado físico.
+   */
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       if (e.target && e.target.id && e.target.id.startsWith('staffTicketChatInput_')) {

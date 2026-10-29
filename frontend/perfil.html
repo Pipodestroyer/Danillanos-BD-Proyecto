@@ -4,21 +4,27 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mi Cuenta | Danillanos</title>
+
+  <!-- Tipografías corporativas e iconografía Material Symbols -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,500,0,0" />
+
+  <!-- Dependencias cartográficas y estilos generales -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="css/styles.css" />
+
+  <!-- Integración con Google Identity Services (GIS) -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body data-page="perfil">
 
-  <!-- HEADER PRINCIPAL -->
+  <!-- Encabezado general con buscador, navegación, carrito y selector de tema -->
   <header class="site-header" id="siteHeader">
     <div class="header-container">
 
-      <!-- BOTÓN HAMBURGER (Móvil) -->
+      <!-- Controles de navegación móvil -->
       <div class="header-mobile-left">
         <button type="button" class="action-icon-btn hamburger-btn" id="mobileMenuBtn" aria-label="Abrir menú de navegación">
           <span class="material-symbols-rounded">menu</span>
@@ -28,6 +34,7 @@
         </a>
       </div>
 
+      <!-- Logotipo e identidad corporativa -->
       <div class="header-brand-left">
         <a href="index.html" class="brand-link" id="brandLink">
           <div class="brand-text-wrapper">
@@ -37,6 +44,7 @@
         </a>
       </div>
 
+      <!-- Herramientas globales del encabezado -->
       <div class="header-actions-right">
         <div class="search-wrapper desktop-search-only" id="searchWrapper">
           <div class="search-expandable" id="searchContainer">
@@ -71,7 +79,7 @@
       </div>
     </div>
 
-    <!-- BARRA DE BÚSQUEDA SIEMPRE ABIERTA EN CELULAR (ESTILO CHORILLANO) -->
+    <!-- Barra de búsqueda para dispositivos móviles con autocompletado en vivo -->
     <div class="mobile-search-bar-row" id="mobileSearchRow">
       <div class="mobile-search-box" id="mobileSearchBox">
         <input
@@ -90,7 +98,7 @@
     </div>
   </header>
 
-  <!-- MENÚ LATERAL HAMBURGER PARA MÓVIL -->
+  <!-- Panel lateral de navegación para móviles (Drawer) -->
   <div class="mobile-nav-backdrop" id="mobileNavBackdrop" aria-hidden="true"></div>
   <aside class="mobile-nav-drawer" id="mobileNavDrawer" aria-label="Menú Móvil Danillanos" aria-hidden="true">
     <div class="mobile-nav-header">
@@ -107,9 +115,7 @@
 
   <main class="main-content spacious-page">
 
-    <!-- ======================================================================
-         VISTA A (SOLA CUANDO NO HAY SESIÓN): INICIO DE SESIÓN Y REGISTRO
-         ====================================================================== -->
+    <!-- Sección de autenticación para visitantes: inicio de sesión, registro y Google OAuth -->
     <section class="page-block" id="cuenta-section">
       <div class="wide-auth-container" id="guestAuthContainer">
         <div class="wide-auth-info">
@@ -117,8 +123,6 @@
           <p class="page-hero-desc">
             Accede a precios mayoristas y al detal, programa despachos en Villavicencio y todo el Meta, y gestiona tus pedidos en línea.
           </p>
-
-          
         </div>
 
         <div class="wide-auth-card" id="wideAuthCard">
@@ -223,9 +227,7 @@
         </div>
       </div>
 
-      <!-- ====================================================================
-           VISTA B (CON SESIÓN ACTIVA): BANNER + VENTANAS SEPARADAS POR PESTAÑAS
-           ==================================================================== -->
+      <!-- Panel de usuario autenticado: encabezado de perfil, rol y acciones de cuenta -->
       <div class="logged-profile-banner hidden" id="loggedProfileBanner">
         <div class="logged-profile-left">
           <div class="logged-avatar-large" id="loggedAvatarLarge">C</div>
@@ -251,7 +253,7 @@
         </div>
       </div>
 
-      <!-- BARRA DE PESTAÑAS DE USUARIO (SEPARA CADA SECCIÓN EN SU PROPIA VENTANA) -->
+      <!-- Barra de navegación por pestañas del perfil de cliente -->
       <div class="customer-profile-tabs hidden" id="customerProfileTabsBar" role="tablist">
         <span class="customer-tab-slider" id="customerTabSlider" aria-hidden="true"></span>
         <button type="button" class="customer-tab-btn active" data-profile-tab="pedidos">
@@ -279,7 +281,7 @@
       </div>
     </section>
 
-    <!-- VENTANA 1: PEDIDOS ACTIVOS EN CURSO (CON OPCIÓN DE CANCELAR ANTES DE ENVÍO Y CONTACTAR A SOPORTE) -->
+    <!-- Pestaña 1: Órdenes activas en curso con seguimiento en tiempo real y opción de cancelación -->
     <section class="page-block hidden" id="mis-pedidos-section" data-profile-window="pedidos">
       <div class="block-header">
         <div>
@@ -293,7 +295,7 @@
       <div class="my-orders-list" id="myOrdersListContainer"></div>
     </section>
 
-    <!-- VENTANA 2: DIRECCIONES Y DATOS DE EMPRESA -->
+    <!-- Pestaña 2: Libreta de direcciones, datos de facturación empresarial y seguridad de acceso -->
     <section class="page-block hidden" id="direcciones-mapa-section" data-profile-window="direcciones">
       <div class="block-header">
         <div>
@@ -304,10 +306,10 @@
         </div>
       </div>
 
-      <!-- Tarjeta de Empresa y Datos Comerciales Modificables Inline -->
+      <!-- Tarjeta informativa con datos comerciales modificables en línea -->
       <div class="surface-card company-summary-card" id="companySummaryCard" style="margin-bottom: 1.5rem; padding: 1.15rem 1.45rem;"></div>
 
-      <!-- Tarjeta de Seguridad y Contraseña de la Cuenta -->
+      <!-- Tarjeta de gestión de seguridad y credenciales de acceso -->
       <div class="surface-card security-summary-card" id="securitySummaryCard" style="margin-bottom: 1.5rem; padding: 1.15rem 1.45rem;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
           <div style="display:flex; align-items:center; gap:0.85rem;">
@@ -330,7 +332,7 @@
         </div>
       </div>
 
-      <!-- Menú Desplegable Animado de Registro de Direcciones con Mapa -->
+      <!-- Módulo cartográfico interactivo para georreferenciación de domicilios -->
       <div class="wide-map-workspace hidden" id="addressRegistrationWorkspace" style="margin-bottom: 1.5rem;">
         <div class="wide-map-column">
           <div class="meta-municipalities-bar" id="metaMunicipalitiesBar"></div>
@@ -390,7 +392,7 @@
         </div>
       </div>
 
-      <!-- Debajo de todo: Lista de Direcciones Registradas -->
+      <!-- Listado de domicilios guardados por el cliente (máximo 5) -->
       <div class="surface-card saved-addresses-card" id="savedAddressesCard" style="margin-top: 1.5rem; padding: 1.4rem 1.65rem;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:1.15rem;">
           <div>
@@ -402,7 +404,7 @@
       </div>
     </section>
 
-    <!-- VENTANA 3: HISTORIAL DE COMPRAS Y FACTURAS CON BARRA DE BÚSQUEDA Y FILTROS -->
+    <!-- Pestaña 3: Historial de compras, órdenes finalizadas y visualizador de comprobantes -->
     <section class="page-block hidden" id="historial-compras-section" data-profile-window="historial">
       <div class="block-header">
         <div>
@@ -413,7 +415,7 @@
         </div>
       </div>
 
-      <!-- Barra de Filtros y Búsqueda del Historial del Cliente -->
+      <!-- Barra de herramientas: búsqueda y filtros para el historial de compras -->
       <div class="orders-filter-toolbar surface-card">
         <div class="filter-search-box">
           <span class="material-symbols-rounded">search</span>
@@ -450,7 +452,7 @@
       <div class="my-orders-list" id="myOrderHistoryContainer"></div>
     </section>
 
-    <!-- VENTANA 4: SOPORTE Y MIS TICKETS CON MINICHAT EN VIVO + FILTRO DE FACTURAS/PEDIDOS -->
+    <!-- Pestaña 4: Centro de atención al cliente, PQRS y minichat en vivo con soporte -->
     <section class="page-block hidden" id="soporte-cliente" data-profile-window="soporte">
       <div class="block-header">
         <div>
@@ -462,9 +464,8 @@
       </div>
 
       <div class="support-workspace-single">
-        <!-- Tarjeta Principal: Mis Tickets y Chat en Vivo -->
+        <!-- Panel principal de tickets y mensajería en vivo -->
         <div class="surface-card support-tickets-main-card">
-          <!-- Encabezado con Botón Arriba en la Esquina Derecha para Abrir el Menú de Nuevo Ticket -->
           <div class="support-card-header-bar">
             <div>
               <h3 class="support-card-title">Mis Tickets y Chat en Vivo</h3>
@@ -478,7 +479,7 @@
             </button>
           </div>
 
-          <!-- Menú Desplegable / Desplegado para Crear Nuevo Ticket con PADDING GENEROSO (Oculto por defecto) -->
+          <!-- Formulario desplegable para radicación de nuevos tickets de soporte con adjuntos -->
           <div class="new-ticket-dropdown-container hidden" id="customerSupportFormWrapper">
             <div class="new-ticket-dropdown-inner">
               <div class="new-ticket-header-row">
@@ -555,7 +556,7 @@
             </div>
           </div>
 
-          <!-- Filtros de Tickets y Búsqueda -->
+          <!-- Filtros de búsqueda por estado para el listado de tickets -->
           <div class="orders-filter-toolbar compact-filter-toolbar" style="margin-top: 1.15rem; margin-bottom: 0.85rem;">
             <div class="filter-search-box">
               <span class="material-symbols-rounded">search</span>
@@ -580,9 +581,7 @@
 
   </main>
 
-  
-
-  <!-- MODAL CUSTOMIZADO: CAMBIAR / ASIGNAR CONTRASEÑA -->
+  <!-- Modal interactivo: cambio y asignación de contraseña con validación de seguridad -->
   <div class="modal-backdrop hidden" id="accountPasswordModal" role="dialog" aria-modal="true" aria-labelledby="pwdModalTitle">
     <div class="modal-card password-modal-dialog" style="max-width: 490px; width: 100%; padding: 1.85rem 2rem; border-radius: 28px !important; overflow: hidden;">
       
@@ -601,7 +600,6 @@
         </button>
       </div>
 
-      <!-- Aviso para usuarios Google que intentan cerrar sesión -->
       <div id="pwdModalRequiredNotice" class="hidden" style="background: rgba(224, 26, 44, 0.08); border: 1px solid rgba(224, 26, 44, 0.3); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 1.15rem; display: flex; align-items: flex-start; gap: 0.65rem;">
         <span class="material-symbols-rounded" style="color: var(--brand-red); font-size: 1.35rem; flex-shrink: 0; margin-top: 2px;">shield_lock</span>
         <div style="font-size: 0.82rem; line-height: 1.45; color: var(--text-primary);">
@@ -611,8 +609,6 @@
       </div>
 
       <form id="accountPasswordForm" class="modal-form" novalidate>
-        
-        <!-- Contraseña Actual (solo requerida si ya tiene contraseña) -->
         <div class="form-group" id="pwdCurrentGroup">
           <label for="pwdModalActual" style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 5px;">
             Contraseña Actual *
@@ -638,7 +634,6 @@
           </div>
         </div>
 
-        <!-- Nueva Contraseña -->
         <div class="form-group" id="pwdNewGroup">
           <label for="pwdModalNueva" style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 5px;">
             Nueva Contraseña * (Mínimo 6 caracteres)
@@ -666,7 +661,6 @@
           </div>
         </div>
 
-        <!-- Confirmar Nueva Contraseña -->
         <div class="form-group" id="pwdConfirmGroup">
           <label for="pwdModalConfirmar" style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 5px;">
             Confirmar Nueva Contraseña *
@@ -694,10 +688,8 @@
           </div>
         </div>
 
-        <!-- Mensaje de feedback/error -->
         <div id="pwdModalFeedback" class="hidden" style="margin-top: 0.4rem; font-size: 0.82rem; padding: 0.65rem 0.85rem; border-radius: var(--radius-md);"></div>
 
-        <!-- Botones de Acción -->
         <div class="modal-actions-row" style="margin-top: 1.25rem; display: flex; justify-content: flex-end; gap: 0.75rem;">
           <button type="button" class="btn-secondary" id="btnCancelPasswordModal" style="padding: 0.65rem 1.2rem; font-size: 0.88rem;">
             Cancelar
@@ -712,7 +704,7 @@
     </div>
   </div>
 
-  <!-- MODAL VISOR DE FACTURA ELECTRÓNICA GRÁFICA -->
+  <!-- Modal visor de factura electrónica y comprobante de venta -->
   <div class="invoice-modal-backdrop hidden" id="invoiceModalBackdrop">
     <div class="invoice-modal-dialog">
       <div class="invoice-modal-top">
@@ -725,7 +717,7 @@
     </div>
   </div>
 
-  <!-- DRAWER LATERAL DEL CARRITO -->
+  <!-- Panel lateral deslizable del carrito de compras (Drawer) -->
   <div class="cart-backdrop" id="cartBackdrop" aria-hidden="true"></div>
   <aside class="cart-drawer" id="cartDrawer" aria-label="Carrito de compras" aria-hidden="true">
     <div class="cart-drawer-header">
@@ -751,6 +743,7 @@
     </div>
   </aside>
 
+  <!-- Scripts de librerías externas y lógica cliente -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/config.js"></script>
   <script src="js/app.js"></script>

@@ -1,8 +1,11 @@
 /**
- * ============================================================================
- * RUTAS REST API DE DANILLANOS (CATÁLOGO 235 ÍTEMS, AUTH ENCRIPTADO, DIRECCIONES
- * CON RADIO VILLAVICENCIO/META, PASARELA DE PAGO Y PANELES POR ROL)
- * ============================================================================
+ * @fileoverview Enrutador central de la API REST de Danillanos.
+ * Expone endpoints para el catálogo de productos, autenticación con cifrado AES-256-GCM y Scrypt,
+ * integración OAuth 2.0 con Google, gestión de direcciones con georreferenciación y radio
+ * de cobertura, ciclo de vida de pedidos, trazabilidad operativa por roles (empleado, entregador,
+ * soporte, admin), sistema de tickets de soporte con mensajería y administración global.
+ *
+ * @module backend/routes/api
  */
 
 const express = require('express');
@@ -30,13 +33,19 @@ const {
   loadFallbackStore
 } = require('../data/fallbackData');
 
-// Cliente oficial de Google OAuth 2.0
+/**
+ * Instancia del cliente OAuth2 de Google para validación de tokens de identidad (GIS).
+ * @type {OAuth2Client}
+ */
 const GOOGLE_CLIENT_ID =
   process.env.GOOGLE_CLIENT_ID ||
   '394071429874-5ev2n04b6j7akvqg0rtaene6461smr10.apps.googleusercontent.com';
 const googleAuthClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
-// Coordenadas del centro de Villavicencio y radio de cobertura inmediata (9.5 km)
+/**
+ * Coordenadas de referencia para el centro urbano de Villavicencio.
+ * @type {{lat: number, lng: number}}
+ */
 const VILLAVICENCIO_CENTER = { lat: 4.1420, lng: -73.6266 };
 const VILLAVICENCIO_RADIUS_KM = 9.5;
 const DANILLANOS_HQ = {
@@ -46,7 +55,14 @@ const DANILLANOS_HQ = {
 };
 
 /**
- * Calcula la distancia Haversine en kilómetros entre dos coordenadas GPS
+ * Calcula la distancia ortodrómica en kilómetros entre dos coordenadas geográficas mediante la fórmula de Haversine.
+ *
+ * @function haversineDistanceKm
+ * @param {number} lat1 - Latitud del primer punto en grados decimales.
+ * @param {number} lng1 - Longitud del primer punto en grados decimales.
+ * @param {number} lat2 - Latitud del segundo punto en grados decimales.
+ * @param {number} lng2 - Longitud del segundo punto en grados decimales.
+ * @returns {number} Distancia calculada en kilómetros.
  */
 function haversineDistanceKm(lat1, lng1, lat2, lng2) {
   const toRad = (deg) => (deg * Math.PI) / 180;
@@ -59,20 +75,13 @@ function haversineDistanceKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// ============================================================================
-// CRONOGRAMA OFICIAL DE RUTAS DEPARTAMENTALES DEL META Y VILLAVICENCIO
-// - Martes: Pto Lopez y San Carlos
-// - Miércoles: Mesetas - Vista Hermosa - Lejanías
-// - Jueves: 
-//     Ruta 1: San Martín - Granada - Fuente de Oro - Pto Lleras
-//     Ruta 2: Castilla - Guamal - Cubarral - El Dorado
-// - Viernes:
-//     Ruta 1: Pto Gaitán
-//     Ruta 2: Restrepo - Cumaral - Medina - Paratebueno
-// - Sábado: Acacías
-// Regla: Cualquier pedido antes de las 00:00 horas del día respectivo se entrega en su fecha;
-//        pasadas las 00:00, se reprograma para el siguiente ciclo semanal.
-// ============================================================================
+/**
+ * Cronograma oficial de despachos departamentales por municipios del Meta.
+ * Define el día de la semana correspondiente a cada ruta y los municipios cubiertos.
+ * Regla de negocio: pedidos radicados antes de las 00:00 del día fijado se entregan en la fecha;
+ * solicitudes posteriores se reprograman para el ciclo semanal siguiente.
+ * @type {Array<{diaSemana: number, diaNombre: string, rutaNombre: string, municipios: string[]}>}
+ */
 const DELIVERY_ROUTES = [
   {
     diaSemana: 2, // Martes
@@ -141,6 +150,13 @@ const MUNICIPIOS_META_COORDS = [
   { nombre: 'Acacías', lat: 3.9869, lng: -73.7579, es_villavicencio: false }
 ];
 
+/**
+ * Determina la ruta departamental asignada a un municipio según la coincidencia de nombre.
+ *
+ * @function findRouteForMunicipio
+ * @param {string} muniName - Nombre del municipio a evaluar.
+ * @returns {object|null} Objeto con la información de ruta o null si no se identifica coincidencia.
+ */
 function findRouteForMunicipio(muniName) {
   if (!muniName) return null;
   const clean = muniName
@@ -168,6 +184,14 @@ function findRouteForMunicipio(muniName) {
   return null;
 }
 
+/**
+ * Proyecta la fecha estimada y mensaje descriptivo de entrega según el destino y la hora de radicación.
+ *
+ * @function calculateEstimatedDelivery
+ * @param {string} muniName - Nombre del municipio receptor.
+ * @param {Date} [orderDate=new Date()] - Fecha y hora en la que se genera la solicitud.
+ * @returns {object} Información detallada con fecha proyectada, nombre de ruta y etiqueta textual.
+ */
 function calculateEstimatedDelivery(muniName, orderDate = new Date()) {
   const route = findRouteForMunicipio(muniName);
   const now = new Date(orderDate);
@@ -238,8 +262,15 @@ function calculateEstimatedDelivery(muniName, orderDate = new Date()) {
 }
 
 /**
- * Evalúa si unas coordenadas caen dentro del radio urbano de Villavicencio
- * y calcula con exactitud la fecha estimada y ruta según el cronograma oficial.
+ * Evalúa las coordenadas geográficas del destino para determinar si pertenece al perímetro urbano
+ * de Villavicencio o al área intermunicipal del Meta, calculando distancias y fecha estimada.
+ *
+ * @function evaluateDeliveryZone
+ * @param {number|string} lat - Latitud geográfica.
+ * @param {number|string} lng - Longitud geográfica.
+ * @param {string} [municipioInput=''] - Nombre del municipio suministrado por el usuario.
+ * @param {Date} [orderDate=new Date()] - Fecha base para el cálculo.
+ * @returns {object} Métricas de zona, distancia en kilómetros, indicativo urbano y tiempo proyectado.
  */
 function evaluateDeliveryZone(lat, lng, municipioInput = '', orderDate = new Date()) {
   const numLat = Number(lat) || VILLAVICENCIO_CENTER.lat;
@@ -279,7 +310,12 @@ function evaluateDeliveryZone(lat, lng, municipioInput = '', orderDate = new Dat
 }
 
 /**
- * Descifra un registro de usuario de la BD para enviarlo de forma segura al cliente
+ * Transforma un registro de usuario descifrando su información sensible (PII)
+ * y omitiendo hashes de contraseñas para retorno seguro al cliente.
+ *
+ * @function formatSafeUser
+ * @param {object|null} row - Registro crudo del usuario desde la base de datos o almacenamiento en memoria.
+ * @returns {object|null} Objeto saneado con datos descifrados en texto legible.
  */
 function formatSafeUser(row) {
   if (!row) return null;
@@ -312,7 +348,11 @@ function formatSafeUser(row) {
 }
 
 /**
- * Descifra un registro de dirección de la BD
+ * Descifra los campos confidenciales de un registro de dirección y formatea sus coordenadas.
+ *
+ * @function formatSafeAddress
+ * @param {object} row - Fila cruda de dirección procedente de MySQL o contingencia.
+ * @returns {object} Objeto de dirección estructurado con geoposición numérica y texto descifrado.
  */
 function formatSafeAddress(row) {
   return {
@@ -332,7 +372,11 @@ function formatSafeAddress(row) {
 }
 
 /**
- * Descifra un pedido completo con sus ítems
+ * Resuelve el nombre visible del entregador a partir de su identificador.
+ *
+ * @function resolveDriverName
+ * @param {number|null} entregadorId - Identificador del usuario con rol entregador.
+ * @returns {string|null} Nombre descifrado del repartidor o null si no se encuentra asignado.
  */
 function resolveDriverName(entregadorId) {
   if (!entregadorId) return null;
@@ -341,6 +385,15 @@ function resolveDriverName(entregadorId) {
   return decryptData(driverRow.nombre_completo_enc) || driverRow.username;
 }
 
+/**
+ * Descifra la información personal asociada a una orden de compra (destinatario, teléfono, dirección)
+ * y consolida los ítems adquiridos.
+ *
+ * @function formatSafeOrder
+ * @param {object} row - Registro del pedido.
+ * @param {Array<object>} [items=[]] - Lista de ítems incluidos en la orden.
+ * @returns {object} Pedido formateado y descifrado.
+ */
 function formatSafeOrder(row, items = []) {
   const entId = row.entregador_id || null;
   return {
@@ -372,6 +425,13 @@ function formatSafeOrder(row, items = []) {
   };
 }
 
+/**
+ * Normaliza y formatea un ticket de soporte asegurando la estructura de mensajes del minichat.
+ *
+ * @function formatSafeTicket
+ * @param {object} t - Registro del ticket.
+ * @returns {object} Ticket enriquecido con arreglo de mensajes.
+ */
 function formatSafeTicket(t) {
   let mensajes = [];
   if (Array.isArray(t.mensajes)) {
@@ -408,7 +468,11 @@ function formatSafeTicket(t) {
 }
 
 /**
- * Extrae el usuario autenticado a partir del header Authorization: Bearer <token>
+ * Extrae y valida el token JWT del encabezado de autorización HTTP (Bearer Token).
+ *
+ * @function getAuthUserFromRequest
+ * @param {import('express').Request} req - Solicitud Express entrante.
+ * @returns {object|null} Carga útil del token autenticado o null si no existe o expiró.
  */
 function getAuthUserFromRequest(req) {
   const authHeader = req.headers.authorization || '';
@@ -418,9 +482,11 @@ function getAuthUserFromRequest(req) {
 }
 
 /**
- * Middleware: Protege rutas exclusivas del personal (empleado, entregador, soporte, admin).
- * Si un visitante sin sesión o un usuario con rol 'cliente' intenta acceder,
- * devuelve estrictamente un Error 404 para no revelar la existencia del panel.
+ * Normaliza variantes léxicas de roles a la nomenclatura estándar del sistema.
+ *
+ * @function normalizeStaffRole
+ * @param {string|null} roleVal - Rol provisto en encabezados o sesión.
+ * @returns {string} Rol canónico ('empleado', 'entregador', 'soporte', 'admin' o 'cliente').
  */
 function normalizeStaffRole(roleVal) {
   const r = String(roleVal || '').trim().toLowerCase();
@@ -431,6 +497,15 @@ function normalizeStaffRole(roleVal) {
   return r || 'cliente';
 }
 
+/**
+ * Middleware de control de acceso para rutas operativas del personal.
+ * Deniega el acceso con código 404 ante solicitudes sin autorización suficiente
+ * para preservar la privacidad de los paneles internos.
+ *
+ * @function requireStaffRole
+ * @param {string[]} [allowedRoles=['empleado', 'entregador', 'soporte', 'admin']] - Roles autorizados para el endpoint.
+ * @returns {import('express').RequestHandler} Middleware Express.
+ */
 function requireStaffRole(allowedRoles = ['empleado', 'entregador', 'soporte', 'admin']) {
   return (req, res, next) => {
     const authUser = getAuthUserFromRequest(req);
@@ -468,6 +543,11 @@ function requireStaffRole(allowedRoles = ['empleado', 'entregador', 'soporte', '
 // 1. SALUD DEL SISTEMA Y CATÁLOGO PÚBLICO
 // ============================================================================
 
+/**
+ * @route GET /api/health
+ * @desc Comprueba el estado operativo del servicio, coordenadas de la sede y conectividad con MySQL.
+ * @access Público
+ */
 router.get('/health', async (req, res) => {
   const mysqlConnected = await checkDatabaseConnection();
   res.json({
@@ -481,6 +561,11 @@ router.get('/health', async (req, res) => {
   });
 });
 
+/**
+ * @route GET /api/carrusel
+ * @desc Recupera las diapositivas y ofertas promocionales activas para el banner principal.
+ * @access Público
+ */
 router.get('/carrusel', async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -496,6 +581,11 @@ router.get('/carrusel', async (req, res) => {
   }
 });
 
+/**
+ * @route GET /api/categorias
+ * @desc Retorna el listado oficial de las 9 categorías comerciales de productos.
+ * @access Público
+ */
 router.get('/categorias', async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -510,6 +600,11 @@ router.get('/categorias', async (req, res) => {
   }
 });
 
+/**
+ * @route GET /api/productos
+ * @desc Consulta el catálogo de productos con filtros por categoría, búsqueda textual y destacados.
+ * @access Público
+ */
 router.get('/productos', async (req, res) => {
   const { categoria, q, mas_vendidos } = req.query;
 
@@ -584,9 +679,9 @@ router.get('/productos', async (req, res) => {
 // ============================================================================
 
 /**
- * POST /api/auth/register
- * Registra un nuevo usuario cliente con toda su información personal encriptada
- * (nombres, apellidos, empresa opcional, tipo de documento, número de documento, celular, correo y contraseña)
+ * @route POST /api/auth/register
+ * @desc Registra un nuevo usuario cliente con cifrado AES-256-GCM para PII y Scrypt para contraseñas.
+ * @access Público
  */
 router.post('/auth/register', async (req, res) => {
   const {
@@ -729,8 +824,9 @@ router.post('/auth/register', async (req, res) => {
 });
 
 /**
- * POST /api/auth/login
- * Inicia sesión con correo y contraseña verificando hash Scrypt y desencriptando PII
+ * @route POST /api/auth/login
+ * @desc Autentica credenciales mediante verificación de hash Scrypt y emite un token de sesión JWT.
+ * @access Público
  */
 router.post('/auth/login', async (req, res) => {
   const { email, password } = req.body;
@@ -816,10 +912,9 @@ router.post('/auth/login', async (req, res) => {
 });
 
 /**
- * POST /api/auth/google
- * Inicio de sesión / registro con cuenta de Google (GIS OAuth 2.0 / ID Token / Userinfo)
- * Verifica el token criptográfico con Google o procesa el perfil validado,
- * buscando o creando de forma inmediata la cuenta del cliente encriptada en MySQL.
+ * @route POST /api/auth/google
+ * @desc Procesa la autenticación federada con Google OAuth 2.0 (GIS) creando o vinculando la cuenta del usuario.
+ * @access Público
  */
 router.post('/auth/google', async (req, res) => {
   let { email, nombre_completo, google_id, avatar_url, id_token, credential } = req.body;
@@ -955,8 +1050,9 @@ router.post('/auth/google', async (req, res) => {
 });
 
 /**
- * GET /api/auth/me
- * Recupera la sesión actual si el usuario tiene un token válido
+ * @route GET /api/auth/me
+ * @desc Retorna la información de perfil descifrada del usuario autenticado en la sesión actual.
+ * @access Autenticado
  */
 router.get('/auth/me', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
@@ -1035,9 +1131,9 @@ router.get('/auth/me', async (req, res) => {
 });
 
 /**
- * PATCH /api/auth/perfil
- * Permite al cliente autenticado actualizar su información personal y de facturación empresarial
- * (Nombre completo / titular, Empresa, Tipo de documento, Número de documento, Teléfono)
+ * @route PATCH /api/auth/perfil
+ * @desc Actualiza la información personal, comercial o de contacto del usuario autenticado.
+ * @access Autenticado
  */
 router.patch('/auth/perfil', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
@@ -1167,7 +1263,9 @@ router.patch('/auth/perfil', async (req, res) => {
 });
 
 /**
- * POST /api/auth/cambiar-password
+ * @route POST /api/auth/cambiar-password
+ * @desc Modifica o establece la contraseña del usuario tras validar la credencial anterior.
+ * @access Autenticado
  */
 router.post('/auth/cambiar-password', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
@@ -1319,6 +1417,11 @@ router.post('/auth/cambiar-password', async (req, res) => {
 // 3. SISTEMA DE DIRECCIONES (MÁXIMO 5 POR CUENTA + RADIO VILLAVICENCIO / META)
 // ============================================================================
 
+/**
+ * @route GET /api/direcciones
+ * @desc Obtiene la lista de direcciones de entrega guardadas por el usuario autenticado.
+ * @access Autenticado
+ */
 router.get('/direcciones', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
   if (!authUser) {
@@ -1339,6 +1442,11 @@ router.get('/direcciones', async (req, res) => {
   }
 });
 
+/**
+ * @route POST /api/direcciones
+ * @desc Registra una nueva dirección domiciliaria (máximo 5 por cuenta) con cálculo de cobertura geográfica.
+ * @access Autenticado
+ */
 router.post('/direcciones', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
   if (!authUser) {
@@ -1430,6 +1538,11 @@ router.post('/direcciones', async (req, res) => {
   }
 });
 
+/**
+ * @route DELETE /api/direcciones/:id
+ * @desc Elimina una dirección registrada por el usuario.
+ * @access Autenticado
+ */
 router.delete('/direcciones/:id', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
   if (!authUser) {
@@ -1465,6 +1578,11 @@ router.delete('/direcciones/:id', async (req, res) => {
 // 4. PEDIDOS DE CLIENTES Y PASARELA DE PAGOS
 // ============================================================================
 
+/**
+ * @route GET /api/mis-pedidos
+ * @desc Recupera el historial completo de pedidos y tickets asociados al cliente autenticado.
+ * @access Autenticado
+ */
 router.get('/mis-pedidos', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
   if (!authUser) {
@@ -1505,8 +1623,9 @@ router.get('/mis-pedidos', async (req, res) => {
 });
 
 /**
- * PATCH /api/pedidos/:id/cancelar
- * Permite al cliente cancelar su propio pedido MIENTRAS NO ESTÉ EN ENVÍO TODAVÍA (pendiente o en_proceso)
+ * @route PATCH /api/pedidos/:id/cancelar
+ * @desc Permite al cliente cancelar una orden pendiente o en proceso antes del despacho.
+ * @access Autenticado
  */
 router.patch('/pedidos/:id/cancelar', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
@@ -1578,6 +1697,11 @@ router.patch('/pedidos/:id/cancelar', async (req, res) => {
   });
 });
 
+/**
+ * @route POST /api/pedidos
+ * @desc Radica una nueva orden de compra, cifra datos del receptor, valida ítems y registra el método de pago.
+ * @access Autenticado
+ */
 router.post('/pedidos', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
   if (!authUser) {
@@ -1718,8 +1842,9 @@ router.post('/pedidos', async (req, res) => {
 // ============================================================================
 
 /**
- * GET /api/staff/pedidos
- * Obtiene todos los pedidos desencriptados para el personal autorizado
+ * @route GET /api/staff/pedidos
+ * @desc Retorna la totalidad de órdenes para visualización operativa en el panel del personal.
+ * @access Personal (empleado, entregador, soporte, admin)
  */
 router.get('/staff/pedidos', requireStaffRole(), async (req, res) => {
   try {
@@ -1769,8 +1894,9 @@ router.get('/staff/pedidos', requireStaffRole(), async (req, res) => {
 });
 
 /**
- * PATCH /api/staff/pedidos/:id/confirmar
- * Empleado o Admin confirma un pedido y opcionalmente asigna el entregador (enviador)
+ * @route PATCH /api/staff/pedidos/:id/confirmar
+ * @desc Confirma la orden en bodega y permite asignar preventivamente al repartidor encargado.
+ * @access Personal (empleado, admin)
  */
 router.patch(
   '/staff/pedidos/:id/confirmar',
@@ -1813,8 +1939,9 @@ router.patch(
 );
 
 /**
- * PATCH /api/staff/pedidos/:id/en-reparto
- * Empleado, Entregador o Admin despacha el pedido a reparto y asigna entregador
+ * @route PATCH /api/staff/pedidos/:id/en-reparto
+ * @desc Actualiza el estado del pedido a 'en_camino' e inicia la ruta de despacho con geolocalización.
+ * @access Personal (empleado, entregador, admin)
  */
 router.patch(
   '/staff/pedidos/:id/en-reparto',
@@ -1854,7 +1981,9 @@ router.patch(
 );
 
 /**
- * PATCH /api/staff/pedidos/:id/cancelar
+ * @route PATCH /api/staff/pedidos/:id/cancelar
+ * @desc Anula una orden por motivos logísticos o solicitud del cliente gestionando el estado de reembolso.
+ * @access Personal (empleado, soporte, admin)
  */
 router.patch(
   '/staff/pedidos/:id/cancelar',
@@ -1915,7 +2044,9 @@ router.patch(
 );
 
 /**
- * PATCH /api/staff/pedidos/:id/entregar
+ * @route PATCH /api/staff/pedidos/:id/entregar
+ * @desc Marca el pedido como entregado registrando la evidencia fotográfica y timestamp de entrega.
+ * @access Personal (entregador, admin)
  */
 router.patch(
   '/staff/pedidos/:id/entregar',
@@ -1973,7 +2104,9 @@ router.patch(
 );
 
 /**
- * PATCH /api/staff/pedidos/:id/observacion
+ * @route PATCH /api/staff/pedidos/:id/observacion
+ * @desc Registra notas o novedades operativas asociadas a la entrega del pedido.
+ * @access Personal (entregador, empleado, admin)
  */
 router.patch(
   '/staff/pedidos/:id/observacion',
@@ -2003,8 +2136,9 @@ router.patch(
 // ============================================================================
 
 /**
- * GET /api/mis-tickets
- * Devuelve los tickets del cliente autenticado con su historial de minichat
+ * @route GET /api/mis-tickets
+ * @desc Retorna las PQRS y tickets de soporte formulados por el usuario con el historial del minichat.
+ * @access Autenticado
  */
 router.get('/mis-tickets', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
@@ -2032,8 +2166,9 @@ router.get('/mis-tickets', async (req, res) => {
 });
 
 /**
- * POST /api/soporte/crear
- * Crea un ticket e inicializa el hilo de minichat con el primer mensaje del cliente
+ * @route POST /api/soporte/crear
+ * @desc Crea una nueva solicitud de soporte o inconformidad e inicializa el hilo de conversación.
+ * @access Autenticado
  */
 router.post('/soporte/crear', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
@@ -2112,8 +2247,9 @@ router.post('/soporte/crear', async (req, res) => {
 });
 
 /**
- * POST /api/soporte/:id/mensaje
- * Envía un mensaje en el minichat de un ticket (tanto por el cliente como por el empleado de Soporte/Admin)
+ * @route POST /api/soporte/:id/mensaje
+ * @desc Agrega una réplica o respuesta en el hilo interactivo del ticket de soporte.
+ * @access Autenticado / Personal
  */
 router.post('/soporte/:id/mensaje', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
@@ -2187,8 +2323,9 @@ router.post('/soporte/:id/mensaje', async (req, res) => {
 });
 
 /**
- * PATCH /api/mis-tickets/:id/cerrar
- * Permite al usuario cliente cerrar su propio ticket de soporte
+ * @route PATCH /api/mis-tickets/:id/cerrar
+ * @desc Permite al cliente dar por resuelta una solicitud de soporte.
+ * @access Autenticado
  */
 router.patch('/mis-tickets/:id/cerrar', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
@@ -2224,7 +2361,9 @@ router.patch('/mis-tickets/:id/cerrar', async (req, res) => {
 });
 
 /**
- * PATCH /api/staff/tickets/:id
+ * @route PATCH /api/staff/tickets/:id
+ * @desc Actualiza el estado de atención de un ticket y emite una respuesta oficial del departamento de soporte.
+ * @access Personal (soporte, admin)
  */
 router.patch(
   '/staff/tickets/:id',
@@ -2267,8 +2406,9 @@ router.patch(
 // ============================================================================
 
 /**
- * POST /api/staff/catalogo
- * Crea un nuevo producto en el catálogo Danillanos
+ * @route POST /api/staff/catalogo
+ * @desc Da de alta un nuevo producto en el catálogo oficial de Danillanos.
+ * @access Administrador
  */
 router.post('/staff/catalogo', requireStaffRole(['admin']), async (req, res) => {
   const {
@@ -2360,8 +2500,9 @@ router.post('/staff/catalogo', requireStaffRole(['admin']), async (req, res) => 
 });
 
 /**
- * PUT /api/staff/catalogo/:id
- * Edita un producto existente del catálogo
+ * @route PUT /api/staff/catalogo/:id
+ * @desc Actualiza la ficha técnica, precio, categoría, stock o imagen de un producto existente.
+ * @access Administrador
  */
 router.put('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) => {
   const prodId = Number(req.params.id);
@@ -2423,8 +2564,9 @@ router.put('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) 
 });
 
 /**
- * DELETE /api/staff/catalogo/:id
- * Elimina un producto del catálogo
+ * @route DELETE /api/staff/catalogo/:id
+ * @desc Realiza la baja lógica o física de un producto del catálogo.
+ * @access Administrador
  */
 router.delete('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) => {
   const prodId = Number(req.params.id);
@@ -2439,8 +2581,9 @@ router.delete('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, re
 });
 
 /**
- * GET /api/staff/usuarios
- * Lista usuarios y cuentas de empleados para que el Administrador pueda cambiar roles o activar/desactivar
+ * @route GET /api/staff/usuarios
+ * @desc Lista todos los usuarios y miembros del personal registrados para administración de accesos.
+ * @access Administrador
  */
 router.get('/staff/usuarios', requireStaffRole(['admin']), async (req, res) => {
   try {
@@ -2457,8 +2600,9 @@ router.get('/staff/usuarios', requireStaffRole(['admin']), async (req, res) => {
 });
 
 /**
- * POST /api/staff/usuarios
- * Permite al Administrador registrar o vincular un correo electrónico como nuevo empleado
+ * @route POST /api/staff/usuarios
+ * @desc Registra una nueva cuenta de personal o vincula un correo existente a un rol operativo.
+ * @access Administrador
  */
 router.post('/staff/usuarios', requireStaffRole(['admin']), async (req, res) => {
   const { email, nombre_completo, rol } = req.body;
@@ -2512,8 +2656,9 @@ router.post('/staff/usuarios', requireStaffRole(['admin']), async (req, res) => 
 });
 
 /**
- * PATCH /api/staff/usuarios/:id
- * Cambia el rol o activa/desactiva una cuenta de usuario/empleado
+ * @route PATCH /api/staff/usuarios/:id
+ * @desc Modifica el rol asignado o el estado activo/inactivo de una cuenta de usuario.
+ * @access Administrador
  */
 router.patch('/staff/usuarios/:id', requireStaffRole(['admin']), async (req, res) => {
   const userId = Number(req.params.id);

@@ -1,8 +1,13 @@
 /**
- * Datos de respaldo (Fallback): catálogo de productos de Danillanos y una única cuenta de administrador.
- * Sin pedidos, direcciones ni tickets de ejemplo.
+ * @fileoverview Repositorio de datos de respaldo en memoria y persistencia local (Fallback).
+ * Provee colecciones en memoria con persistencia en JSON (`fallback_store.json`) que garantizan
+ * la operatividad ininterrumpida de la tienda ante contingencias o desconexión del servidor MySQL.
+ *
+ * @module backend/data/fallbackData
  */
 
+const fs = require('fs');
+const path = require('path');
 const {
   categoriasDanillanos,
   productosDanillanos,
@@ -10,9 +15,16 @@ const {
 } = require('./catalogData');
 const { hashPassword, encryptData, hashLookup } = require('../utils/security');
 
+/**
+ * Hash inicial de contraseña para la cuenta administrativa predeterminada.
+ * @type {string}
+ */
 const defaultPassHash = hashPassword('Danillanos2026*');
 
-// Única cuenta inicial: Administrador general. El resto de cuentas se crean desde el panel.
+/**
+ * Registro en memoria de usuarios para el modo de contingencia.
+ * @type {Array<object>}
+ */
 const usuariosFallback = [
   {
     id: 1,
@@ -33,16 +45,36 @@ const usuariosFallback = [
   }
 ];
 
+/**
+ * Registro en memoria de direcciones asociadas a usuarios en contingencia.
+ * @type {Array<object>}
+ */
 const direccionesFallback = [];
 
+/**
+ * Registro en memoria de órdenes de compra en contingencia.
+ * @type {Array<object>}
+ */
 const pedidosFallback = [];
 
+/**
+ * Registro en memoria de tickets de atención al cliente en contingencia.
+ * @type {Array<object>}
+ */
 const ticketsFallback = [];
 
-const fs = require('fs');
-const path = require('path');
+/**
+ * Ruta absoluta del archivo JSON de persistencia de contingencia.
+ * @type {string}
+ */
 const storeFilePath = path.join(__dirname, 'fallback_store.json');
 
+/**
+ * Persiste el estado actual de las colecciones en memoria hacia el archivo JSON.
+ *
+ * @function saveFallbackStore
+ * @returns {void}
+ */
 function saveFallbackStore() {
   try {
     const data = {
@@ -52,9 +84,17 @@ function saveFallbackStore() {
       tickets: ticketsFallback
     };
     fs.writeFileSync(storeFilePath, JSON.stringify(data, null, 2), 'utf8');
-  } catch (_) {}
+  } catch (_) {
+    // Omisión controlada de errores de escritura de disco en contingencia
+  }
 }
 
+/**
+ * Lee y carga el estado persistido previamente desde el archivo JSON hacia la memoria.
+ *
+ * @function loadFallbackStore
+ * @returns {void}
+ */
 function loadFallbackStore() {
   try {
     if (fs.existsSync(storeFilePath)) {
@@ -77,9 +117,12 @@ function loadFallbackStore() {
         ticketsFallback.push(...data.tickets);
       }
     }
-  } catch (_) {}
+  } catch (_) {
+    // Omisión controlada de errores de parseo en contingencia
+  }
 }
 
+// Carga inicial de datos al importar el módulo
 loadFallbackStore();
 
 module.exports = {

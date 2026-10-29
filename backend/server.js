@@ -1,12 +1,18 @@
 /**
- * Servidor Principal - Danillanos Tienda de Cárnicos, Congelados e Insumos
- * Sirve la API REST conectada a MySQL (con encriptación AES-256-GCM) y las páginas del Frontend.
+ * @fileoverview Servidor principal de aplicaciones Danillanos.
+ * Inicializa el servidor Express, configura middleware global, gestiona la recarga
+ * dinámica del enrutador de la API REST (/api), sirve los archivos estáticos del frontend
+ * y administra las rutas de navegación web.
+ *
+ * @module backend/server
  */
 
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
+
+// Carga de variables de entorno buscando en ubicaciones jerárquicas del proyecto
 require('dotenv').config({ path: path.resolve(__dirname, '..', '..', '.env') });
 require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 require('dotenv').config();
@@ -16,11 +22,12 @@ const { checkDatabaseConnection, dbConfig } = require('./config/db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Configuración de middlewares globales para CORS y parseo de payloads JSON/URL-encoded
 app.use(cors());
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
-// Carga dinámica de rutas de la API REST (/api/*) para aplicar cambios sin requerir reinicio manual
+// Ruta física del módulo de rutas de la API para control de recarga en caliente
 const apiRoutePath = path.join(__dirname, 'routes', 'api.js');
 let cachedApiRouter = require('./routes/api');
 let lastApiMtimeMs = (() => {
@@ -31,6 +38,10 @@ let lastApiMtimeMs = (() => {
   }
 })();
 
+/**
+ * Middleware para la recarga dinámica del enrutador API.
+ * Detecta cambios en el archivo de rutas y purga la caché de Node.js en tiempo de ejecución.
+ */
 app.use('/api', (req, res, next) => {
   try {
     const stat = fs.statSync(apiRoutePath);
@@ -41,12 +52,15 @@ app.use('/api', (req, res, next) => {
       lastApiMtimeMs = stat.mtimeMs;
     }
   } catch (_) {
-    // Continuar con el router en memoria
+    // Si ocurre un error de lectura de archivo, se mantiene la versión previa en memoria
   }
   return cachedApiRouter(req, res, next);
 });
 
-// Si una ruta bajo /api/* no existe, devolver siempre JSON estructurado en lugar de HTML
+/**
+ * Manejador de rutas no encontradas exclusivamente para el prefijo /api/*.
+ * Asegura respuestas en formato JSON uniforme en lugar de respuestas HTML genéricas.
+ */
 app.use('/api/*', (req, res) => {
   res.status(404).json({
     ok: false,
@@ -55,21 +69,22 @@ app.use('/api/*', (req, res) => {
   });
 });
 
-// Servir archivos estáticos del Frontend (index.html, perfil.html, pagos.html, panel.html, 404.html)
+// Directorio raíz de recursos estáticos del cliente
 const frontendPath = path.join(__dirname, '..', 'frontend');
 app.use(express.static(frontendPath));
 
-// Rutas amigables sin extensión .html
+// Rutas amigables de navegación del frontend
 app.get('/perfil', (req, res) => res.sendFile(path.join(frontendPath, 'perfil.html')));
 app.get('/pagos', (req, res) => res.sendFile(path.join(frontendPath, 'pagos.html')));
 app.get('/panel', (req, res) => res.sendFile(path.join(frontendPath, 'panel.html')));
 app.get('/404', (req, res) => res.status(404).sendFile(path.join(frontendPath, '404.html')));
 
-// Cualquier otra ruta no existente muestra la página 404
+// Captura global de rutas no definidas para redirección a página de error 404
 app.get('*', (req, res) => {
   res.status(404).sendFile(path.join(frontendPath, '404.html'));
 });
 
+// Inicialización del servidor HTTP y diagnóstico de conectividad a la base de datos
 app.listen(PORT, async () => {
   const isConnected = await checkDatabaseConnection();
   console.log('============================================================');

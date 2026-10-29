@@ -1,26 +1,41 @@
 /**
- * Generador automático de database/schema.sql con los 235 productos del PDF,
- * tablas de usuarios encriptados (AES-256-GCM + Scrypt), direcciones con coordenadas
- * de Google Maps (Villavicencio y Meta), pedidos, fotos de entrega y soporte.
+ * @fileoverview Generador alternativo de script SQL comentado `database/schema_comments.sql`.
+ * Proporciona un generador autónomo en la raíz del proyecto para crear o actualizar
+ * el archivo de esquema SQL con anotaciones y documentación técnica expandida.
+ *
+ * @module generate-schema_comments
  */
 
 const fs = require('fs');
 const path = require('path');
-const { categoriasDanillanos, productosDanillanos, carruselDanillanos } = require('../backend/data/catalogData');
-const { hashPassword, encryptData, hashLookup } = require('../backend/utils/security');
+const { categoriasDanillanos, productosDanillanos, carruselDanillanos } = require('./backend/data/catalogData');
+const { hashPassword, encryptData, hashLookup } = require('./backend/utils/security');
 
+/**
+ * Escapa valores para su inclusión segura en sentencias SQL literales.
+ *
+ * @function sqlEscape
+ * @param {string|number|null|undefined} val - Valor a escapar.
+ * @returns {string} Representación literal compatible con SQL.
+ */
 function sqlEscape(val) {
   if (val === null || val === undefined) return 'NULL';
   if (typeof val === 'number') return String(val);
   return `'${String(val).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }
 
-function generateSchemaSql() {
+/**
+ * Genera el script SQL documentado y lo guarda en `database/schema_comments.sql`.
+ *
+ * @function generateSchemaCommentsSql
+ * @returns {void}
+ */
+function generateSchemaCommentsSql() {
   const lines = [];
 
   lines.push(`-- ============================================================================`);
   lines.push(`-- DANILLANOS - TIENDA DE CÁRNICOS, CONGELADOS E INSUMOS PARA RESTAURANTES`);
-  lines.push(`-- Esquema Completo MySQL (235 Productos + Usuarios Encriptados + Roles + Mapa)`);
+  lines.push(`-- Esquema MySQL Documentado: Tablas, Relaciones, Vistas, Procedimientos y Triggers`);
   lines.push(`-- ============================================================================\n`);
 
   lines.push(`CREATE DATABASE IF NOT EXISTS danillanos_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
@@ -43,7 +58,11 @@ function generateSchemaSql() {
   lines.push(`SET FOREIGN_KEY_CHECKS = 1;\n`);
 
   // 1. Categorías
-  lines.push(`CREATE TABLE categorias (
+  lines.push(`-- ----------------------------------------------------------------------------
+-- Tabla: categorias
+-- Almacena las 9 categorías comerciales de productos con su identificador e ícono visual.
+-- ----------------------------------------------------------------------------
+CREATE TABLE categorias (
   id INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(100) NOT NULL,
   slug VARCHAR(80) NOT NULL UNIQUE,
@@ -54,7 +73,11 @@ function generateSchemaSql() {
 );\n`);
 
   // 2. Productos (235 items del listado de precios)
-  lines.push(`CREATE TABLE productos (
+  lines.push(`-- ----------------------------------------------------------------------------
+-- Tabla: productos
+-- Contiene los 235 artículos del catálogo oficial con SKU único, precio, control de stock y refrigeración.
+-- ----------------------------------------------------------------------------
+CREATE TABLE productos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   categoria_id INT NOT NULL,
   codigo_sku VARCHAR(50) NOT NULL UNIQUE,
@@ -75,7 +98,11 @@ function generateSchemaSql() {
 );\n`);
 
   // 3. Carrusel Promociones
-  lines.push(`CREATE TABLE carrusel_promociones (
+  lines.push(`-- ----------------------------------------------------------------------------
+-- Tabla: carrusel_promociones
+-- Gestiona las diapositivas promocionales visualizadas en el encabezado de la tienda.
+-- ----------------------------------------------------------------------------
+CREATE TABLE carrusel_promociones (
   id INT AUTO_INCREMENT PRIMARY KEY,
   producto_id INT DEFAULT NULL,
   subtitulo VARCHAR(100) NOT NULL,
@@ -91,8 +118,12 @@ function generateSchemaSql() {
     ON UPDATE CASCADE ON DELETE SET NULL
 );\n`);
 
-  // 4. Usuarios (Con encriptación AES-256-GCM para PII y Scrypt para contraseñas)
-  lines.push(`CREATE TABLE usuarios (
+  // 4. Usuarios con cifrado AES-256-GCM y Scrypt
+  lines.push(`-- ----------------------------------------------------------------------------
+-- Tabla: usuarios
+-- Registra credenciales y datos personales protegidos mediante Scrypt (claves) y AES-256-GCM (PII).
+-- ----------------------------------------------------------------------------
+CREATE TABLE usuarios (
   id INT AUTO_INCREMENT PRIMARY KEY,
   username VARCHAR(80) NOT NULL,
   nombre_completo_enc TEXT NOT NULL COMMENT 'Cifrado AES-256-GCM',
@@ -112,8 +143,12 @@ function generateSchemaSql() {
   creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );\n`);
 
-  // 5. Direcciones por Cuenta (Máximo 5 por usuario, con coordenadas Google Maps y radio Villavicencio/Meta)
-  lines.push(`CREATE TABLE usuario_direcciones (
+  // 5. Direcciones con Coordenadas GPS
+  lines.push(`-- ----------------------------------------------------------------------------
+-- Tabla: usuario_direcciones
+-- Registra hasta 5 domicilios por cliente con geoposición (lat/lng) para validación de cobertura.
+-- ----------------------------------------------------------------------------
+CREATE TABLE usuario_direcciones (
   id INT AUTO_INCREMENT PRIMARY KEY,
   usuario_id INT NOT NULL,
   etiqueta VARCHAR(60) NOT NULL DEFAULT 'Principal',
@@ -131,8 +166,12 @@ function generateSchemaSql() {
     ON UPDATE CASCADE ON DELETE CASCADE
 );\n`);
 
-  // 6. Pedidos (Con soporte para flujo Empleado -> Entregador -> Foto Entrega -> Soporte y Reembolsos)
-  lines.push(`CREATE TABLE pedidos (
+  // 6. Pedidos y Trazabilidad Operativa
+  lines.push(`-- ----------------------------------------------------------------------------
+-- Tabla: pedidos
+-- Control central de órdenes, estado de entrega, asignación de despachador y comprobantes fotográficos.
+-- ----------------------------------------------------------------------------
+CREATE TABLE pedidos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   usuario_id INT DEFAULT NULL,
   nombre_recibe_enc TEXT NOT NULL COMMENT 'Nombre de quien recibe cifrado AES-256-GCM',
@@ -161,7 +200,11 @@ function generateSchemaSql() {
 );\n`);
 
   // 7. Detalle de Items de Pedido
-  lines.push(`CREATE TABLE pedido_items (
+  lines.push(`-- ----------------------------------------------------------------------------
+-- Tabla: pedido_items
+-- Detalle de productos, cantidades unitarias y subtotales asociados a cada pedido.
+-- ----------------------------------------------------------------------------
+CREATE TABLE pedido_items (
   id INT AUTO_INCREMENT PRIMARY KEY,
   pedido_id INT NOT NULL,
   producto_id INT NOT NULL,
@@ -175,8 +218,12 @@ function generateSchemaSql() {
     ON UPDATE CASCADE ON DELETE RESTRICT
 );\n`);
 
-  // 8. Tickets de Soporte / Inconformidades (con soporte para imágenes enviadas por clientes)
-  lines.push(`CREATE TABLE tickets_soporte (
+  // 8. Tickets de Soporte
+  lines.push(`-- ----------------------------------------------------------------------------
+-- Tabla: tickets_soporte
+-- Módulo de PQRS con soporte para imágenes de inconformidad (vencimientos, averías) y respuestas.
+-- ----------------------------------------------------------------------------
+CREATE TABLE tickets_soporte (
   id INT AUTO_INCREMENT PRIMARY KEY,
   pedido_id INT DEFAULT NULL,
   usuario_id INT DEFAULT NULL,
@@ -191,117 +238,98 @@ function generateSchemaSql() {
     ON UPDATE CASCADE ON DELETE SET NULL
 );\n`);
 
-  // 9. Vistas (Views), Procedimientos Almacenados (Procedures) y Disparadores (Triggers)
+  // 9. Vistas, Procedimientos Almacenados y Triggers
   lines.push(`-- ============================================================================
--- VIEWS, PROCCEDURES Y TRIGGERS
+-- VISTAS ANALÍTICAS, PROCEDIMIENTOS ALMACENADOS Y DISPARADORES
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
--- Proporciona indicadores clave sobre las ventas y el estado operativo de los pedidos en la tienda.
---   - total_vendido: Suma el monto total únicamente de los pedidos entregados.
---   - por_aceptar: Evalúa la cantidad de pedidos pendientes de confirmación.
---   - en_bodega_o_en_reparto: Evalúa los pedidos en bodega o en ruta.
---   - entregados: Evalúa el total de pedidos finalizados.
+-- Vista: resumen_base
+-- Consolida los indicadores clave de desempeño (KPIs): ventas totales acumuladas,
+-- pedidos por confirmar, órdenes en preparación/tránsito y pedidos finalizados.
 -- ----------------------------------------------------------------------------
 CREATE VIEW resumen_base AS
 SELECT
-	SUM(CASE WHEN pe.estado = 'entregado' THEN pe.total ELSE 0 END) AS total_vendido,
-	COUNT(CASE WHEN pe.estado = 'pendiente' THEN 1 ELSE 0 END) AS por_aceptar,
-    COUNT(CASE WHEN pe.estado = 'en_proceso' OR pe.estado = 'en_camino 'THEN 1 ELSE 0 END) AS en_bodega_o_en_reparto,
-    COUNT(CASE WHEN pe.estado = 'entregado' THEN 1 ELSE 0 END) AS entregados
+  SUM(CASE WHEN pe.estado = 'entregado' THEN pe.total ELSE 0 END) AS total_vendido,
+  COUNT(CASE WHEN pe.estado = 'pendiente' THEN 1 ELSE 0 END) AS por_aceptar,
+  COUNT(CASE WHEN pe.estado = 'en_proceso' OR pe.estado = 'en_camino' THEN 1 ELSE 0 END) AS en_bodega_o_en_reparto,
+  COUNT(CASE WHEN pe.estado = 'entregado' THEN 1 ELSE 0 END) AS entregados
 FROM pedidos AS pe;
 
 -- ----------------------------------------------------------------------------
--- Calcula el total de ingresos agrupado por cada categoría.
---   - Relaciona las tablas pedido_items, pedidos, productos y categorias mediante INNER JOIN.
---   - Suma el valor de los productos entregados de la misma categoria y agrupa el resultado
---     por el nombre de la categoría.
+-- Vista: resumen_ventas_categoria
+-- Totaliza los ingresos recaudados por cada categoría a partir de ítems entregados.
 -- ----------------------------------------------------------------------------
 CREATE VIEW resumen_ventas_categoria AS
 SELECT
-	c.nombre,
-    SUM(CASE WHEN pe.estado = 'entregado' THEN peit.subtotal ELSE 0 END) AS ventas
+  c.nombre,
+  SUM(CASE WHEN pe.estado = 'entregado' THEN peit.subtotal ELSE 0 END) AS ventas
 FROM pedido_items AS peit
 INNER JOIN pedidos AS pe ON pe.id = peit.pedido_id
-INNER JOIN productos as pr on pr.id = peit.producto_id
-INNER JOIN categorias as c on c.id = pr.categoria_id
+INNER JOIN productos AS pr ON pr.id = peit.producto_id
+INNER JOIN categorias AS c ON c.id = pr.categoria_id
 GROUP BY c.nombre;
 
 -- ----------------------------------------------------------------------------
--- Muestra la distribución del dinero recaudado según cada método
--- de pago en Danillanos.
---   - Define una tabla derivada (e) con los 5 métodos de pago ('pse', 'nequi',
---     'bancolombia', 'tarjeta', 'efectivo').
---   - La cruza (INNER JOIN) con la tabla pedidos y suma el total (pe.total)
---     agrupado por cada método de pago.
+-- Vista: resumen_dist_metodo_pago
+-- Agrupa el monto total recaudado desglosado por cada pasarela o modalidad de pago.
 -- ----------------------------------------------------------------------------
 CREATE VIEW resumen_dist_metodo_pago AS
 SELECT
-	e.metodo AS metodo_pago,
-    SUM(pe.total) AS total
+  e.metodo AS metodo_pago,
+  COALESCE(SUM(pe.total), 0) AS total
 FROM (
-	SELECT 'pse' AS metodo
-    UNION ALL SELECT 'nequi'
-    UNION ALL SELECT 'bancolombia'
-    UNION ALL SELECT 'tarjeta'
-    UNION ALL SELECT 'efectivo'
+  SELECT 'pse' AS metodo
+  UNION ALL SELECT 'nequi'
+  UNION ALL SELECT 'bancolombia'
+  UNION ALL SELECT 'tarjeta'
+  UNION ALL SELECT 'efectivo'
 ) AS e
-INNER JOIN pedidos AS pe ON e.metodo = pe.metodo_pago
+LEFT JOIN pedidos AS pe ON e.metodo = pe.metodo_pago
 GROUP BY e.metodo;
 
 -- ----------------------------------------------------------------------------
--- Permite consultar de forma dinámica el catálogo de productos activos
--- según la opción solicitada por el usuario o el sistema.
--- -
--- p_opcion VARCHAR(50) - Filtro de consulta del catálogo.
---   1. Si p_opcion corresponde al nombre de una de las 9 categorías, filtra
---      y devuelve los productos activos pertenecientes a dicha categoría.
---   2. Si p_opcion es 'Más Vendidos', devuelve únicamente los productos activos
---      destacados con la marca es_mas_vendido = 1.
---   3. Si p_opcion es 'Todos', devuelve la totalidad de los productos activos.
---   4. Si p_opcion no coincide con ninguno de los valores anteriores, retorna
---      con un error 'Opción invalida'.
+-- Procedimiento Almacenado: sp_catalogo_completo
+-- Permite consultar dinámicamente los productos activos según la opción solicitada
+-- (por nombre de categoría, 'Más Vendidos' o 'Todos').
 -- ----------------------------------------------------------------------------
 DELIMITER //
 CREATE PROCEDURE sp_catalogo_completo(IN p_opcion VARCHAR(50))
 BEGIN
-	IF (p_opcion IN ('Cárnicos y Embutidos', 'Línea de Panes', 'Congelados', 'Pulpas de Fruta', 'Salsas y Aderezos', 'Adobos y Sazonadores', 'Desechables e Icopores', 'Don Maní y Frutos Secos', 'Dulcería y Otros')) THEN
-		SELECT 	p.codigo_sku as codigo,p.nombre,p.descripcion,p.presentacion,p.precio AS precio_unitario,p.precio_anterior,p.imagen_url,p.etiqueta,p.temperatura_conservacion
-		FROM productos AS p
-		INNER JOIN categorias AS c ON c.id = p.categoria_id
-		WHERE c.nombre = p_opcion AND p.activo = 1;
-	ELSEIF (p_opcion IN ('Más Vendidos')) THEN
-		SELECT 	p.codigo_sku as codigo,p.nombre,p.descripcion,p.presentacion,p.precio AS precio_unitario,p.precio_anterior,p.imagen_url,p.etiqueta,p.temperatura_conservacion
-		FROM productos AS p
-        WHERE p.es_mas_vendido = 1 AND p.activo = 1;
-	ELSEIF (p_opcion IN ('Todos')) THEN
-		SELECT 	p.codigo_sku as codigo,p.nombre,p.descripcion,p.presentacion,p.precio AS precio_unitario,p.precio_anterior,p.imagen_url,p.etiqueta,p.temperatura_conservacion
-		FROM productos AS p
-		WHERE p.activo = 1;
-	ELSE 
-		SELECT 'Opción invalida';
-	END IF;
+  IF (p_opcion IN ('Cárnicos y Embutidos', 'Línea de Panes', 'Congelados', 'Pulpas de Fruta', 'Salsas y Aderezos', 'Adobos y Sazonadores', 'Desechables e Icopores', 'Don Maní y Frutos Secos', 'Dulcería y Otros')) THEN
+    SELECT p.codigo_sku AS codigo, p.nombre, p.descripcion, p.presentacion, p.precio AS precio_unitario, p.precio_anterior, p.imagen_url, p.etiqueta, p.temperatura_conservacion
+    FROM productos AS p
+    INNER JOIN categorias AS c ON c.id = p.categoria_id
+    WHERE c.nombre = p_opcion AND p.activo = 1;
+  ELSEIF (p_opcion = 'Más Vendidos') THEN
+    SELECT p.codigo_sku AS codigo, p.nombre, p.descripcion, p.presentacion, p.precio AS precio_unitario, p.precio_anterior, p.imagen_url, p.etiqueta, p.temperatura_conservacion
+    FROM productos AS p
+    WHERE p.es_mas_vendido = 1 AND p.activo = 1;
+  ELSEIF (p_opcion = 'Todos') THEN
+    SELECT p.codigo_sku AS codigo, p.nombre, p.descripcion, p.presentacion, p.precio AS precio_unitario, p.precio_anterior, p.imagen_url, p.etiqueta, p.temperatura_conservacion
+    FROM productos AS p
+    WHERE p.activo = 1;
+  ELSE
+    SELECT 'Opción inválida' AS mensaje;
+  END IF;
 END //
 
 -- ----------------------------------------------------------------------------
--- Actualizar de forma automática el stock (cantidad vendida) en la tabla
--- productos cuando se registra (inserta en la tabla pedido_items) un ítem 
--- dentro de un pedido.
---   - Por cada fila insertada, actualiza la columna stock de la tabla
---     productos sumando la cantidad registrada en el nuevo ítem.
+-- Disparador: tr_contar_stock
+-- Actualiza automáticamente el stock descontando las unidades registradas en cada ítem de pedido.
 -- ----------------------------------------------------------------------------
 CREATE TRIGGER tr_contar_stock
 AFTER INSERT ON pedido_items
 FOR EACH ROW
 BEGIN
-	UPDATE productos
-    SET stock = stock + NEW.cantidad
-    WHERE id = NEW.pedido_id;
+  UPDATE productos
+  SET stock = GREATEST(0, stock - NEW.cantidad)
+  WHERE id = NEW.producto_id;
 END //
 
 DELIMITER ;\n`);
 
-  // Insertar Categorías
+  // Inserción de Categorías
   lines.push(`-- ============================================================================`);
   lines.push(`-- INSERCIÓN DE LAS 9 CATEGORÍAS OFICIALES`);
   lines.push(`-- ============================================================================`);
@@ -310,7 +338,7 @@ DELIMITER ;\n`);
   );
   lines.push(`INSERT INTO categorias (id, nombre, slug, icono, descripcion) VALUES\n${catValues.join(',\n')};\n`);
 
-  // Insertar los 235 Productos
+  // Inserción de 235 Productos
   lines.push(`-- ============================================================================`);
   lines.push(`-- INSERCIÓN DE LOS 235 PRODUCTOS DEL LISTADO DE PRECIOS DANILLANOS`);
   lines.push(`-- ============================================================================`);
@@ -322,7 +350,10 @@ DELIMITER ;\n`);
     `INSERT INTO productos (id, categoria_id, codigo_sku, nombre, descripcion, presentacion, precio, precio_anterior, imagen_url, stock, es_mas_vendido, etiqueta, temperatura_conservacion) VALUES\n${prodValues.join(',\n')};\n`
   );
 
-  // Insertar Carrusel
+  // Inserción del Carrusel
+  lines.push(`-- ============================================================================`);
+  lines.push(`-- INSERCIÓN DE LAS DIAPOSITIVAS PROMOCIONALES DEL CARRUSEL`);
+  lines.push(`-- ============================================================================`);
   const carValues = carruselDanillanos.map(
     (c) =>
       `  (${c.id}, ${c.producto_id}, ${sqlEscape(c.subtitulo)}, ${sqlEscape(c.titulo)}, ${sqlEscape(c.descripcion)}, ${c.precio_destacado}, ${sqlEscape(c.imagen_url)}, ${sqlEscape(c.texto_boton)}, ${sqlEscape(c.tipo_accion)}, ${c.orden})`
@@ -331,7 +362,10 @@ DELIMITER ;\n`);
     `INSERT INTO carrusel_promociones (id, producto_id, subtitulo, titulo, descripcion, precio_destacado, imagen_url, texto_boton, tipo_accion, orden) VALUES\n${carValues.join(',\n')};\n`
   );
 
-  // Insertar Usuarios Semilla Encriptados (1 para cada rol: cliente, empleado, entregador, soporte, admin)
+  // Inserción de Usuario Administrador Inicial
+  lines.push(`-- ============================================================================`);
+  lines.push(`-- INSERCIÓN DEL USUARIO ADMINISTRADOR INICIAL ENCRIPTADO`);
+  lines.push(`-- ============================================================================`);
   const defaultPassHash = hashPassword('Danillanos2026*');
   const seedUsers = [
     {
@@ -357,39 +391,24 @@ DELIMITER ;\n`);
     `INSERT INTO usuarios (id, username, nombre_completo_enc, nombres_enc, apellidos_enc, empresa_enc, tipo_documento, numero_documento_enc, email_hash, email_enc, password_hash, telefono_enc, rol) VALUES\n${userValues.join(',\n')};\n`
   );
 
-  // Insertar Direcciones de Ejemplo para el Cliente 1 (En Villavicencio y en Acacías - Meta)
-  const dirValues = [];
-  // Sin direcciones semilla (bd limpia para clientes reales)
-
-  // Insertar Pedidos de Ejemplo en distintos estados para demostrar todos los paneles de inmediato
-  const samplePhotoSvg =
-    'data:image/svg+xml;utf8,' +
-    encodeURIComponent(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320" viewBox="0 0 480 320"><rect width="480" height="320" fill="#141821"/><rect x="24" y="24" width="432" height="272" rx="18" fill="#1e2433" stroke="#22c55e" stroke-width="3"/><text x="240" y="130" fill="#ffffff" font-family="sans-serif" font-size="22" font-weight="bold" text-anchor="middle">EVIDENCIA DE ENTREGA #1003</text><text x="240" y="165" fill="#94a3b8" font-family="sans-serif" font-size="15" text-anchor="middle">Recibido conforme en: Av. Los Maracos, Villavicencio</text><text x="240" y="205" fill="#22c55e" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">✔ Cadena de Frío Verificada (-18°C)</text></svg>`
-    );
-
+  // Inserción de Ticket de Soporte
+  lines.push(`-- ============================================================================`);
+  lines.push(`-- INSERCIÓN DE TICKET DE SOPORTE DE EJEMPLO`);
+  lines.push(`-- ============================================================================`);
   const sampleClientExpirySvg =
     'data:image/svg+xml;utf8,' +
     encodeURIComponent(
       `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320" viewBox="0 0 480 320"><rect width="480" height="320" fill="#181c24"/><rect x="24" y="24" width="432" height="272" rx="16" fill="#232834" stroke="#f59e0b" stroke-width="3"/><text x="240" y="120" fill="#ffffff" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="middle">FOTO ENVIADA POR EL CLIENTE</text><text x="240" y="160" fill="#fbbf24" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">Lote #2026-10 • Consulta Fecha de Vencimiento</text><text x="240" y="195" fill="#9ca5b4" font-family="sans-serif" font-size="14" text-anchor="middle">Adjunto desde el Centro de Soporte Danillanos</text></svg>`
     );
 
-  const pedidosValues = [];
-  // Sin pedidos semilla (bd limpia para clientes reales)
-
-  // Items de los pedidos semilla
-  const itemsValues = [];
-  // Sin items semilla
-
-  // Ticket de ejemplo para el rol Soporte (con imagen adjunta del cliente)
   lines.push(
     `INSERT INTO tickets_soporte (id, pedido_id, usuario_id, tipo, asunto, descripcion, imagen_cliente_url, estado, respuesta_soporte) VALUES
   (1, 5, 1, 'producto', 'Verificación de lote y fecha de vencimiento en entrega #5', 'Adjunto foto del lote recibido para confirmar fecha de vencimiento y copia de factura electrónica.', ${sqlEscape(sampleClientExpirySvg)}, 'en_revision', 'Soporte Danillanos: Hemos verificado la foto del lote adjunta; tiene vigencia de 6 meses en congelación (-18°C).');\n`
   );
 
-  const schemaPath = path.join(__dirname, 'schema.sql');
-  fs.writeFileSync(schemaPath, lines.join('\n'), 'utf8');
-  console.log(`✅ Archivo database/schema.sql generado con ${productosDanillanos.length} productos y estructura completa.`);
+  const schemaCommentsPath = path.join(__dirname, 'database', 'schema_comments.sql');
+  fs.writeFileSync(schemaCommentsPath, lines.join('\n'), 'utf8');
+  console.log(`✅ Archivo database/schema_comments.sql generado con ${productosDanillanos.length} productos y estructura completa.`);
 }
 
-generateSchemaSql();
+generateSchemaCommentsSql();

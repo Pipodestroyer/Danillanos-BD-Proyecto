@@ -1,6 +1,6 @@
 -- ============================================================================
 -- DANILLANOS - TIENDA DE CÁRNICOS, CONGELADOS E INSUMOS PARA RESTAURANTES
--- Esquema Completo MySQL (235 Productos + Usuarios Encriptados + Roles + Mapa)
+-- Esquema Completo MySQL: Estructura DDL, Vistas, Procedimientos, Triggers y DML
 -- ============================================================================
 
 CREATE DATABASE IF NOT EXISTS danillanos_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -15,8 +15,17 @@ DROP TABLE IF EXISTS usuarios;
 DROP TABLE IF EXISTS carrusel_promociones;
 DROP TABLE IF EXISTS productos;
 DROP TABLE IF EXISTS categorias;
+DROP VIEW IF EXISTS resumen_base;
+DROP VIEW IF EXISTS resumen_ventas_categoria;
+DROP VIEW IF EXISTS resumen_dist_metodo_pago;
+DROP PROCEDURE IF EXISTS sp_catalogo_completo;
+DROP TRIGGER IF EXISTS tr_contar_stock;
 SET FOREIGN_KEY_CHECKS = 1;
 
+-- ----------------------------------------------------------------------------
+-- Tabla: categorias
+-- Almacena las 9 líneas comerciales de productos con su identificador e ícono visual.
+-- ----------------------------------------------------------------------------
 CREATE TABLE categorias (
   id INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(100) NOT NULL,
@@ -27,6 +36,10 @@ CREATE TABLE categorias (
   creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ----------------------------------------------------------------------------
+-- Tabla: productos
+-- Contiene los 235 artículos del catálogo oficial con SKU único, precio, control de stock y refrigeración.
+-- ----------------------------------------------------------------------------
 CREATE TABLE productos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   categoria_id INT NOT NULL,
@@ -47,6 +60,10 @@ CREATE TABLE productos (
     ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
+-- ----------------------------------------------------------------------------
+-- Tabla: carrusel_promociones
+-- Gestiona las diapositivas promocionales visualizadas en el encabezado de la tienda.
+-- ----------------------------------------------------------------------------
 CREATE TABLE carrusel_promociones (
   id INT AUTO_INCREMENT PRIMARY KEY,
   producto_id INT DEFAULT NULL,
@@ -63,6 +80,10 @@ CREATE TABLE carrusel_promociones (
     ON UPDATE CASCADE ON DELETE SET NULL
 );
 
+-- ----------------------------------------------------------------------------
+-- Tabla: usuarios
+-- Registra credenciales y datos personales protegidos mediante Scrypt (claves) y AES-256-GCM (PII).
+-- ----------------------------------------------------------------------------
 CREATE TABLE usuarios (
   id INT AUTO_INCREMENT PRIMARY KEY,
   username VARCHAR(80) NOT NULL,
@@ -83,6 +104,10 @@ CREATE TABLE usuarios (
   creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ----------------------------------------------------------------------------
+-- Tabla: usuario_direcciones
+-- Registra hasta 5 domicilios por cliente con geoposición (lat/lng) para validación de cobertura.
+-- ----------------------------------------------------------------------------
 CREATE TABLE usuario_direcciones (
   id INT AUTO_INCREMENT PRIMARY KEY,
   usuario_id INT NOT NULL,
@@ -101,6 +126,10 @@ CREATE TABLE usuario_direcciones (
     ON UPDATE CASCADE ON DELETE CASCADE
 );
 
+-- ----------------------------------------------------------------------------
+-- Tabla: pedidos
+-- Control central de órdenes, estado de entrega, asignación de despachador y comprobantes fotográficos.
+-- ----------------------------------------------------------------------------
 CREATE TABLE pedidos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   usuario_id INT DEFAULT NULL,
@@ -129,6 +158,10 @@ CREATE TABLE pedidos (
     ON UPDATE CASCADE ON DELETE SET NULL
 );
 
+-- ----------------------------------------------------------------------------
+-- Tabla: pedido_items
+-- Detalle de productos, cantidades unitarias y subtotales asociados a cada pedido.
+-- ----------------------------------------------------------------------------
 CREATE TABLE pedido_items (
   id INT AUTO_INCREMENT PRIMARY KEY,
   pedido_id INT NOT NULL,
@@ -143,6 +176,10 @@ CREATE TABLE pedido_items (
     ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
+-- ----------------------------------------------------------------------------
+-- Tabla: tickets_soporte
+-- Módulo de PQRS con soporte para imágenes de inconformidad (vencimientos, averías) y respuestas.
+-- ----------------------------------------------------------------------------
 CREATE TABLE tickets_soporte (
   id INT AUTO_INCREMENT PRIMARY KEY,
   pedido_id INT DEFAULT NULL,
@@ -159,7 +196,97 @@ CREATE TABLE tickets_soporte (
 );
 
 -- ============================================================================
--- INSERCIÓN DE LAS 9 CATEGORÍAS OFICIALES
+-- VISTAS ANALÍTICAS, PROCEDIMIENTOS ALMACENADOS Y DISPARADORES
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- Vista: resumen_base
+-- Consolida los indicadores clave de desempeño (KPIs): ventas totales acumuladas,
+-- pedidos por confirmar, órdenes en preparación/tránsito y pedidos finalizados.
+-- ----------------------------------------------------------------------------
+CREATE VIEW resumen_base AS
+SELECT
+  SUM(CASE WHEN pe.estado = 'entregado' THEN pe.total ELSE 0 END) AS total_vendido,
+  COUNT(CASE WHEN pe.estado = 'pendiente' THEN 1 ELSE 0 END) AS por_aceptar,
+  COUNT(CASE WHEN pe.estado = 'en_proceso' OR pe.estado = 'en_camino' THEN 1 ELSE 0 END) AS en_bodega_o_en_reparto,
+  COUNT(CASE WHEN pe.estado = 'entregado' THEN 1 ELSE 0 END) AS entregados
+FROM pedidos AS pe;
+
+-- ----------------------------------------------------------------------------
+-- Vista: resumen_ventas_categoria
+-- Totaliza los ingresos recaudados por cada categoría a partir de ítems entregados.
+-- ----------------------------------------------------------------------------
+CREATE VIEW resumen_ventas_categoria AS
+SELECT
+  c.nombre,
+  SUM(CASE WHEN pe.estado = 'entregado' THEN peit.subtotal ELSE 0 END) AS ventas
+FROM pedido_items AS peit
+INNER JOIN pedidos AS pe ON pe.id = peit.pedido_id
+INNER JOIN productos AS pr ON pr.id = peit.producto_id
+INNER JOIN categorias AS c ON c.id = pr.categoria_id
+GROUP BY c.nombre;
+
+-- ----------------------------------------------------------------------------
+-- Vista: resumen_dist_metodo_pago
+-- Agrupa el monto total recaudado desglosado por cada pasarela o modalidad de pago.
+-- ----------------------------------------------------------------------------
+CREATE VIEW resumen_dist_metodo_pago AS
+SELECT
+  e.metodo AS metodo_pago,
+  COALESCE(SUM(pe.total), 0) AS total
+FROM (
+  SELECT 'pse' AS metodo
+  UNION ALL SELECT 'nequi'
+  UNION ALL SELECT 'bancolombia'
+  UNION ALL SELECT 'tarjeta'
+  UNION ALL SELECT 'efectivo'
+) AS e
+LEFT JOIN pedidos AS pe ON e.metodo = pe.metodo_pago
+GROUP BY e.metodo;
+
+-- ----------------------------------------------------------------------------
+-- Procedimiento Almacenado: sp_catalogo_completo
+-- Permite consultar dinámicamente los productos activos según la opción solicitada
+-- (por nombre de categoría, 'Más Vendidos' o 'Todos').
+-- ----------------------------------------------------------------------------
+DELIMITER //
+CREATE PROCEDURE sp_catalogo_completo(IN p_opcion VARCHAR(50))
+BEGIN
+  IF (p_opcion IN ('Cárnicos y Embutidos', 'Línea de Panes', 'Congelados', 'Pulpas de Fruta', 'Salsas y Aderezos', 'Adobos y Sazonadores', 'Desechables e Icopores', 'Don Maní y Frutos Secos', 'Dulcería y Otros')) THEN
+    SELECT p.codigo_sku AS codigo, p.nombre, p.descripcion, p.presentacion, p.precio AS precio_unitario, p.precio_anterior, p.imagen_url, p.etiqueta, p.temperatura_conservacion
+    FROM productos AS p
+    INNER JOIN categorias AS c ON c.id = p.categoria_id
+    WHERE c.nombre = p_opcion AND p.activo = 1;
+  ELSEIF (p_opcion = 'Más Vendidos') THEN
+    SELECT p.codigo_sku AS codigo, p.nombre, p.descripcion, p.presentacion, p.precio AS precio_unitario, p.precio_anterior, p.imagen_url, p.etiqueta, p.temperatura_conservacion
+    FROM productos AS p
+    WHERE p.es_mas_vendido = 1 AND p.activo = 1;
+  ELSEIF (p_opcion = 'Todos') THEN
+    SELECT p.codigo_sku AS codigo, p.nombre, p.descripcion, p.presentacion, p.precio AS precio_unitario, p.precio_anterior, p.imagen_url, p.etiqueta, p.temperatura_conservacion
+    FROM productos AS p
+    WHERE p.activo = 1;
+  ELSE
+    SELECT 'Opción inválida' AS mensaje;
+  END IF;
+END //
+
+-- ----------------------------------------------------------------------------
+-- Disparador: tr_contar_stock
+-- Actualiza automáticamente el stock descontando las unidades registradas en cada ítem de pedido.
+-- ----------------------------------------------------------------------------
+CREATE TRIGGER tr_contar_stock
+AFTER INSERT ON pedido_items
+FOR EACH ROW
+BEGIN
+  UPDATE productos
+  SET stock = GREATEST(0, stock - NEW.cantidad)
+  WHERE id = NEW.producto_id;
+END //
+
+DELIMITER ;
+
+-- ============================================================================
+-- INSERCIÓN DE DATOS SEMILLA: 9 CATEGORÍAS COMERCIALES
 -- ============================================================================
 INSERT INTO categorias (id, nombre, slug, icono, descripcion) VALUES
   (1, 'Cárnicos y Embutidos', 'embutidos', 'kebab_dining', 'Chorizos, costillas ahumadas, hamburguesas, jamones, salchichas y tocinetas'),
@@ -173,7 +300,7 @@ INSERT INTO categorias (id, nombre, slug, icono, descripcion) VALUES
   (9, 'Dulcería y Otros', 'otros', 'icecream', 'Leche condensada, manjar blanco, syropes, jarabes, obleas, conos, piña en trozos y más');
 
 -- ============================================================================
--- INSERCIÓN DE LOS 235 PRODUCTOS DEL LISTADO DE PRECIOS DANILLANOS
+-- INSERCIÓN DE DATOS SEMILLA: 235 PRODUCTOS DEL CATÁLOGO DANILLANOS
 -- ============================================================================
 INSERT INTO productos (id, categoria_id, codigo_sku, nombre, descripcion, presentacion, precio, precio_anterior, imagen_url, stock, es_mas_vendido, etiqueta, temperatura_conservacion) VALUES
   (1, 1, 'DAN-EMB-001', 'ALITAS DE POLLO X 500 GRS', 'Insumo garantizado por Danillanos (Cárnicos y Embutidos) ideal para restaurantes, comidas rápidas y hogar.', 'X 500 GRS', 15000, 16800, 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?auto=format&fit=crop&w=700&q=80', 120, 1, 'Más Vendido', '0°C a 4°C Refrigerado'),
@@ -412,14 +539,23 @@ INSERT INTO productos (id, categoria_id, codigo_sku, nombre, descripcion, presen
   (234, 9, 'DAN-OTR-234', 'SYROPE DOLCE SABOR A CHOCOLATE *600 GR', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 11400, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Topping', 'Ambiente Fresco'),
   (235, 9, 'DAN-OTR-235', 'SYROPE DOLCE SABOR A FRESA *600 GR', 'Insumo garantizado por Danillanos (Dulcería y Otros) ideal para restaurantes, comidas rápidas y hogar.', 'Unidad Estándar', 9900, NULL, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=700&q=80', 120, 0, 'Topping', 'Ambiente Fresco');
 
+-- ============================================================================
+-- INSERCIÓN DE DATOS SEMILLA: BANNERS PROMOCIONALES DEL CARRUSEL
+-- ============================================================================
 INSERT INTO carrusel_promociones (id, producto_id, subtitulo, titulo, descripcion, precio_destacado, imagen_url, texto_boton, tipo_accion, orden) VALUES
   (1, 24, 'TODO PARA TU RESTAURANTE Y HOGAR', 'Cárnicos, Hamburguesas, Costillas y Chorizos Llaneros', 'Distribuimos calidad desde nuestra sede en Av. Los Maracos (Clle 15 # 12-91). Envíos el mismo día en Villavicencio.', 18850, 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1600&q=80', 'Añadir al carrito', 'add_to_cart', 1),
   (2, 52, 'LÍNEA ULTRACONGELADOS Y PULPAS', 'Papas Francesas, Criollas, Nuggets y Pulpas 100% Fruta', 'Cadena de frío garantizada. Surte tu negocio de comidas rápidas con los mejores precios del Meta.', 17500, 'https://images.unsplash.com/photo-1576107232684-1279f3908594?auto=format&fit=crop&w=1600&q=80', 'Comprar ahora', 'buy_now', 2),
   (3, 106, 'SALSAS INSTITUCIONALES Y DESECHABLES', 'Río Grande, Salsabor, Alimentek, Icopores y Empaques', 'Desde galones de salsa BBQ, Mayonesa y Queso Cheddar hasta contenedores de icopor, aluminio y servilletas.', 21600, 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=1600&q=80', 'Añadir al carrito', 'add_to_cart', 3),
   (4, 17, 'ESPECIALISTAS EN COSTILLAS Y TOCINETA', 'Costilla Caramelo, Ahumada, San Luis y Tocineta Llanera', 'Cortes seleccionados con el sello de calidad Danillanos. Entregas programadas a todo el departamento del Meta.', 16300, 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=1600&q=80', 'Comprar corte ahora', 'buy_now', 4);
 
+-- ============================================================================
+-- INSERCIÓN DE DATOS SEMILLA: USUARIO ADMINISTRADOR PRINCIPAL
+-- ============================================================================
 INSERT INTO usuarios (id, username, nombre_completo_enc, nombres_enc, apellidos_enc, empresa_enc, tipo_documento, numero_documento_enc, email_hash, email_enc, password_hash, telefono_enc, rol) VALUES
-  (1, 'Administrador Danillanos', 'enc:8b909de8d026174c3f23808b:21df566577d25f1685648a8c7392a1a1:01f53b5d90b296e8cf19a21e73c988e08745ad7766054f49b2ef4727c83806ab', 'enc:b9f2e17fa3c17f4f1c6f0a0f:a2ad852154151ddb384664038211498a:70d4de1d6d67c655568f6b3449', 'enc:87902a260ecbe5b74fb3833d:20354c089b43b778499fbc98d326b0f0:c0e8a6474cee30c82dd6', 'enc:f6176aec6d37fb88290e21f3:556627cd247048d2ed44dcd111082a48:ceb8ad99d5181247076a983be957edd9ad8e128c7b9d7f55959a3d47fd4a3fe78dc592890acb6575', 'NIT', 'enc:e2d3ffd629be24c102d7e822:71e0872e6dc01e2488125f6d97d1b3f9:22f0639afcbc7c61b387df', '18611dc7ddd8f44e801b7ed207f0077179f9dcbf090557548767e8d3f42c4645', 'enc:02f1699f9ea789ec3539d65f:7e8e14369b06d417ae00dfe56ea887d3:5b953680f1c47a5809b686ef93ab3fb6bf92b561', '1a3203192a7af8f25583dc7c2c12e1e0:eca02163c7aa270ca32f524e6b468139a0610df1405a063d4e0cd39c1590834e08204596090b5c340603f61ec4617c30258395308cf6395ffa605c7210400854', 'enc:a1fa23a1fc7e0a398d778afb:c8accfaeb6f4f8ad28ee9355c9481c1d:79da660d8d7c0cdb0554', 'admin');
+  (1, 'Administrador Danillanos', 'enc:ed860485b1895e2da478117f:75239a17f41aec2f680b34b9213194c2:208e1f5be2e3bf7a047436c9dddb652c8036bf9521dbe718f423180c6ae691c6', 'enc:95b9df233142fff1a9d584ee:fc1a6be7363559ebd8257d8e1adad280:39e193063e1e5a5c7545e3f761', 'enc:3acdb0d23f72439cfd57116d:5defd6969a91ca0cbda73a77b0ac539b:85507d90f5cc212d1815', 'enc:f582548026ceb6560cd590b5:adbf4843ec131a66cde88f088bd62cd0:7d40d14478f6ffef8d0eed8642ac8d47cb77c3303b059a8bf50481f8aca9c615bfc6d6bcea896bfe', 'NIT', 'enc:203c857a0d2635f3fe857af2:c1e9ed8e0f1d8857517b2e76eb540243:e20894966ed476d96ea4b3', '18611dc7ddd8f44e801b7ed207f0077179f9dcbf090557548767e8d3f42c4645', 'enc:abe29754e085cffc582b67a0:0d1ee40c360cc4efef21ec9e576925a3:b58495c9a10319fdb1475682c92a85ff8dd32dfc', 'c6e8b7bdef617f9da82564c34a95aa50:624b9e834754ed0669677488f166a5e6018f6dfabae0d0ca235cca9036899f0144c12597300937323a49729f1f0620ac714bc9d25f8890bf67cd4e8b73683400', 'enc:2bce315ada1b835d05a862d9:cc966aa8aa5c558f2c4ba772c8e98905:96498a893692704f7a18', 'admin');
 
+-- ============================================================================
+-- INSERCIÓN DE DATOS SEMILLA: TICKET DE SOPORTE DE REFERENCIA
+-- ============================================================================
 INSERT INTO tickets_soporte (id, pedido_id, usuario_id, tipo, asunto, descripcion, imagen_cliente_url, estado, respuesta_soporte) VALUES
   (1, 5, 1, 'producto', 'Verificación de lote y fecha de vencimiento en entrega #5', 'Adjunto foto del lote recibido para confirmar fecha de vencimiento y copia de factura electrónica.', 'data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22480%22%20height%3D%22320%22%20viewBox%3D%220%200%20480%20320%22%3E%3Crect%20width%3D%22480%22%20height%3D%22320%22%20fill%3D%22%23181c24%22%2F%3E%3Crect%20x%3D%2224%22%20y%3D%2224%22%20width%3D%22432%22%20height%3D%22272%22%20rx%3D%2216%22%20fill%3D%22%23232834%22%20stroke%3D%22%23f59e0b%22%20stroke-width%3D%223%22%2F%3E%3Ctext%20x%3D%22240%22%20y%3D%22120%22%20fill%3D%22%23ffffff%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20font-weight%3D%22bold%22%20text-anchor%3D%22middle%22%3EFOTO%20ENVIADA%20POR%20EL%20CLIENTE%3C%2Ftext%3E%3Ctext%20x%3D%22240%22%20y%3D%22160%22%20fill%3D%22%23fbbf24%22%20font-family%3D%22sans-serif%22%20font-size%3D%2216%22%20font-weight%3D%22bold%22%20text-anchor%3D%22middle%22%3ELote%20%232026-10%20%E2%80%A2%20Consulta%20Fecha%20de%20Vencimiento%3C%2Ftext%3E%3Ctext%20x%3D%22240%22%20y%3D%22195%22%20fill%3D%22%239ca5b4%22%20font-family%3D%22sans-serif%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3EAdjunto%20desde%20el%20Centro%20de%20Soporte%20Danillanos%3C%2Ftext%3E%3C%2Fsvg%3E', 'en_revision', 'Soporte Danillanos: Hemos verificado la foto del lote adjunta; tiene vigencia de 6 meses en congelación (-18°C).');

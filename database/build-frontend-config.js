@@ -1,6 +1,10 @@
 /**
- * Generador automático de frontend/js/config.js a partir de backend/data/catalogData.js
- * para mantener los 235 productos sincronizados tanto en MySQL como en el Frontend.
+ * @fileoverview Generador automatizado de la configuración del cliente frontend.
+ * Sincroniza la información del catálogo (categorías, 235 productos, carrusel) y
+ * los parámetros geográficos del Meta y Villavicencio desde `backend/data/catalogData.js`
+ * hacia el archivo cliente `frontend/js/config.js`.
+ *
+ * @module database/build-frontend-config
  */
 
 const fs = require('fs');
@@ -11,6 +15,10 @@ const {
   carruselDanillanos
 } = require('../backend/data/catalogData');
 
+/**
+ * Coordenadas de cabeceras municipales del departamento del Meta para cálculo de cobertura.
+ * @type {Array<{nombre: string, lat: number, lng: number, es_villavicencio: boolean}>}
+ */
 const municipiosMeta = [
   { nombre: 'Villavicencio', lat: 4.1420, lng: -73.6266, es_villavicencio: true },
   { nombre: 'Acacías', lat: 3.9869, lng: -73.7579, es_villavicencio: false },
@@ -24,6 +32,10 @@ const municipiosMeta = [
   { nombre: 'Vista Hermosa', lat: 3.1242, lng: -73.7514, es_villavicencio: false }
 ];
 
+/**
+ * Estructura de configuración global expuesta al entorno de ejecución del navegador.
+ * @type {object}
+ */
 const configObject = {
   brand: {
     name: 'DANILLANOS',
@@ -39,7 +51,6 @@ const configObject = {
     googleClientId: '394071429874-5ev2n04b6j7akvqg0rtaene6461smr10.apps.googleusercontent.com'
   },
   map: {
-    // Coordenadas de Villavicencio y radio de cobertura de entrega inmediata el mismo día
     villavicencioCenter: { lat: 4.1420, lng: -73.6266 },
     villavicencioRadiusMeters: 9500,
     sedeDanillanos: {
@@ -49,7 +60,6 @@ const configObject = {
     },
     municipiosMeta
   },
-  // Por defecto la página inicia SIN USUARIO (modo visualización visitante)
   defaultUser: null,
   categories: categoriasDanillanos,
   carouselSlides: carruselDanillanos,
@@ -57,12 +67,9 @@ const configObject = {
 };
 
 const outputContent = `/**
- * ============================================================================
- * CONFIGURACIÓN GLOBAL Y CATÁLOGO COMPLETO (235 PRODUCTOS) - DANILLANOS
- * ============================================================================
- * Incluye las 9 líneas del listado oficial de precios, configuración del radio
- * de cobertura de Villavicencio y municipios del Meta.
- * Por defecto inicia sin sesión activa (defaultUser: null).
+ * @fileoverview Configuración global del cliente Danillanos generada automáticamente.
+ * Define la marca, endpoints de API, credenciales OAuth, parámetros de cobertura
+ * geográfica y la totalidad del catálogo sincronizado con el backend.
  */
 
 window.DANILLANOS_CONFIG = ${JSON.stringify(configObject, null, 2)};
