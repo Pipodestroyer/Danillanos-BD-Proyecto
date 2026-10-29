@@ -129,6 +129,7 @@
   }
 
   function showAppDialog({ title = 'Notificación', message = '', type = 'info', confirmText = 'Entendido' } = {}) {
+    if (!message || !String(message).trim()) return;
     let modal = document.getElementById('danillanosAppDialogModal');
     if (!modal) {
       const wrap = document.createElement('div');
@@ -248,30 +249,33 @@
   }
 
   function showCheckoutInlineFeedback(stepNum, message, type = 'error') {
-    let el = document.getElementById(`checkoutInlineFeedbackStep${stepNum}`);
-    if (!el) {
-      const parent = stepNum === 1
-        ? document.getElementById('wizardStep1')
-        : document.getElementById('wizardStep2');
-      if (parent) {
-        const actionsRow = parent.querySelector('.wizard-step-actions');
-        el = document.createElement('div');
-        el.id = `checkoutInlineFeedbackStep${stepNum}`;
-        el.className = 'auth-inline-feedback';
-        if (actionsRow) {
-          parent.insertBefore(el, actionsRow);
-        } else {
-          parent.appendChild(el);
-        }
+    if (!message || !String(message).trim()) {
+      const existing = document.getElementById('checkoutInlineFeedbackStep' + stepNum);
+      if (existing) {
+        existing.classList.add('hidden');
+        existing.textContent = '';
       }
-    }
-    if (!el) {
-      showAppDialog({ title: 'Atención', message, type, confirmText: 'Entendido' });
       return;
     }
 
-    if (!message) {
-      el.classList.add('hidden');
+    let el = document.getElementById('checkoutInlineFeedbackStep' + stepNum);
+    if (!el) {
+      const slide = document.querySelector('[data-wizard-slide="' + stepNum + '"]');
+      if (slide) {
+        const actionsRow = slide.querySelector('.wizard-step-actions');
+        el = document.createElement('div');
+        el.id = 'checkoutInlineFeedbackStep' + stepNum;
+        el.className = 'auth-inline-feedback';
+        if (actionsRow && actionsRow.parentNode) {
+          actionsRow.parentNode.insertBefore(el, actionsRow);
+        } else {
+          slide.appendChild(el);
+        }
+      }
+    }
+
+    if (!el) {
+      showAppDialog({ title: 'Atención', message, type, confirmText: 'Entendido' });
       return;
     }
 
@@ -287,7 +291,7 @@
     el.style.display = 'flex';
     el.style.alignItems = 'center';
     el.style.gap = '0.55rem';
-    el.innerHTML = `<span class="material-symbols-rounded" style="font-size: 1.25rem; flex-shrink: 0;">${isError ? 'error' : 'check_circle'}</span><span>${message}</span>`;
+    el.innerHTML = '<span class="material-symbols-rounded" style="font-size: 1.25rem; flex-shrink: 0;">' + (isError ? 'error' : 'check_circle') + '</span><span>' + message + '</span>';
     el.classList.remove('hidden');
   }
 
