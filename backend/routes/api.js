@@ -1167,6 +1167,8 @@ router.patch('/auth/perfil', async (req, res) => {
 });
 
 /**
+ * POST /api/auth/cambiar-password
+ */
 router.post('/auth/cambiar-password', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
   if (!authUser) {
