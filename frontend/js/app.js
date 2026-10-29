@@ -2987,13 +2987,25 @@
       if (!res.ok) return;
       const data = await res.json();
       if (data.authenticated && data.user) {
-        state.user = { ...state.user, ...data.user, rol: normalizeRole(data.user.rol) };
+        state.user = {
+          ...state.user,
+          ...data.user,
+          email: (data.user.email && !data.user.email.endsWith('@danillanos.com'))
+            ? data.user.email
+            : (state.user.email || data.user.email),
+          avatar_url: data.user.avatar_url || state.user.avatar_url,
+          rol: normalizeRole(data.user.rol)
+        };
         if (Array.isArray(data.direcciones)) {
           state.direcciones = data.direcciones;
         }
         localStorage.setItem('danillanos_user', JSON.stringify(state.user));
         sessionStorage.setItem('danillanos_user', JSON.stringify(state.user));
         syncSelectedAddressDefault();
+        renderSharedHeaderAuthUI();
+        if (CURRENT_PAGE === 'perfil') {
+          renderPerfilPageAuthState();
+        }
         if (CURRENT_PAGE === 'perfil') {
           const securityCard = document.getElementById('securitySummaryCard');
           if (securityCard) {
@@ -3510,7 +3522,9 @@
         empresa: empInput ? empInput.value.trim() : '',
         tipo_documento: tipoInput ? tipoInput.value : 'CC',
         numero_documento: numInput ? numInput.value.trim() : '',
-        telefono: telInput ? telInput.value.trim() : ''
+        telefono: telInput ? telInput.value.trim() : '',
+        email: state.user.email || undefined,
+        avatar_url: state.user.avatar_url || undefined
       };
 
       if (!payload.nombre_completo) {
@@ -3535,7 +3549,15 @@
         });
         const data = await res.json();
         if (data.ok && data.user) {
-          state.user = { ...state.user, ...data.user };
+          state.user = {
+            ...state.user,
+            ...data.user,
+            email: (data.user.email && !data.user.email.endsWith('@danillanos.com'))
+              ? data.user.email
+              : (state.user.email || data.user.email),
+            avatar_url: data.user.avatar_url || state.user.avatar_url,
+            telefono: payload.telefono
+          };
         } else {
           state.user = { ...state.user, ...payload };
         }
@@ -3560,6 +3582,8 @@
 
       const loggedName = document.getElementById('loggedUserName');
       if (loggedName) loggedName.textContent = state.user.nombre_completo;
+      const loggedEmailEl = document.getElementById('loggedUserEmail');
+      if (loggedEmailEl) loggedEmailEl.textContent = `${state.user.email || 'Sin correo'} • ${state.user.telefono || 'Sin teléfono'}`;
       const extraEl = document.getElementById('loggedUserExtra');
       if (extraEl) {
         const docPart = state.user.numero_documento ? `${state.user.tipo_documento || 'CC'}: ${state.user.numero_documento}` : '';
@@ -3567,6 +3591,8 @@
         extraEl.textContent = `${docPart}${empPart}`;
       }
       renderSharedHeaderAuthUI();
+      renderPerfilPageAuthState();
+      setProfileEditingState(false);
 
       // Update static bold elements
       const sNom = document.getElementById('staticProfileNombre');

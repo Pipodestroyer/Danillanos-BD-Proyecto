@@ -25,7 +25,8 @@ const {
   usuariosFallback,
   direccionesFallback,
   pedidosFallback,
-  ticketsFallback
+  ticketsFallback,
+  saveFallbackStore
 } = require('../data/fallbackData');
 
 // Cliente oficial de Google OAuth 2.0
@@ -754,7 +755,14 @@ router.post('/auth/login', async (req, res) => {
     );
 
     const safeUser = formatSafeUser(userRow);
-    const token = signToken({ id: safeUser.id, rol: safeUser.rol, username: safeUser.username });
+    const token = signToken({
+      id: safeUser.id,
+      rol: safeUser.rol,
+      username: safeUser.username,
+      email: safeUser.email,
+      avatar_url: safeUser.avatar_url,
+      is_google: Boolean(safeUser.is_google_account)
+    });
 
     return res.json({
       ok: true,
@@ -897,8 +905,16 @@ router.post('/auth/google', async (req, res) => {
       usuariosFallback.push(userRow);
     }
 
+    saveFallbackStore();
     const safeUser = formatSafeUser(userRow);
-    const token = signToken({ id: safeUser.id, rol: safeUser.rol, username: safeUser.username });
+    const token = signToken({
+      id: safeUser.id,
+      rol: safeUser.rol,
+      username: safeUser.username,
+      email: safeUser.email,
+      avatar_url: safeUser.avatar_url,
+      is_google: Boolean(safeUser.is_google_account)
+    });
     return res.json({
       ok: true,
       source: 'fallback',
@@ -958,7 +974,7 @@ router.patch('/auth/perfil', async (req, res) => {
     return res.status(401).json({ ok: false, error: 'No autorizado. Inicie sesión para actualizar su perfil.' });
   }
 
-  const { nombre_completo, empresa, tipo_documento, numero_documento, telefono } = req.body || {};
+  const { nombre_completo, empresa, tipo_documento, numero_documento, telefono, email, avatar_url } = req.body || {};
 
   if (!nombre_completo || !nombre_completo.trim()) {
     return res.status(400).json({ ok: false, error: 'El nombre completo es obligatorio.' });
@@ -987,13 +1003,17 @@ router.patch('/auth/perfil', async (req, res) => {
     const safeUser = formatSafeUser(rows[0]);
 
     // Actualizar también en el almacenamiento en memoria si existe
-    const memUser = usuariosFallback.find((u) => Number(u.id) === Number(authUser.id));
+    let memUser = usuariosFallback.find((u) => Number(u.id) === Number(authUser.id));
     if (memUser) {
       memUser.nombre_completo_enc = nombreEnc;
       memUser.empresa_enc = empresaEnc;
       memUser.tipo_documento = cleanTipoDoc;
       memUser.numero_documento_enc = numDocEnc;
       memUser.telefono_enc = telEnc;
+      if (!memUser.avatar_url && (avatar_url || authUser.avatar_url)) {
+        memUser.avatar_url = avatar_url || authUser.avatar_url;
+      }
+      saveFallbackStore();
     }
 
     return res.json({
@@ -1006,10 +1026,13 @@ router.patch('/auth/perfil', async (req, res) => {
     let memUser = usuariosFallback.find((u) =>
       Number(u.id) === Number(authUser.id) ||
       (authUser.email && u.email_enc && decryptData(u.email_enc) === authUser.email) ||
+      (email && u.email_enc && decryptData(u.email_enc) === email) ||
       (authUser.username && u.username === authUser.username)
     );
 
     if (!memUser) {
+      const finalEmail = email || authUser.email || `${authUser.username || "user"}@danillanos.com`;
+      const finalAvatar = avatar_url || authUser.avatar_url || null;
       memUser = {
         id: authUser.id || Date.now(),
         username: authUser.username || cleanNombre,
@@ -1019,10 +1042,13 @@ router.patch('/auth/perfil', async (req, res) => {
         empresa_enc: empresaEnc,
         tipo_documento: cleanTipoDoc,
         numero_documento_enc: numDocEnc,
-        email_hash: authUser.email ? hashLookup(authUser.email) : hashLookup(`${authUser.username || "user"}@danillanos.com`),
-        email_enc: authUser.email ? encryptData(authUser.email) : encryptData(`${authUser.username || "user"}@danillanos.com`),
+        email_hash: hashLookup(finalEmail),
+        email_enc: encryptData(finalEmail),
         telefono_enc: telEnc,
-        avatar_url: authUser.avatar_url || null,
+        avatar_url: finalAvatar,
+        google_id_enc: (authUser.is_google || (finalAvatar && finalAvatar.includes('googleusercontent.com')))
+          ? encryptData(`google_${authUser.id || Date.now()}`)
+          : null,
         rol: authUser.rol || "cliente",
         activo: 1
       };
@@ -1033,7 +1059,16 @@ router.patch('/auth/perfil', async (req, res) => {
       memUser.tipo_documento = cleanTipoDoc;
       memUser.numero_documento_enc = numDocEnc;
       memUser.telefono_enc = telEnc;
+      if (!memUser.avatar_url && (avatar_url || authUser.avatar_url)) {
+        memUser.avatar_url = avatar_url || authUser.avatar_url;
+      }
+      if (email && (!memUser.email_enc || decryptData(memUser.email_enc).endsWith('@danillanos.com'))) {
+        memUser.email_enc = encryptData(email);
+        memUser.email_hash = hashLookup(email);
+      }
     }
+
+    saveFallbackStore();
 
     return res.json({
       ok: true,

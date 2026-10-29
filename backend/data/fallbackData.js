@@ -39,6 +39,49 @@ const pedidosFallback = [];
 
 const ticketsFallback = [];
 
+const fs = require('fs');
+const path = require('path');
+const storeFilePath = path.join(__dirname, 'fallback_store.json');
+
+function saveFallbackStore() {
+  try {
+    const data = {
+      usuarios: usuariosFallback,
+      direcciones: direccionesFallback,
+      pedidos: pedidosFallback,
+      tickets: ticketsFallback
+    };
+    fs.writeFileSync(storeFilePath, JSON.stringify(data, null, 2), 'utf8');
+  } catch (_) {}
+}
+
+function loadFallbackStore() {
+  try {
+    if (fs.existsSync(storeFilePath)) {
+      const raw = fs.readFileSync(storeFilePath, 'utf8');
+      const data = JSON.parse(raw);
+      if (Array.isArray(data.usuarios) && data.usuarios.length > 0) {
+        usuariosFallback.length = 0;
+        usuariosFallback.push(...data.usuarios);
+      }
+      if (Array.isArray(data.direcciones) && data.direcciones.length > 0) {
+        direccionesFallback.length = 0;
+        direccionesFallback.push(...data.direcciones);
+      }
+      if (Array.isArray(data.pedidos) && data.pedidos.length > 0) {
+        pedidosFallback.length = 0;
+        pedidosFallback.push(...data.pedidos);
+      }
+      if (Array.isArray(data.tickets) && data.tickets.length > 0) {
+        ticketsFallback.length = 0;
+        ticketsFallback.push(...data.tickets);
+      }
+    }
+  } catch (_) {}
+}
+
+loadFallbackStore();
+
 module.exports = {
   categoriasFallback: categoriasDanillanos,
   productosFallback: productosDanillanos,
@@ -46,5 +89,6 @@ module.exports = {
   usuariosFallback,
   direccionesFallback,
   pedidosFallback,
-  ticketsFallback
+  ticketsFallback,
+  saveFallbackStore
 };

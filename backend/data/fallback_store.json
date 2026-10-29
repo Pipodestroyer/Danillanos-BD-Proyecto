@@ -1,0 +1,39 @@
+{
+  "usuarios": [
+    {
+      "id": 1,
+      "username": "Administrador Danillanos",
+      "nombre_completo_enc": "enc:60332c5bb17de0bfc938b9ec:e976c206053f546bfce1d496f6d62574:8d829a2e9316d5c4985fd4215bb0e3ba37b2156c94a84a7d",
+      "nombres_enc": "enc:1b8e55cc64e210f8a23ec13b:65acb096de6edc4b237bbe7476e5a21c:f6b8aed1f8ae73eb9c38249ca8",
+      "apellidos_enc": "enc:53e5f074637077f93e8dd3c1:e811474adf67dc4ed90fb5ed9511ce90:62f824e15d1e7a3a57cd",
+      "empresa_enc": "enc:1d45450db12fbe69319b400d:e93731a31008e970eea20eba5db5d3f8:7016dbcd7dea69b67ae6276f33db4fd61d",
+      "tipo_documento": "CC",
+      "numero_documento_enc": null,
+      "email_hash": "18611dc7ddd8f44e801b7ed207f0077179f9dcbf090557548767e8d3f42c4645",
+      "email_enc": "enc:b3149ad638b921e73d45ebbf:effa8ef82b3fb811c0e1352d6c7877e3:8a55e01d2b796b829f75083016096b1d04ec3334",
+      "password_hash": "ece3240b66ad597ad2b1d1cefd16bad9:06f21ffb555acf6d4524cd114cf7d65ef97eda16de4f1277bfe8f35f8e5a8a50a4709193a00c11dc63ac5af38aefa1f762373309412456d3ae6a06648a4f443b",
+      "telefono_enc": null,
+      "avatar_url": null,
+      "rol": "admin",
+      "activo": 1
+    },
+    {
+      "id": 2,
+      "username": "Pokita (Toro Inoue)",
+      "nombre_completo_enc": "enc:a02ad1620f4c1e7d5cbd098b:4d0cc4afc9696b87c58d07e5a2749799:850396fc6e08767ae8c8830df982ff93e14fa9",
+      "email_hash": "48827342f0033c1d6da370172325261af0bccf7da83ee59f1f378be553444dca",
+      "email_enc": "enc:bbe1fad9cfa2d7f7ca54b412:c5cde0c8f11437e1d222b3b29f5306ac:5be2d9f302c03f10b82752eb4002b869ec186c9db3291d",
+      "google_id_enc": "enc:5db16ec30e17c7fbc774d16c:7975ef396506c3dea8db82cbadccc823:fd5fd9145b474465e299ba52a3c2333d63d3af93",
+      "avatar_url": "https://lh3.googleusercontent.com/a/test-avatar-photo",
+      "rol": "cliente",
+      "activo": 1,
+      "empresa_enc": "enc:7f8e0e0905823270aa43ebb9:71246e25777a95003dc3e424f1a3873b:dde887940b678a056e4ea1e46cd77c",
+      "tipo_documento": "CC",
+      "numero_documento_enc": null,
+      "telefono_enc": "enc:eaba06e34fc2ddf6af46bde8:f9c1070f95c4bd045f4a2f931240414d:93ffd1811ed3f6265ee6"
+    }
+  ],
+  "direcciones": [],
+  "pedidos": [],
+  "tickets": []
+}
