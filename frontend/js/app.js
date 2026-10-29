@@ -2624,7 +2624,7 @@
     const wrapper = document.createElement('div');
     wrapper.innerHTML = `
     <div class="modal-backdrop hidden" id="accountPasswordModal" role="dialog" aria-modal="true" aria-labelledby="pwdModalTitle">
-      <div class="modal-card password-modal-dialog" style="max-width: 490px; width: 100%; padding: 1.85rem 2rem; border-radius: var(--radius-2xl);">
+      <div class="modal-card password-modal-dialog" style="max-width: 490px; width: 100%; padding: 1.85rem 2rem; border-radius: 28px !important; overflow: hidden;">
         <div class="modal-header" style="margin-bottom: 1.25rem;">
           <div class="modal-title-wrap">
             <span class="material-symbols-rounded modal-title-icon" id="pwdModalIcon" style="font-size: 2rem; color: var(--brand-red);">lock</span>
@@ -2884,7 +2884,8 @@
     }
 
     try {
-      const res = await fetch(`${API_URL}/auth/cambiar-password`, {
+      const apiBase = (CONFIG && CONFIG.api && CONFIG.api.baseUrl) || '/api';
+      const res = await fetch(`${apiBase}/auth/cambiar-password`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -2979,7 +2980,8 @@
   async function refreshCurrentUserSession() {
     if (!state.token) return;
     try {
-      const res = await fetch(`${API_URL}/auth/me`, {
+      const apiBase = (CONFIG && CONFIG.api && CONFIG.api.baseUrl) || '/api';
+      const res = await fetch(`${apiBase}/auth/me`, {
         headers: getAuthHeaders()
       });
       if (!res.ok) return;
