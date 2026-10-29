@@ -882,6 +882,14 @@
         dropdown.classList.remove('hidden');
       }
 
+      searchInput.addEventListener('search', () => {
+        const val = searchInput.value || '';
+        state.searchQuery = val;
+        if (searchContainer) searchContainer.classList.toggle('has-value', val.trim().length > 0);
+        renderSuggestions(val);
+        if (CURRENT_PAGE === 'store') renderStoreProducts();
+      });
+
       searchInput.addEventListener('input', (e) => {
         const val = e.target.value;
         state.searchQuery = val;
@@ -2383,6 +2391,10 @@
       setTimeout(() => state.maps.addressMap?.invalidateSize(), 200);
     }
 
+    if (state.activeProfileTab === 'soporte' && state.user) {
+      loadCustomerSupportTickets();
+    }
+
     requestAnimationFrame(updateCustomerTabSlider);
     setTimeout(updateCustomerTabSlider, 50);
   }
@@ -3400,6 +3412,10 @@
 
       if (Array.isArray(data.tickets)) {
         state.customerTickets = mergeTicketsWithLocal(data.tickets);
+        renderCustomerSupportTicketsList();
+        const tkBadge = document.getElementById('tabTicketsCount');
+        if (tkBadge) tkBadge.textContent = String(state.customerTickets.length);
+        syncUserNotificationDots();
       }
 
       populateCustomerSupportOrderSelect(
@@ -3869,28 +3885,44 @@ async function loadCustomerSupportTickets() {
     const badge = document.getElementById('tabTicketsCount');
     if (!container || !state.user) return;
 
-    if (state.serverApiV3) {
-      try {
-        const res = await fetch(`${CONFIG.api.baseUrl}/mis-tickets`, { headers: getAuthHeaders() });
-        if (res.ok) {
-          const data = await res.json();
-          state.customerTickets = mergeTicketsWithLocal(data.data || []);
-        }
-      } catch (_) {}
-    } else {
-      state.customerTickets = getLocalTicketsStore().filter(
-        (t) => !t.usuario_id || Number(t.usuario_id) === Number(state.user.id) || Number(state.user.id) === 1
-      );
+    // 1. Cargar inmediatamente desde almacenamiento local para que la vista nunca quede vacía
+    const localTickets = getLocalTicketsStore().filter(
+      (t) => !t.usuario_id || Number(t.usuario_id) === Number(state.user.id) || Number(state.user.id) === 1
+    );
+    if (!state.customerTickets || state.customerTickets.length === 0) {
+      state.customerTickets = localTickets;
     }
-
     if (badge) badge.textContent = String(state.customerTickets.length);
     renderCustomerSupportTicketsList();
+
+    // 2. Sincronizar de inmediato con el backend sin depender de clics manuales en filtros
+    try {
+      const res = await fetch(`${CONFIG.api.baseUrl}/mis-tickets`, { headers: getAuthHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        const serverTickets = Array.isArray(data.data)
+          ? data.data
+          : (Array.isArray(data.tickets) ? data.tickets : []);
+        if (serverTickets.length > 0) {
+          state.customerTickets = mergeTicketsWithLocal(serverTickets);
+          if (badge) badge.textContent = String(state.customerTickets.length);
+          renderCustomerSupportTicketsList();
+          syncUserNotificationDots();
+        }
+      }
+    } catch (_) {}
   }
 
   function renderCustomerSupportTicketsList() {
     const container = document.getElementById('customerTicketsListContainer');
     const badge = document.getElementById('tabTicketsCount');
     if (!container || !state.user) return;
+
+    if ((!state.customerTickets || state.customerTickets.length === 0) && typeof getLocalTicketsStore === 'function') {
+      state.customerTickets = getLocalTicketsStore().filter(
+        (t) => !t.usuario_id || Number(t.usuario_id) === Number(state.user.id) || Number(state.user.id) === 1
+      );
+    }
 
     const allTickets = state.customerTickets || [];
     if (badge) badge.textContent = String(allTickets.length);
@@ -4750,6 +4782,9 @@ async function loadCustomerSupportTickets() {
       }
       renderStaffSidebar();
       renderActiveStaffTab();
+      if (state.activeStaffTab === 'soporte' && (!state.staffTickets || state.staffTickets.length === 0)) {
+        loadStaffDataAndRender();
+      }
     });
 
     document.getElementById('btnStaffLogout')?.addEventListener('click', () => {
@@ -6352,6 +6387,9 @@ async function loadCustomerSupportTickets() {
    * 2. Historial y Buscador Filtrable de Pedidos, Facturas, Entregas y Reembolsos
    */
   function renderSoportePanel() {
+    if ((!state.staffTickets || state.staffTickets.length === 0) && typeof getLocalTicketsStore === 'function') {
+      state.staffTickets = getLocalTicketsStore();
+    }
     const tkQuery = (document.getElementById('soporteTicketSearchInput')?.value || '').trim().toLowerCase();
     const tkStatus = document.getElementById('soporteTicketStatusFilter')?.value || 'todos';
 
