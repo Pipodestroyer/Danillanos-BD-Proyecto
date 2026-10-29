@@ -2327,6 +2327,45 @@
     });
   }
 
+  let customerTabSliderInitialized = false;
+
+  function updateCustomerTabSlider(immediate = false) {
+    const tabsBar = document.getElementById('customerProfileTabsBar');
+    const slider = document.getElementById('customerTabSlider');
+    if (!tabsBar || !slider || tabsBar.classList.contains('hidden')) return;
+
+    const activeBtn = tabsBar.querySelector('.customer-tab-btn.active');
+    if (!activeBtn) {
+      slider.style.opacity = '0';
+      return;
+    }
+
+    const barRect = tabsBar.getBoundingClientRect();
+    const btnRect = activeBtn.getBoundingClientRect();
+
+    if (btnRect.width === 0 || btnRect.height === 0) return;
+
+    const left = btnRect.left - barRect.left;
+    const top = btnRect.top - barRect.top;
+
+    if (!customerTabSliderInitialized || immediate === true) {
+      slider.style.transition = 'none';
+      slider.style.opacity = '1';
+      slider.style.transform = `translate3d(${left}px, ${top}px, 0)`;
+      slider.style.width = `${btnRect.width}px`;
+      slider.style.height = `${btnRect.height}px`;
+      void slider.offsetHeight;
+      slider.style.transition = '';
+      customerTabSliderInitialized = true;
+      return;
+    }
+
+    slider.style.opacity = '1';
+    slider.style.transform = `translate3d(${left}px, ${top}px, 0)`;
+    slider.style.width = `${btnRect.width}px`;
+    slider.style.height = `${btnRect.height}px`;
+  }
+
   function switchCustomerProfileTab(tabName) {
     state.activeProfileTab = tabName || 'pedidos';
 
@@ -2343,6 +2382,9 @@
       setupInteractiveCoverageMap('addressMapCanvas');
       setTimeout(() => state.maps.addressMap?.invalidateSize(), 200);
     }
+
+    requestAnimationFrame(updateCustomerTabSlider);
+    setTimeout(updateCustomerTabSlider, 50);
   }
 
   function syncProfileTabFromHash() {
@@ -2357,6 +2399,10 @@
     initSharedInvoiceModalEvents();
     renderPerfilPageAuthState();
     window.addEventListener('hashchange', syncProfileTabFromHash);
+    window.addEventListener('resize', () => updateCustomerTabSlider(true));
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => setTimeout(updateCustomerTabSlider, 60));
+    }
 
     document.getElementById('customerProfileTabsBar')?.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-profile-tab]');
