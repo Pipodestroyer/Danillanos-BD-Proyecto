@@ -3,7 +3,10 @@
  * Utiliza un Pool de conexiones con mysql2/promise para alto rendimiento.
  */
 
+const path = require('path');
 const mysql = require('mysql2/promise');
+require('dotenv').config({ path: path.resolve(__dirname, '..', '..', '.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 require('dotenv').config();
 
 const host = process.env.DB_HOST || 'localhost';

@@ -9,6 +9,9 @@
  */
 
 const crypto = require('crypto');
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '..', '..', '.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 require('dotenv').config();
 
 // Clave maestra derivada de variable de entorno o semilla de seguridad por defecto

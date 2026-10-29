@@ -3044,6 +3044,11 @@
             }
           }
         }
+      } else if (data && data.authenticated === false) {
+        setSession(null, null, []);
+        if (CURRENT_PAGE === 'perfil') {
+          renderPerfilPageAuthState();
+        }
       }
     } catch (_) {}
   }

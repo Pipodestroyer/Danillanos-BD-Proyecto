@@ -2,38 +2,38 @@
   "usuarios": [
     {
       "id": 1,
-      "username": "Administrador Danillanos",
-      "nombre_completo_enc": "enc:60332c5bb17de0bfc938b9ec:e976c206053f546bfce1d496f6d62574:8d829a2e9316d5c4985fd4215bb0e3ba37b2156c94a84a7d",
-      "nombres_enc": "enc:1b8e55cc64e210f8a23ec13b:65acb096de6edc4b237bbe7476e5a21c:f6b8aed1f8ae73eb9c38249ca8",
-      "apellidos_enc": "enc:53e5f074637077f93e8dd3c1:e811474adf67dc4ed90fb5ed9511ce90:62f824e15d1e7a3a57cd",
-      "empresa_enc": "enc:1d45450db12fbe69319b400d:e93731a31008e970eea20eba5db5d3f8:7016dbcd7dea69b67ae6276f33db4fd61d",
-      "tipo_documento": "CC",
-      "numero_documento_enc": null,
+      "username": "Administrador General Danillanos",
+      "nombre_completo_enc": "enc:bf06a54e15c9a66dd49e250f:82ea6b7398730ac808f0430ec3694ed5:3f1937390794e9da67cc10cc8573f6337369e84a9fcccaa4f1c3dd65f688d710",
+      "nombres_enc": "enc:642c89a8fa5cad742990539c:6bc719505bfddb75c42b31b10e8433d4:e786eac282d3fdac222944f8202f113dc0c3cb3a4e",
+      "apellidos_enc": "enc:7e6e63b0dac8c770e56f9654:999b46aa47f8a415f7955e17c374024c:4fa5e04b1e8680e47c80",
+      "empresa_enc": "enc:af304c1438f83a09b232050b:ed988d606f870d309aef67108f46eddf:b17f94ba723ca220d58a8882fa31424d5ca3293913ed352cb4e491e3b8b1208c9796f5",
+      "tipo_documento": "NIT",
+      "numero_documento_enc": "enc:07d3432eed6f88677118d53d:8348891de2d219802415d313c579b1ba:bfd8ada7c9e932f3a5292d",
       "email_hash": "18611dc7ddd8f44e801b7ed207f0077179f9dcbf090557548767e8d3f42c4645",
-      "email_enc": "enc:b3149ad638b921e73d45ebbf:effa8ef82b3fb811c0e1352d6c7877e3:8a55e01d2b796b829f75083016096b1d04ec3334",
-      "password_hash": "ece3240b66ad597ad2b1d1cefd16bad9:06f21ffb555acf6d4524cd114cf7d65ef97eda16de4f1277bfe8f35f8e5a8a50a4709193a00c11dc63ac5af38aefa1f762373309412456d3ae6a06648a4f443b",
-      "telefono_enc": null,
+      "email_enc": "enc:9b9b76be37ea8e8711bb3dbc:dfd4ee6be703814d3028a664894ccbd1:8be08496b405667e1dfc934c039ce721312b7c19",
+      "password_hash": "8b2c11b2bec3aee5c341b98980b1f1f9:2d8f64fa30735252c3da770a473c596771c30a91a6624aecc9f8e9de3fae4b295fb408a5a4e8579e0c5dd9a09d1f59acaec70a63bf7d13ffc89d349e4ce4a1f9",
+      "telefono_enc": "enc:9d22987278b3a0c846b004a0:0319459f651272e10441958c1729d4a3:590c2eff6d6e2899f2e8",
       "avatar_url": null,
       "rol": "admin",
       "activo": 1
-    },
-    {
-      "id": 2,
-      "username": "Pokita (Toro Inoue)",
-      "nombre_completo_enc": "enc:a02ad1620f4c1e7d5cbd098b:4d0cc4afc9696b87c58d07e5a2749799:850396fc6e08767ae8c8830df982ff93e14fa9",
-      "email_hash": "48827342f0033c1d6da370172325261af0bccf7da83ee59f1f378be553444dca",
-      "email_enc": "enc:bbe1fad9cfa2d7f7ca54b412:c5cde0c8f11437e1d222b3b29f5306ac:5be2d9f302c03f10b82752eb4002b869ec186c9db3291d",
-      "google_id_enc": "enc:5db16ec30e17c7fbc774d16c:7975ef396506c3dea8db82cbadccc823:fd5fd9145b474465e299ba52a3c2333d63d3af93",
-      "avatar_url": null,
-      "rol": "cliente",
-      "activo": 1,
-      "empresa_enc": "enc:7f8e0e0905823270aa43ebb9:71246e25777a95003dc3e424f1a3873b:dde887940b678a056e4ea1e46cd77c",
-      "tipo_documento": "CC",
-      "numero_documento_enc": null,
-      "telefono_enc": "enc:65f56221e48d242d0f0cb9b8:6b3046e0acbc75806de14158a348faf9:4f851d1a64bb742a7721"
     }
   ],
-  "direcciones": [],
+  "direcciones": [
+    {
+      "id": 1,
+      "usuario_id": 1,
+      "etiqueta": "Sede Principal Danillanos",
+      "direccion_enc": "enc:7c5dcdd0c1277167b84ea79f:2d50687e10cdcc864ae354624db0a9ec:c5dcc085378bb4a96c1aa3edbd17baf47658b0f3acd356bff9740b435d239d",
+      "barrio_referencia": "Av. Los Maracos",
+      "municipio": "Villavicencio",
+      "departamento": "Meta",
+      "lat": 4.1365,
+      "lng": -73.6215,
+      "es_villavicencio": 1,
+      "tiempo_entrega_estimado": "Sede Principal / Despachos",
+      "es_principal": 1
+    }
+  ],
   "pedidos": [],
   "tickets": []
 }

@@ -973,10 +973,19 @@ router.get('/auth/me', async (req, res) => {
 
   try {
     const emailHash = authUser.email ? hashLookup(authUser.email) : null;
-    const [rows] = await pool.query(
-      'SELECT * FROM usuarios WHERE (id = ? OR (email_hash IS NOT NULL AND email_hash = ?)) AND activo = 1 LIMIT 1',
-      [authUser.id, emailHash]
-    );
+    let rows = [];
+    if (emailHash) {
+      [rows] = await pool.query(
+        'SELECT * FROM usuarios WHERE email_hash = ? AND activo = 1 LIMIT 1',
+        [emailHash]
+      );
+    }
+    if ((!rows || rows.length === 0) && authUser.id) {
+      [rows] = await pool.query(
+        'SELECT * FROM usuarios WHERE id = ? AND activo = 1 LIMIT 1',
+        [authUser.id]
+      );
+    }
     if (rows && rows[0]) {
       userRow = rows[0];
       const [dirs] = await pool.query(
@@ -1120,21 +1129,30 @@ router.patch('/auth/perfil', async (req, res) => {
   // 2. Intentar actualizar en MySQL si la base de datos está disponible
   try {
     const emailHash = authUser.email ? hashLookup(authUser.email) : null;
-    await pool.query(
-      `UPDATE usuarios 
-       SET nombre_completo_enc = ?, empresa_enc = ?, tipo_documento = ?, numero_documento_enc = ?, telefono_enc = ?
-       WHERE id = ? OR (email_hash IS NOT NULL AND email_hash = ?)`,
-      [nombreEnc, empresaEnc, cleanTipoDoc, numDocEnc, telEnc, authUser.id, emailHash]
-    );
+    let targetRow = null;
+    if (emailHash) {
+      const [fRows] = await pool.query('SELECT * FROM usuarios WHERE email_hash = ? LIMIT 1', [emailHash]);
+      if (fRows && fRows[0]) targetRow = fRows[0];
+    }
+    if (!targetRow && authUser.id) {
+      const [fRows] = await pool.query('SELECT * FROM usuarios WHERE id = ? LIMIT 1', [authUser.id]);
+      if (fRows && fRows[0]) targetRow = fRows[0];
+    }
 
-    const [rows] = await pool.query(
-      'SELECT * FROM usuarios WHERE id = ? OR (email_hash IS NOT NULL AND email_hash = ?) LIMIT 1',
-      [authUser.id, emailHash]
-    );
-    if (rows && rows[0]) {
-      const dbSafe = formatSafeUser(rows[0]);
-      if (dbSafe && dbSafe.telefono) {
-        safeUser = dbSafe;
+    if (targetRow) {
+      await pool.query(
+        `UPDATE usuarios 
+         SET nombre_completo_enc = ?, empresa_enc = ?, tipo_documento = ?, numero_documento_enc = ?, telefono_enc = ?
+         WHERE id = ?`,
+        [nombreEnc, empresaEnc, cleanTipoDoc, numDocEnc, telEnc, targetRow.id]
+      );
+
+      const [rows] = await pool.query('SELECT * FROM usuarios WHERE id = ? LIMIT 1', [targetRow.id]);
+      if (rows && rows[0]) {
+        const dbSafe = formatSafeUser(rows[0]);
+        if (dbSafe && dbSafe.telefono) {
+          safeUser = dbSafe;
+        }
       }
     }
   } catch (_) {
@@ -1164,8 +1182,15 @@ router.post('/auth/cambiar-password', async (req, res) => {
   const cleanNewPass = String(nueva_password).trim();
 
   try {
-    const [rows] = await pool.query('SELECT * FROM usuarios WHERE id = ? LIMIT 1', [authUser.id]);
-    const userRow = rows[0];
+    const emailHash = authUser.email ? hashLookup(authUser.email) : null;
+    let rows = [];
+    if (emailHash) {
+      [rows] = await pool.query('SELECT * FROM usuarios WHERE email_hash = ? AND activo = 1 LIMIT 1', [emailHash]);
+    }
+    if ((!rows || rows.length === 0) && authUser.id) {
+      [rows] = await pool.query('SELECT * FROM usuarios WHERE id = ? AND activo = 1 LIMIT 1', [authUser.id]);
+    }
+    const userRow = rows ? rows[0] : null;
 
     if (userRow) {
       if (userRow.password_hash) {
@@ -1178,10 +1203,14 @@ router.post('/auth/cambiar-password', async (req, res) => {
       }
 
       const newHash = hashPassword(cleanNewPass);
-      await pool.query('UPDATE usuarios SET password_hash = ? WHERE id = ?', [newHash, authUser.id]);
+      await pool.query('UPDATE usuarios SET password_hash = ? WHERE id = ?', [newHash, userRow.id]);
       userRow.password_hash = newHash;
 
-      const memUser = usuariosFallback.find((u) => Number(u.id) === Number(authUser.id));
+      let memUser = usuariosFallback.find((u) =>
+        (emailHash && u.email_hash === emailHash) ||
+        Number(u.id) === Number(userRow.id) ||
+        Number(u.id) === Number(authUser.id)
+      );
       if (memUser) {
         memUser.password_hash = newHash;
       }
