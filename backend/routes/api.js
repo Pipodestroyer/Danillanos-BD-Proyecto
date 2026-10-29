@@ -2137,7 +2137,17 @@ router.post('/soporte/:id/mensaje', async (req, res) => {
     fecha: new Date().toISOString()
   };
 
+  try {
+    const [dbRows] = await pool.query('SELECT estado FROM tickets_soporte WHERE id = ?', [ticketId]);
+    if (dbRows && dbRows[0] && (dbRows[0].estado === 'resuelto' || dbRows[0].estado === 'cerrado')) {
+      return res.status(400).json({ ok: false, message: 'Este ticket ya fue resuelto y cerrado. El chat está bloqueado.' });
+    }
+  } catch (_) {}
+
   let tk = ticketsFallback.find((t) => Number(t.id) === ticketId);
+  if (tk && (tk.estado === 'resuelto' || tk.estado === 'cerrado')) {
+    return res.status(400).json({ ok: false, message: 'Este ticket ya fue resuelto y cerrado. El chat está bloqueado.' });
+  }
   if (!tk) {
     tk = {
       id: ticketId,

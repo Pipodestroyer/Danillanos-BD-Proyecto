@@ -37,6 +37,13 @@
         localStorage.removeItem('danillanos_tickets_store');
         localStorage.removeItem('danillanos_orders_overrides');
       }
+    // Si la versión local contiene tickets obsoletos de pruebas previas, purgarlos
+    const ticketVersionKey = 'danillanos_tickets_version_v4';
+    if (!localStorage.getItem(ticketVersionKey)) {
+      localStorage.removeItem('danillanos_tickets_store');
+      localStorage.removeItem('danillanos_orders_overrides');
+      localStorage.setItem(ticketVersionKey, '1');
+    }
     }
   } catch (_) {}
 
@@ -2282,50 +2289,36 @@
   }
 
   function mergeTicketsWithLocal(serverTickets = []) {
-    const localList = getLocalTicketsStore();
-    const map = new Map();
-    serverTickets.forEach((t) => {
-      const msgs = Array.isArray(t.mensajes) && t.mensajes.length > 0
-        ? t.mensajes
-        : [
-            {
-              id: 1,
-              autor: 'Cliente',
-              rol: 'cliente',
-              texto: t.descripcion || t.asunto,
-              fecha: t.creado_en || new Date().toISOString()
-            },
-            ...(t.respuesta_soporte
-              ? [
-                  {
-                    id: 2,
-                    autor: 'Soporte Danillanos',
-                    rol: 'soporte',
-                    texto: t.respuesta_soporte,
-                    fecha: new Date().toISOString()
-                  }
-                ]
-              : [])
-          ];
-      map.set(Number(t.id), { ...t, mensajes: msgs });
-    });
-    localList.forEach((lt) => {
-      const existing = map.get(Number(lt.id));
-      if (!existing) {
-        map.set(Number(lt.id), lt);
-      } else {
-        const useMsgs = (lt.mensajes || []).length >= (existing.mensajes || []).length ? lt.mensajes : existing.mensajes;
-        map.set(Number(lt.id), {
-          ...existing,
-          ...lt,
-          estado: lt.estado || existing.estado,
-          mensajes: useMsgs
-        });
-      }
-    });
-    const merged = Array.from(map.values()).sort((a, b) => Number(b.id) - Number(a.id));
-    saveLocalTicketsStore(merged);
-    return merged;
+    if (Array.isArray(serverTickets)) {
+      const merged = serverTickets.map((t) => {
+        const msgs = Array.isArray(t.mensajes) && t.mensajes.length > 0
+          ? t.mensajes
+          : [
+              {
+                id: 1,
+                autor: 'Cliente',
+                rol: 'cliente',
+                texto: t.descripcion || t.asunto,
+                fecha: t.creado_en || new Date().toISOString()
+              },
+              ...(t.respuesta_soporte
+                ? [
+                    {
+                      id: 2,
+                      autor: 'Soporte Danillanos',
+                      rol: 'soporte',
+                      texto: t.respuesta_soporte,
+                      fecha: new Date().toISOString()
+                    }
+                  ]
+                : [])
+            ];
+        return { ...t, mensajes: msgs };
+      }).sort((a, b) => Number(b.id) - Number(a.id));
+      saveLocalTicketsStore(merged);
+      return merged;
+    }
+    return [];
   }
 
   function getInvoiceCode(orderId) {
@@ -4594,12 +4587,10 @@ async function loadCustomerSupportTickets() {
         const serverTickets = Array.isArray(data.data)
           ? data.data
           : (Array.isArray(data.tickets) ? data.tickets : []);
-        if (serverTickets.length > 0) {
-          state.customerTickets = mergeTicketsWithLocal(serverTickets);
-          if (badge) badge.textContent = String(state.customerTickets.length);
-          renderCustomerSupportTicketsList();
-          syncUserNotificationDots();
-        }
+        state.customerTickets = mergeTicketsWithLocal(serverTickets);
+        if (badge) badge.textContent = String(state.customerTickets.length);
+        renderCustomerSupportTicketsList();
+        syncUserNotificationDots();
       }
     } catch (_) {}
   }
@@ -7091,11 +7082,11 @@ async function loadCustomerSupportTickets() {
    * 2. Historial y Buscador Filtrable de Pedidos, Facturas, Entregas y Reembolsos
    */
   function renderSoportePanel() {
-    if ((!state.staffTickets || state.staffTickets.length === 0) && typeof getLocalTicketsStore === 'function') {
-      state.staffTickets = getLocalTicketsStore();
+    if (state.staffTickets === null || state.staffTickets === undefined) {
+      state.staffTickets = [];
     }
     const tkQuery = (document.getElementById('soporteTicketSearchInput')?.value || '').trim().toLowerCase();
-    const tkStatus = document.getElementById('soporteTicketStatusFilter')?.value || 'todos';
+    const tkStatus = document.getElementById('soporteTicketStatusFilter')?.value || 'activos';
 
     const filteredTickets = (state.staffTickets || []).filter((tk) => {
       if (tkStatus === 'activos' && tk.estado === 'resuelto') return false;
@@ -7191,41 +7182,44 @@ async function loadCustomerSupportTickets() {
                         .join('')}
                     </div>
 
-                    <div class="minichat-input-box-wrapper" style="margin-top:0.85rem;">
-                      <div class="chat-draft-preview-strip ${draftPhoto ? '' : 'hidden'}" id="staffChatDraftStrip_${tk.id}">
-                        <div class="chat-draft-preview-box">
-                          <img src="${draftPhoto || ''}" id="staffChatDraftImg_${tk.id}" alt="Foto adjunta" />
-                          <button type="button" class="chat-draft-remove-btn" data-remove-staff-draft="${tk.id}" title="Quitar imagen">
-                            <span class="material-symbols-rounded">close</span>
-                          </button>
-                        </div>
-                        <span class="chat-draft-hint">Fotografía adjunta para el cliente</span>
-                      </div>
+                    ${
+                      tk.estado !== 'resuelto' && tk.estado !== 'cerrado'
+                        ? `<div class="minichat-input-box-wrapper" style="margin-top:0.85rem;">
+                             <div class="chat-draft-preview-strip ${draftPhoto ? '' : 'hidden'}" id="staffChatDraftStrip_${tk.id}">
+                               <div class="chat-draft-preview-box">
+                                 <img src="${draftPhoto || ''}" id="staffChatDraftImg_${tk.id}" alt="Foto adjunta" />
+                                 <button type="button" class="chat-draft-remove-btn" data-remove-staff-draft="${tk.id}" title="Quitar imagen">
+                                   <span class="material-symbols-rounded">close</span>
+                                 </button>
+                               </div>
+                               <span class="chat-draft-hint">Fotografía adjunta para el cliente</span>
+                             </div>
 
-                      <div class="minichat-input-row">
-                        <label class="chat-attach-btn" title="Adjuntar imagen o foto">
-                          <span class="material-symbols-rounded">add_photo_alternate</span>
-                          <input type="file" accept="image/*" class="hidden" data-staff-attach-input="${tk.id}" />
-                        </label>
-                        <input
-                          type="text"
-                          class="modal-input"
-                          id="staffTicketChatInput_${tk.id}"
-                          placeholder="Escribe una respuesta en el chat para el cliente..."
-                        />
-                        <button type="button" class="chat-send-btn" data-staff-send-chat="${tk.id}" title="Enviar mensaje">
-                          <span class="material-symbols-rounded">send</span>
-                        </button>
-                        ${
-                          tk.estado !== 'resuelto'
-                            ? `<button type="button" class="btn-confirm-order" data-resolve-ticket="${tk.id}">
+                             <div class="minichat-input-row">
+                               <label class="chat-attach-btn" title="Adjuntar imagen o foto">
+                                 <span class="material-symbols-rounded">add_photo_alternate</span>
+                                 <input type="file" accept="image/*" class="hidden" data-staff-attach-input="${tk.id}" />
+                               </label>
+                               <input
+                                 type="text"
+                                 class="modal-input"
+                                 id="staffTicketChatInput_${tk.id}"
+                                 placeholder="Escribe una respuesta en el chat para el cliente..."
+                               />
+                               <button type="button" class="chat-send-btn" data-staff-send-chat="${tk.id}" title="Enviar mensaje">
+                                 <span class="material-symbols-rounded">send</span>
+                               </button>
+                               <button type="button" class="btn-confirm-order" data-resolve-ticket="${tk.id}">
                                  <span class="material-symbols-rounded">check_circle</span>
                                  <span>Resolver</span>
-                               </button>`
-                            : ''
-                        }
-                      </div>
-                    </div>
+                               </button>
+                             </div>
+                           </div>`
+                        : `<div class="detail-box" style="margin-top:0.85rem; padding:0.65rem 1rem; text-align:center; font-size:0.86rem; color:var(--text-muted); background:var(--bg-secondary); border-radius:10px; border:1px solid rgba(16, 185, 129, 0.25);">
+                             <span class="material-symbols-rounded" style="font-size:1.15rem; vertical-align:middle; color:#10b981; margin-right:0.35rem;">task_alt</span>
+                             <span>Este ticket ya fue <strong>resuelto y cerrado</strong>. Se encuentra archivado en el historial y el chat está bloqueado.</span>
+                           </div>`
+                    }
                   </div>
                 </article>
               `;
