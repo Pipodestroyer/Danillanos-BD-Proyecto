@@ -2444,13 +2444,15 @@ router.delete('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, re
  */
 router.get('/staff/usuarios', requireStaffRole(['admin']), async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM usuarios ORDER BY id ASC');
+    const [rows] = await pool.query("SELECT * FROM usuarios WHERE rol != 'cliente' ORDER BY id ASC");
     if (rows.length > 0) {
       return res.json({ ok: true, data: rows.map(formatSafeUser) });
     }
-    return res.json({ ok: true, data: usuariosFallback.map(formatSafeUser) });
+    const staffFallback = usuariosFallback.filter((u) => u.rol !== 'cliente');
+    return res.json({ ok: true, data: staffFallback.map(formatSafeUser) });
   } catch (error) {
-    return res.json({ ok: true, data: usuariosFallback.map(formatSafeUser) });
+    const staffFallback = usuariosFallback.filter((u) => u.rol !== 'cliente');
+    return res.json({ ok: true, data: staffFallback.map(formatSafeUser) });
   }
 });
 
@@ -2465,52 +2467,47 @@ router.post('/staff/usuarios', requireStaffRole(['admin']), async (req, res) => 
   }
 
   const cleanEmail = String(email).trim().toLowerCase();
-  const validRoles = ['empleado', 'entregador', 'soporte', 'admin', 'cliente'];
+  const validRoles = ['empleado', 'entregador', 'soporte', 'admin'];
   const userRole = validRoles.includes(rol) ? rol : 'empleado';
   const cleanName = (nombre_completo || cleanEmail.split('@')[0]).trim();
 
   const emailHash = hashLookup(cleanEmail);
-  const emailEnc = encryptData(cleanEmail);
-  const nombreEnc = encryptData(cleanName);
 
   try {
     const [existing] = await pool.query('SELECT * FROM usuarios WHERE email_hash = ? LIMIT 1', [emailHash]);
-    if (existing.length > 0) {
-      const u = existing[0];
-      await pool.query('UPDATE usuarios SET rol = ?, activo = 1 WHERE id = ?', [userRole, u.id]);
-      const [updated] = await pool.query('SELECT * FROM usuarios WHERE id = ?', [u.id]);
-      const safe = formatSafeUser(updated[0]);
-      return res.json({ ok: true, user: safe, updated: true, message: `Usuario ${cleanEmail} actualizado al rol ${userRole}.` });
-    } else {
-      const tempPassHash = hashPassword(`Danillanos.${Date.now()}`);
-      const [result] = await pool.query(
-        `INSERT INTO usuarios (username, nombre_completo_enc, email_hash, email_enc, password_hash, rol, activo)
-         VALUES (?, ?, ?, ?, ?, ?, 1)`,
-        [cleanName, nombreEnc, emailHash, emailEnc, tempPassHash, userRole]
-      );
-      const [inserted] = await pool.query('SELECT * FROM usuarios WHERE id = ?', [result.insertId]);
-      const safe = formatSafeUser(inserted[0]);
-      return res.json({ ok: true, user: safe, created: true, message: `Empleado ${cleanEmail} creado exitosamente con rol ${userRole}.` });
+    if (existing.length === 0) {
+      return res.status(404).json({
+        ok: false,
+        message: 'El usuario no está registrado en la plataforma. Primero debe crearse una cuenta antes de poder añadirlo a la lista de empleados.'
+      });
     }
+
+    const u = existing[0];
+    await pool.query('UPDATE usuarios SET rol = ?, activo = 1 WHERE id = ?', [userRole, u.id]);
+    const [updated] = await pool.query('SELECT * FROM usuarios WHERE id = ?', [u.id]);
+    const safe = formatSafeUser(updated[0]);
+    return res.json({
+      ok: true,
+      user: safe,
+      updated: true,
+      message: `Usuario ${cleanEmail} asignado exitosamente al rol de ${userRole.toUpperCase()}.`
+    });
   } catch (err) {
     let memUser = usuariosFallback.find((u) => u.email && u.email.toLowerCase() === cleanEmail);
-    if (memUser) {
-      memUser.rol = userRole;
-      memUser.activo = 1;
-      return res.json({ ok: true, user: formatSafeUser(memUser), updated: true, message: `Usuario ${cleanEmail} actualizado a rol ${userRole}.` });
-    } else {
-      const newId = usuariosFallback.length ? Math.max(...usuariosFallback.map((u) => u.id || 0)) + 1 : 10;
-      const newUser = {
-        id: newId,
-        username: cleanName,
-        nombre_completo: cleanName,
-        email: cleanEmail,
-        rol: userRole,
-        activo: 1
-      };
-      usuariosFallback.push(newUser);
-      return res.json({ ok: true, user: formatSafeUser(newUser), created: true, message: `Empleado ${cleanEmail} creado exitosamente con rol ${userRole}.` });
+    if (!memUser) {
+      return res.status(404).json({
+        ok: false,
+        message: 'El usuario no está registrado en la plataforma. Primero debe crearse una cuenta antes de poder añadirlo a la lista de empleados.'
+      });
     }
+    memUser.rol = userRole;
+    memUser.activo = 1;
+    return res.json({
+      ok: true,
+      user: formatSafeUser(memUser),
+      updated: true,
+      message: `Usuario ${cleanEmail} asignado exitosamente al rol de ${userRole.toUpperCase()}.`
+    });
   }
 });
 
@@ -2520,6 +2517,16 @@ router.post('/staff/usuarios', requireStaffRole(['admin']), async (req, res) => 
  */
 router.patch('/staff/usuarios/:id', requireStaffRole(['admin']), async (req, res) => {
   const userId = Number(req.params.id);
+  const currentAdminId = req.user && Number(req.user.id);
+
+  // Protección anti-bloqueo del Administrador
+  if (userId === 1 || (currentAdminId && userId === currentAdminId)) {
+    return res.status(403).json({
+      ok: false,
+      message: 'No puedes modificar el rol ni desactivar tu propia cuenta de Administrador principal.'
+    });
+  }
+
   const { rol, activo } = req.body;
   const validRoles = ['cliente', 'empleado', 'entregador', 'soporte', 'admin'];
 

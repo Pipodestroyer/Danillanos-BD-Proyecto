@@ -128,6 +128,142 @@
     // Notificaciones laterales flotantes desactivadas para no superponerse a la interfaz
   }
 
+  function showAppDialog({ title = 'Notificación', message = '', type = 'info', confirmText = 'Entendido' } = {}) {
+    let modal = document.getElementById('danillanosAppDialogModal');
+    if (!modal) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = `
+        <div class="modal-backdrop hidden" id="danillanosAppDialogModal" style="z-index: 9999;">
+          <div class="modal-card" style="max-width: 440px; text-align: center; padding: 2rem 1.6rem; border-radius: var(--radius-xl, 20px);">
+            <div id="danillanosAppDialogIcon" style="width: 58px; height: 58px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.1rem;"></div>
+            <h3 id="danillanosAppDialogTitle" style="font-size: 1.25rem; font-weight: 800; margin-bottom: 0.6rem; color: var(--text-primary);"></h3>
+            <p id="danillanosAppDialogMessage" style="font-size: 0.92rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 1.5rem;"></p>
+            <button type="button" class="btn-primary btn-full" id="danillanosAppDialogConfirmBtn" style="justify-content: center; font-weight: 700; padding: 0.82rem 1.2rem;">
+              <span id="danillanosAppDialogConfirmText">Entendido</span>
+            </button>
+          </div>
+        </div>
+      `;
+      modal = wrap.firstElementChild;
+      document.body.appendChild(modal);
+      modal.querySelector('#danillanosAppDialogConfirmBtn')?.addEventListener('click', () => {
+        closeAppDialog();
+      });
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeAppDialog();
+      });
+    }
+
+    const iconEl = modal.querySelector('#danillanosAppDialogIcon');
+    const titleEl = modal.querySelector('#danillanosAppDialogTitle');
+    const msgEl = modal.querySelector('#danillanosAppDialogMessage');
+    const btnText = modal.querySelector('#danillanosAppDialogConfirmText');
+
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+    btnText.textContent = confirmText;
+
+    if (type === 'error') {
+      iconEl.style.backgroundColor = 'rgba(224, 26, 44, 0.12)';
+      iconEl.style.color = 'var(--brand-red, #e01a2c)';
+      iconEl.innerHTML = '<span class="material-symbols-rounded" style="font-size: 2.2rem;">error</span>';
+    } else if (type === 'success') {
+      iconEl.style.backgroundColor = 'rgba(16, 185, 129, 0.12)';
+      iconEl.style.color = '#10b981';
+      iconEl.innerHTML = '<span class="material-symbols-rounded" style="font-size: 2.2rem;">check_circle</span>';
+    } else {
+      iconEl.style.backgroundColor = 'rgba(2, 132, 199, 0.12)';
+      iconEl.style.color = '#0284c7';
+      iconEl.innerHTML = '<span class="material-symbols-rounded" style="font-size: 2.2rem;">info</span>';
+    }
+
+    modal.classList.remove('hidden');
+  }
+
+  function closeAppDialog() {
+    const modal = document.getElementById('danillanosAppDialogModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function showAuthInlineFeedback(formType, message, type = 'error') {
+    let el = document.getElementById(formType === 'login' ? 'loginInlineFeedback' : 'registerInlineFeedback');
+    if (!el) {
+      const form = document.getElementById(formType === 'login' ? 'loginForm' : 'registerForm');
+      if (form) {
+        el = document.createElement('div');
+        el.id = formType === 'login' ? 'loginInlineFeedback' : 'registerInlineFeedback';
+        el.className = 'auth-inline-feedback';
+        form.insertBefore(el, form.firstChild);
+      }
+    }
+    if (!el) return;
+
+    if (!message) {
+      el.classList.add('hidden');
+      el.textContent = '';
+      return;
+    }
+
+    const isError = type === 'error';
+    el.style.backgroundColor = isError ? 'rgba(224, 26, 44, 0.1)' : 'rgba(16, 185, 129, 0.1)';
+    el.style.color = isError ? 'var(--brand-red, #e01a2c)' : '#10b981';
+    el.style.border = isError ? '1px solid rgba(224, 26, 44, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)';
+    el.style.borderRadius = '12px';
+    el.style.padding = '0.65rem 0.95rem';
+    el.style.fontSize = '0.85rem';
+    el.style.fontWeight = '600';
+    el.style.marginBottom = '1rem';
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+    el.style.gap = '0.5rem';
+    el.innerHTML = `<span class="material-symbols-rounded" style="font-size: 1.15rem; flex-shrink: 0;">${isError ? 'error' : 'check_circle'}</span><span>${message}</span>`;
+    el.classList.remove('hidden');
+  }
+
+  function showCheckoutInlineFeedback(stepNum, message, type = 'error') {
+    let el = document.getElementById(`checkoutInlineFeedbackStep${stepNum}`);
+    if (!el) {
+      const parent = stepNum === 1
+        ? document.getElementById('wizardStep1')
+        : document.getElementById('wizardStep2');
+      if (parent) {
+        const actionsRow = parent.querySelector('.wizard-step-actions');
+        el = document.createElement('div');
+        el.id = `checkoutInlineFeedbackStep${stepNum}`;
+        el.className = 'auth-inline-feedback';
+        if (actionsRow) {
+          parent.insertBefore(el, actionsRow);
+        } else {
+          parent.appendChild(el);
+        }
+      }
+    }
+    if (!el) {
+      showAppDialog({ title: 'Atención', message, type, confirmText: 'Entendido' });
+      return;
+    }
+
+    if (!message) {
+      el.classList.add('hidden');
+      return;
+    }
+
+    const isError = type === 'error';
+    el.style.backgroundColor = isError ? 'rgba(224, 26, 44, 0.1)' : 'rgba(16, 185, 129, 0.1)';
+    el.style.color = isError ? 'var(--brand-red, #e01a2c)' : '#10b981';
+    el.style.border = isError ? '1px solid rgba(224, 26, 44, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)';
+    el.style.borderRadius = '12px';
+    el.style.padding = '0.75rem 1rem';
+    el.style.fontSize = '0.88rem';
+    el.style.fontWeight = '600';
+    el.style.margin = '1rem 0';
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+    el.style.gap = '0.55rem';
+    el.innerHTML = `<span class="material-symbols-rounded" style="font-size: 1.25rem; flex-shrink: 0;">${isError ? 'error' : 'check_circle'}</span><span>${message}</span>`;
+    el.classList.remove('hidden');
+  }
+
   function haversineKm(lat1, lng1, lat2, lng2) {
     const toRad = (d) => (d * Math.PI) / 180;
     const R = 6371;
@@ -2202,7 +2338,10 @@
               u.email === 'entregador@danillanos.com' ||
               u.email === 'soporte@danillanos.com'
           );
-        if (!hasLegacySeeds && Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (!hasLegacySeeds && Array.isArray(parsed) && parsed.length > 0) {
+          const onlyStaff = parsed.filter((u) => u.rol !== 'cliente');
+          return onlyStaff.length > 0 ? onlyStaff : [...DEFAULT_STAFF_USERS];
+        }
       }
     } catch (_) {}
     localStorage.setItem('danillanos_users_store', JSON.stringify(DEFAULT_STAFF_USERS));
@@ -3125,8 +3264,15 @@
       syncAuthViewportHeight(isReg ? 'register' : 'login');
     });
 
+    // Limpiar alertas de feedback al tipear
+    document.getElementById('loginEmail')?.addEventListener('input', () => showAuthInlineFeedback('login', ''));
+    document.getElementById('loginPassword')?.addEventListener('input', () => showAuthInlineFeedback('login', ''));
+    document.getElementById('regEmail')?.addEventListener('input', () => showAuthInlineFeedback('register', ''));
+    document.getElementById('regPassword')?.addEventListener('input', () => showAuthInlineFeedback('register', ''));
+
     loginForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
+      showAuthInlineFeedback('login', '');
       const email = document.getElementById('loginEmail').value.trim();
       const password = document.getElementById('loginPassword').value;
 
@@ -3134,7 +3280,7 @@
       const localUsers = getLocalUsersStore();
       const localMatch = localUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
       if (localMatch && localMatch.activo === false) {
-        alert('Esta cuenta se encuentra desactivada por el Administrador.');
+        showAuthInlineFeedback('login', 'Esta cuenta se encuentra desactivada por el Administrador.', 'error');
         return;
       }
 
@@ -3146,7 +3292,7 @@
         });
         const data = await res.json();
         if (!res.ok || !data.ok) {
-          alert(data.message || 'Credenciales incorrectas.');
+          showAuthInlineFeedback('login', data.message || 'Credenciales incorrectas.', 'error');
           return;
         }
         const finalUser = localMatch
@@ -3173,12 +3319,13 @@
           renderPerfilPageAuthState();
           return;
         }
-        alert('No se pudo iniciar sesión.');
+        showAuthInlineFeedback('login', 'No se pudo iniciar sesión. Verifica tu conexión e inténtalo nuevamente.', 'error');
       }
     });
 
     registerForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
+      showAuthInlineFeedback('register', '');
       const nombres = document.getElementById('regNombres')?.value.trim() || '';
       const apellidos = document.getElementById('regApellidos')?.value.trim() || '';
       const empresa = document.getElementById('regEmpresa')?.value.trim() || '';
@@ -3207,18 +3354,18 @@
         });
         const data = await res.json();
         if (!res.ok || !data.ok) {
-          alert(data.message || 'Error al registrar usuario');
+          showAuthInlineFeedback('register', data.message || 'Error al registrar usuario', 'error');
           return;
         }
         const usersList = getLocalUsersStore();
-        if (!usersList.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
+        if (data.user && data.user.rol !== 'cliente' && !usersList.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
           usersList.push({ ...data.user, activo: true });
           saveLocalUsersStore(usersList);
         }
         setSession(data.token, data.user, data.direcciones);
         renderPerfilPageAuthState();
       } catch (err) {
-        alert('Error al crear la cuenta.');
+        showAuthInlineFeedback('register', 'Error al crear la cuenta. Por favor verifica los datos ingresados.', 'error');
       }
     });
 
@@ -3242,17 +3389,17 @@
         const data = await res.json();
         if (data.ok) {
           const usersList = getLocalUsersStore();
-          if (data.user && !usersList.some((u) => u.email.toLowerCase() === data.user.email.toLowerCase())) {
+          if (data.user && data.user.rol !== 'cliente' && !usersList.some((u) => u.email.toLowerCase() === data.user.email.toLowerCase())) {
             usersList.push({ ...data.user, activo: true });
             saveLocalUsersStore(usersList);
           }
           setSession(data.token, data.user, data.direcciones);
           renderPerfilPageAuthState();
         } else {
-          alert(data.message || 'Error al autenticar con Google');
+          showAuthInlineFeedback('login', data.message || 'Error al autenticar con Google', 'error');
         }
       } catch (err) {
-        alert('Error al conectar con el servidor.');
+        showAuthInlineFeedback('login', 'Error al conectar con el servidor para iniciar con Google.', 'error');
       }
     }
 
@@ -3298,7 +3445,7 @@
                     });
                   }
                 } catch (_) {
-                  alert('No se pudo obtener la información de tu perfil de Google.');
+                  showAuthInlineFeedback('login', 'No se pudo obtener la información de tu perfil de Google.', 'error');
                 }
               }
             }
@@ -3805,7 +3952,12 @@
         populateCustomerSupportOrderSelect('');
         toggleNewTicketMenu(false);
         loadCustomerSupportTickets();
-        alert('Tu ticket de soporte ha sido abierto exitosamente.');
+        showAppDialog({
+          title: 'Ticket Creado',
+          message: 'Tu ticket de soporte ha sido abierto exitosamente. El equipo de atención Danillanos responderá a la brevedad.',
+          type: 'success',
+          confirmText: 'Entendido'
+        });
       }
     });
   }
@@ -4561,7 +4713,12 @@
 
     await loadCustomerSupportTickets();
     syncUserNotificationDots();
-    alert('Has cerrado el ticket correctamente.');
+    showAppDialog({
+      title: 'Ticket Finalizado',
+      message: 'Has cerrado el ticket correctamente. Permanecerá disponible para consulta en tu historial.',
+      type: 'success',
+      confirmText: 'Aceptar'
+    });
   }
 
 async function loadCustomerSupportTickets() {
@@ -5020,26 +5177,30 @@ async function loadCustomerSupportTickets() {
       const recPhone = document.getElementById('checkoutRecipientPhone')?.value.trim();
       const street = document.getElementById('addrStreet')?.value.trim();
       if (!recName || !recPhone || !street) {
-        alert('Completa el nombre de quien recibe, teléfono y dirección en el mapa.');
+        showCheckoutInlineFeedback(1, 'Por favor completa el nombre de quien recibe, celular y ubica la dirección en el mapa.', 'error');
         return;
       }
+      showCheckoutInlineFeedback(1, '');
       renderCheckoutPageItems();
       goToCheckoutStep(2);
     });
 
     document.getElementById('btnWizardBackToStep1')?.addEventListener('click', () => {
+      showCheckoutInlineFeedback(1, '');
       goToCheckoutStep(1);
     });
 
     document.getElementById('btnWizardToStep3')?.addEventListener('click', () => {
       if (state.cart.length === 0) {
-        alert('Tu carrito está vacío. Agrega productos antes de continuar al pago.');
+        showCheckoutInlineFeedback(2, 'Tu carrito está vacío. Agrega productos desde el catálogo antes de continuar al pago.', 'error');
         return;
       }
+      showCheckoutInlineFeedback(2, '');
       goToCheckoutStep(3);
     });
 
     document.getElementById('btnWizardBackToStep2')?.addEventListener('click', () => {
+      showCheckoutInlineFeedback(2, '');
       goToCheckoutStep(2);
     });
 
@@ -5818,6 +5979,16 @@ async function loadCustomerSupportTickets() {
       const toggleUserBtn = e.target.closest('[data-admin-toggle-user]');
       if (toggleUserBtn) {
         const userId = Number(toggleUserBtn.getAttribute('data-admin-toggle-user'));
+        const currentAdminId = state.user && Number(state.user.id);
+        if (userId === 1 || (currentAdminId && userId === currentAdminId)) {
+          showAppDialog({
+            title: 'Acción No Permitida',
+            message: 'No puedes desactivar tu propia cuenta de Administrador principal para evitar el bloqueo del sistema.',
+            type: 'error',
+            confirmText: 'Entendido'
+          });
+          return;
+        }
         const nextActive = toggleUserBtn.getAttribute('data-next-active') === '1';
 
         const usersList = getLocalUsersStore();
@@ -5876,6 +6047,17 @@ async function loadCustomerSupportTickets() {
       const roleSelect = e.target.closest('[data-admin-role-select]');
       if (roleSelect) {
         const userId = Number(roleSelect.getAttribute('data-admin-role-select'));
+        const currentAdminId = state.user && Number(state.user.id);
+        if (userId === 1 || (currentAdminId && userId === currentAdminId)) {
+          showAppDialog({
+            title: 'Acción No Permitida',
+            message: 'No puedes modificar el rol de tu propia cuenta de Administrador principal.',
+            type: 'error',
+            confirmText: 'Entendido'
+          });
+          loadAdminUsersAndRender();
+          return;
+        }
         const newRole = roleSelect.value;
 
         const usersList = getLocalUsersStore();
@@ -6354,38 +6536,21 @@ async function loadCustomerSupportTickets() {
         submitBtn.style.opacity = '0.7';
       }
 
-      const usersList = getLocalUsersStore();
-      const existingUser = usersList.find((u) => (u.email || '').toLowerCase() === email);
-      if (existingUser) {
-        existingUser.rol = rol;
-        existingUser.activo = true;
-        if (nombre) existingUser.nombre_completo = nombre;
-      } else {
-        const nextId = usersList.reduce((max, u) => Math.max(max, Number(u.id) || 0), 0) + 1;
-        usersList.unshift({
-          id: nextId,
-          email,
-          nombre_completo: nombre || email.split('@')[0],
-          rol,
-          activo: true,
-          telefono: 'N/A',
-          empresa: 'Danillanos'
+      let res = null;
+      let data = null;
+      try {
+        res = await fetch(`${CONFIG.api.baseUrl}/staff/usuarios`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            email,
+            nombre_completo: nombre,
+            rol
+          })
         });
-      }
-      saveLocalUsersStore(usersList);
-
-      if (state.serverApiV3) {
-        try {
-          await fetch(`${CONFIG.api.baseUrl}/staff/usuarios`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({
-              email,
-              nombre_completo: nombre,
-              rol
-            })
-          });
-        } catch (_) {}
+        data = await res.json();
+      } catch (err) {
+        data = { ok: false, message: 'Error de conexión con el servidor.' };
       }
 
       if (submitBtn) {
@@ -6393,13 +6558,32 @@ async function loadCustomerSupportTickets() {
         submitBtn.style.opacity = '1';
       }
 
+      if (!res || !res.ok || !data.ok) {
+        if (newEmpMsg) {
+          newEmpMsg.style.display = 'block';
+          newEmpMsg.style.color = '#ef4444';
+          newEmpMsg.textContent = '❌ ' + (data?.message || 'El usuario no está registrado en la plataforma. Primero debe crearse una cuenta antes de poder añadirlo a la lista de empleados.');
+        }
+        return;
+      }
+
+      // El usuario existe en la plataforma y su rol fue actualizado exitosamente
+      const usersList = getLocalUsersStore();
+      const existingUserIdx = usersList.findIndex((u) => (u.email || '').toLowerCase() === email);
+      if (existingUserIdx !== -1) {
+        usersList[existingUserIdx] = { ...usersList[existingUserIdx], ...(data.user || {}), rol, activo: true };
+      } else if (data.user) {
+        usersList.unshift(data.user);
+      }
+      saveLocalUsersStore(usersList);
+
       if (newEmpMsg) {
         newEmpMsg.style.display = 'block';
         newEmpMsg.style.color = '#16a34a';
-        newEmpMsg.textContent = `✔ Empleado (${email}) vinculado exitosamente con rol ${rol.toUpperCase()}.`;
+        newEmpMsg.textContent = `✔ ${data.message || `Usuario (${email}) vinculado exitosamente con rol ${rol.toUpperCase()}.`}`;
         setTimeout(() => {
           if (newEmpMsg) newEmpMsg.style.display = 'none';
-        }, 4500);
+        }, 5000);
       }
 
       newEmpForm.reset();
@@ -6495,11 +6679,24 @@ async function loadCustomerSupportTickets() {
       } catch (_) {}
     }
 
-    const users = getLocalUsersStore();
+    const allUsers = getLocalUsersStore();
+    const users = allUsers.filter((u) => u.rol !== 'cliente');
     state.staffUsers = users;
 
+    if (users.length === 0) {
+      container.innerHTML = `
+        <div style="text-align:center; padding: 2.8rem 1rem; color:var(--text-secondary); background:var(--bg-elevated); border-radius:var(--radius-lg); border:1px dashed var(--border-subtle);">
+          <span class="material-symbols-rounded" style="font-size:3.2rem; color:var(--text-muted); margin-bottom:0.6rem; display:block;">badge</span>
+          <p style="font-size:1rem; font-weight:700; color:var(--text-primary); margin:0;">No hay empleados vinculados actualmente</p>
+          <p style="font-size:0.84rem; color:var(--text-muted); margin-top:6px; max-width:440px; margin-inline:auto;">
+            Para vincular un empleado, la persona debe primero haberse registrado en la tienda. Luego escribe su correo electrónico en el formulario superior para asignarle su rol operativo.
+          </p>
+        </div>
+      `;
+      return;
+    }
+
     const rolesList = [
-      { value: 'cliente', label: 'Cliente' },
       { value: 'empleado', label: 'Empleado General' },
       { value: 'entregador', label: 'Entregador' },
       { value: 'soporte', label: 'Soporte' },
@@ -6509,6 +6706,9 @@ async function loadCustomerSupportTickets() {
     container.innerHTML = users
       .map((u) => {
         const isActive = u.activo !== false;
+        const currentAdminId = state.user && Number(state.user.id);
+        const isRootOrSelf = Number(u.id) === 1 || (currentAdminId && Number(u.id) === currentAdminId);
+
         return `
           <div class="admin-user-card">
             <div>
@@ -6517,6 +6717,7 @@ async function loadCustomerSupportTickets() {
                 <span class="order-status-pill ${isActive ? 'status-entregado' : 'status-cancelado'}">
                   ${isActive ? 'ACTIVO' : 'DESACTIVADO'}
                 </span>
+                ${isRootOrSelf ? '<span class="order-status-pill" style="background:#e0f2fe; color:#0284c7; font-weight:700;"><span class="material-symbols-rounded" style="font-size:0.95rem; vertical-align:middle; margin-right:3px;">shield_person</span>Administrador Principal</span>' : ''}
               </div>
               <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:2px;">
                 ${u.email} • Tel: ${u.telefono || 'N/A'} • ${u.empresa || 'Danillanos'}
@@ -6524,24 +6725,31 @@ async function loadCustomerSupportTickets() {
             </div>
 
             <div class="admin-user-controls">
-              <select class="driver-assign-select" data-admin-role-select="${u.id}" aria-label="Rol de usuario">
-                ${rolesList
-                  .map(
-                    (r) =>
-                      `<option value="${r.value}" ${u.rol === r.value ? 'selected' : ''}>${r.label}</option>`
-                  )
-                  .join('')}
-              </select>
-              <button
-                type="button"
-                class="${isActive ? 'btn-cancel-order' : 'btn-confirm-order'}"
-                data-admin-toggle-user="${u.id}"
-                data-next-active="${isActive ? '0' : '1'}"
-                style="padding:0.5rem 0.95rem; font-size:0.78rem;"
-              >
-                <span class="material-symbols-rounded" style="font-size:1rem;">${isActive ? 'person_off' : 'person_check'}</span>
-                <span>${isActive ? 'Desactivar Cuenta' : 'Activar Cuenta'}</span>
-              </button>
+              ${isRootOrSelf ? `
+                <span class="order-status-pill status-entregado" style="display:inline-flex; align-items:center; gap:0.4rem; font-weight:700; padding:0.55rem 0.95rem;">
+                  <span class="material-symbols-rounded" style="font-size:1.1rem;">shield_person</span>
+                  <span>Cuenta Principal Protegida</span>
+                </span>
+              ` : `
+                <select class="driver-assign-select" data-admin-role-select="${u.id}" aria-label="Rol de usuario">
+                  ${rolesList
+                    .map(
+                      (r) =>
+                        `<option value="${r.value}" ${u.rol === r.value ? 'selected' : ''}>${r.label}</option>`
+                    )
+                    .join('')}
+                </select>
+                <button
+                  type="button"
+                  class="${isActive ? 'btn-cancel-order' : 'btn-confirm-order'}"
+                  data-admin-toggle-user="${u.id}"
+                  data-next-active="${isActive ? '0' : '1'}"
+                  style="padding:0.5rem 0.95rem; font-size:0.78rem;"
+                >
+                  <span class="material-symbols-rounded" style="font-size:1rem;">${isActive ? 'person_off' : 'person_check'}</span>
+                  <span>${isActive ? 'Desactivar Cuenta' : 'Activar Cuenta'}</span>
+                </button>
+              `}
             </div>
           </div>
         `;
