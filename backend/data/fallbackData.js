@@ -90,5 +90,6 @@ module.exports = {
   direccionesFallback,
   pedidosFallback,
   ticketsFallback,
-  saveFallbackStore
+  saveFallbackStore,
+  loadFallbackStore
 };

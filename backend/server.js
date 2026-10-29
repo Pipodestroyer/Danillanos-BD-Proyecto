@@ -34,6 +34,7 @@ app.use('/api', (req, res, next) => {
     const stat = fs.statSync(apiRoutePath);
     if (stat.mtimeMs !== lastApiMtimeMs) {
       delete require.cache[require.resolve('./routes/api')];
+      delete require.cache[require.resolve('./data/fallbackData')];
       cachedApiRouter = require('./routes/api');
       lastApiMtimeMs = stat.mtimeMs;
     }

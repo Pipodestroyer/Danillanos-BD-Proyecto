@@ -2556,6 +2556,9 @@
 
   function switchCustomerProfileTab(tabName) {
     state.activeProfileTab = tabName || 'pedidos';
+    try {
+      sessionStorage.setItem('danillanos_active_profile_tab', state.activeProfileTab);
+    } catch (_) {}
 
     document.querySelectorAll('[data-profile-tab]').forEach((btn) => {
       btn.classList.toggle('active', btn.getAttribute('data-profile-tab') === state.activeProfileTab);
@@ -3003,6 +3006,9 @@
           avatar_url: (data.user.avatar_url && !data.user.avatar_url.includes('test-avatar-photo'))
             ? data.user.avatar_url
             : (state.user.avatar_url || data.user.avatar_url),
+          telefono: (data.user.telefono && String(data.user.telefono).trim())
+            ? String(data.user.telefono).trim()
+            : (state.user.telefono || ''),
           rol: normalizeRole(data.user.rol),
           has_password: (data.user.has_password !== undefined)
             ? data.user.has_password
@@ -3046,6 +3052,12 @@
     initSharedInvoiceModalEvents();
     initAccountPasswordModal();
     renderPerfilPageAuthState();
+    const savedActiveTab = (!window.location.hash) ? sessionStorage.getItem('danillanos_active_profile_tab') : null;
+    if (savedActiveTab && ['pedidos', 'direcciones', 'historial', 'soporte'].includes(savedActiveTab)) {
+      switchCustomerProfileTab(savedActiveTab);
+    } else {
+      syncProfileTabFromHash();
+    }
     window.addEventListener('hashchange', syncProfileTabFromHash);
     window.addEventListener('resize', () => updateCustomerTabSlider(true));
     if (document.fonts && document.fonts.ready) {
@@ -3570,7 +3582,7 @@
             avatar_url: (data.user.avatar_url && !data.user.avatar_url.includes('test-avatar-photo'))
               ? data.user.avatar_url
               : (state.user.avatar_url || data.user.avatar_url),
-            telefono: payload.telefono || data.user.telefono || '',
+            telefono: payload.telefono || data.user.telefono || state.user.telefono || '',
             has_password: (data.user.has_password !== undefined)
               ? data.user.has_password
               : Boolean(state.user.has_password)

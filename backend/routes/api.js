@@ -26,7 +26,8 @@ const {
   direccionesFallback,
   pedidosFallback,
   ticketsFallback,
-  saveFallbackStore
+  saveFallbackStore,
+  loadFallbackStore
 } = require('../data/fallbackData');
 
 // Cliente oficial de Google OAuth 2.0
@@ -963,36 +964,65 @@ router.get('/auth/me', async (req, res) => {
     return res.json({ authenticated: false, user: null, direcciones: [] });
   }
 
-  try {
-    const [rows] = await pool.query('SELECT * FROM usuarios WHERE id = ? AND activo = 1 LIMIT 1', [
-      authUser.id
-    ]);
-    if (!rows[0]) {
-      return res.json({ authenticated: false, user: null, direcciones: [] });
-    }
-    const [dirRows] = await pool.query(
-      'SELECT * FROM usuario_direcciones WHERE usuario_id = ? ORDER BY es_principal DESC, id ASC',
-      [authUser.id]
-    );
+  if (typeof loadFallbackStore === 'function') {
+    loadFallbackStore();
+  }
 
-    return res.json({
-      authenticated: true,
-      user: formatSafeUser(rows[0]),
-      direcciones: dirRows.map(formatSafeAddress)
-    });
-  } catch (error) {
-    const userRow = usuariosFallback.find((u) =>
+  let userRow = null;
+  let dirRows = [];
+
+  try {
+    const emailHash = authUser.email ? hashLookup(authUser.email) : null;
+    const [rows] = await pool.query(
+      'SELECT * FROM usuarios WHERE (id = ? OR (email_hash IS NOT NULL AND email_hash = ?)) AND activo = 1 LIMIT 1',
+      [authUser.id, emailHash]
+    );
+    if (rows && rows[0]) {
+      userRow = rows[0];
+      const [dirs] = await pool.query(
+        'SELECT * FROM usuario_direcciones WHERE usuario_id = ? ORDER BY es_principal DESC, id ASC',
+        [userRow.id]
+      );
+      dirRows = dirs.map(formatSafeAddress);
+    }
+  } catch (_) {
+    // Continuar a fallback
+  }
+
+  if (!userRow) {
+    userRow = usuariosFallback.find((u) =>
       Number(u.id) === Number(authUser.id) ||
       (authUser.email && u.email_enc && decryptData(u.email_enc) === authUser.email) ||
       (authUser.username && u.username === authUser.username)
     );
-    if (!userRow) return res.json({ authenticated: false, user: null, direcciones: [] });
-    return res.json({
-      authenticated: true,
-      user: formatSafeUser(userRow),
-      direcciones: direccionesFallback.filter((d) => Number(d.usuario_id) === Number(userRow.id)).map(formatSafeAddress)
-    });
+    if (userRow) {
+      dirRows = direccionesFallback
+        .filter((d) => Number(d.usuario_id) === Number(userRow.id))
+        .map(formatSafeAddress);
+    }
   }
+
+  if (!userRow) {
+    return res.json({ authenticated: false, user: null, direcciones: [] });
+  }
+
+  const safeUser = formatSafeUser(userRow);
+  const memUser = usuariosFallback.find((u) =>
+    Number(u.id) === Number(authUser.id) ||
+    (authUser.email && u.email_enc && decryptData(u.email_enc) === authUser.email)
+  );
+  if (memUser) {
+    const memSafe = formatSafeUser(memUser);
+    if (!safeUser.telefono && memSafe.telefono) safeUser.telefono = memSafe.telefono;
+    if (!safeUser.avatar_url && memSafe.avatar_url) safeUser.avatar_url = memSafe.avatar_url;
+    if (!safeUser.has_password && memSafe.has_password) safeUser.has_password = true;
+  }
+
+  return res.json({
+    authenticated: true,
+    user: safeUser,
+    direcciones: dirRows
+  });
 });
 
 /**
@@ -1023,112 +1053,102 @@ router.patch('/auth/perfil', async (req, res) => {
   const numDocEnc = cleanNumDoc ? encryptData(cleanNumDoc) : null;
   const telEnc = cleanTel ? encryptData(cleanTel) : null;
 
+  if (typeof loadFallbackStore === 'function') {
+    loadFallbackStore();
+  }
+
+  // 1. Siempre actualizar en memoria y persistir en disco
+  let memUser = usuariosFallback.find((u) =>
+    Number(u.id) === Number(authUser.id) ||
+    (authUser.email && u.email_enc && decryptData(u.email_enc) === authUser.email) ||
+    (email && u.email_enc && decryptData(u.email_enc) === email) ||
+    (authUser.username && u.username === authUser.username)
+  );
+
+  if (!memUser) {
+    const finalEmail = (email && !email.endsWith('@danillanos.com'))
+      ? email
+      : (authUser.email && !authUser.email.endsWith('@danillanos.com'))
+        ? authUser.email
+        : `${authUser.username || "usuario"}@danillanos.com`;
+    const finalAvatar = (avatar_url && !avatar_url.includes('test-avatar-photo'))
+      ? avatar_url
+      : (authUser.avatar_url && !authUser.avatar_url.includes('test-avatar-photo'))
+        ? authUser.avatar_url
+        : null;
+    memUser = {
+      id: authUser.id || Date.now(),
+      username: authUser.username || cleanNombre,
+      nombre_completo_enc: nombreEnc,
+      nombres_enc: encryptData(cleanNombre.split(" ")[0] || cleanNombre),
+      apellidos_enc: encryptData(cleanNombre.split(" ").slice(1).join(" ") || ""),
+      empresa_enc: empresaEnc,
+      tipo_documento: cleanTipoDoc,
+      numero_documento_enc: numDocEnc,
+      email_hash: hashLookup(finalEmail),
+      email_enc: encryptData(finalEmail),
+      telefono_enc: telEnc,
+      avatar_url: finalAvatar,
+      google_id_enc: (authUser.is_google || (finalAvatar && finalAvatar.includes('googleusercontent.com')))
+        ? encryptData(`google_${authUser.id || Date.now()}`)
+        : null,
+      rol: authUser.rol || "cliente",
+      activo: 1
+    };
+    usuariosFallback.push(memUser);
+  } else {
+    memUser.nombre_completo_enc = nombreEnc;
+    memUser.empresa_enc = empresaEnc;
+    memUser.tipo_documento = cleanTipoDoc;
+    memUser.numero_documento_enc = numDocEnc;
+    memUser.telefono_enc = telEnc;
+    if (avatar_url && !avatar_url.includes('test-avatar-photo')) {
+      memUser.avatar_url = avatar_url;
+    } else if (!memUser.avatar_url && authUser.avatar_url && !authUser.avatar_url.includes('test-avatar-photo')) {
+      memUser.avatar_url = authUser.avatar_url;
+    }
+    if (email && (!memUser.email_enc || decryptData(memUser.email_enc).endsWith('@danillanos.com'))) {
+      memUser.email_enc = encryptData(email);
+      memUser.email_hash = hashLookup(email);
+    }
+  }
+
+  saveFallbackStore();
+
+  let safeUser = formatSafeUser(memUser);
+
+  // 2. Intentar actualizar en MySQL si la base de datos está disponible
   try {
+    const emailHash = authUser.email ? hashLookup(authUser.email) : null;
     await pool.query(
       `UPDATE usuarios 
        SET nombre_completo_enc = ?, empresa_enc = ?, tipo_documento = ?, numero_documento_enc = ?, telefono_enc = ?
-       WHERE id = ?`,
-      [nombreEnc, empresaEnc, cleanTipoDoc, numDocEnc, telEnc, authUser.id]
+       WHERE id = ? OR (email_hash IS NOT NULL AND email_hash = ?)`,
+      [nombreEnc, empresaEnc, cleanTipoDoc, numDocEnc, telEnc, authUser.id, emailHash]
     );
 
-    const [rows] = await pool.query('SELECT * FROM usuarios WHERE id = ? LIMIT 1', [authUser.id]);
-    const safeUser = formatSafeUser(rows[0]);
-
-    // Actualizar también en el almacenamiento en memoria si existe
-    let memUser = usuariosFallback.find((u) => Number(u.id) === Number(authUser.id));
-    if (memUser) {
-      memUser.nombre_completo_enc = nombreEnc;
-      memUser.empresa_enc = empresaEnc;
-      memUser.tipo_documento = cleanTipoDoc;
-      memUser.numero_documento_enc = numDocEnc;
-      memUser.telefono_enc = telEnc;
-      if (avatar_url && !avatar_url.includes('test-avatar-photo')) {
-        memUser.avatar_url = avatar_url;
-      } else if (!memUser.avatar_url && authUser.avatar_url && !authUser.avatar_url.includes('test-avatar-photo')) {
-        memUser.avatar_url = authUser.avatar_url;
-      }
-      saveFallbackStore();
-    }
-
-    return res.json({
-      ok: true,
-      message: 'Información de perfil actualizada exitosamente.',
-      user: safeUser
-    });
-  } catch (error) {
-    // Si la BD externa no está activa o el usuario no existe en MySQL, actualizamos el fallback en memoria
-    let memUser = usuariosFallback.find((u) =>
-      Number(u.id) === Number(authUser.id) ||
-      (authUser.email && u.email_enc && decryptData(u.email_enc) === authUser.email) ||
-      (email && u.email_enc && decryptData(u.email_enc) === email) ||
-      (authUser.username && u.username === authUser.username)
+    const [rows] = await pool.query(
+      'SELECT * FROM usuarios WHERE id = ? OR (email_hash IS NOT NULL AND email_hash = ?) LIMIT 1',
+      [authUser.id, emailHash]
     );
-
-    if (!memUser) {
-      const finalEmail = (email && !email.endsWith('@danillanos.com'))
-        ? email
-        : (authUser.email && !authUser.email.endsWith('@danillanos.com'))
-          ? authUser.email
-          : `${authUser.username || "usuario"}@danillanos.com`;
-      const finalAvatar = (avatar_url && !avatar_url.includes('test-avatar-photo'))
-        ? avatar_url
-        : (authUser.avatar_url && !authUser.avatar_url.includes('test-avatar-photo'))
-          ? authUser.avatar_url
-          : null;
-      memUser = {
-        id: authUser.id || Date.now(),
-        username: authUser.username || cleanNombre,
-        nombre_completo_enc: nombreEnc,
-        nombres_enc: encryptData(cleanNombre.split(" ")[0] || cleanNombre),
-        apellidos_enc: encryptData(cleanNombre.split(" ").slice(1).join(" ") || ""),
-        empresa_enc: empresaEnc,
-        tipo_documento: cleanTipoDoc,
-        numero_documento_enc: numDocEnc,
-        email_hash: hashLookup(finalEmail),
-        email_enc: encryptData(finalEmail),
-        telefono_enc: telEnc,
-        avatar_url: finalAvatar,
-        google_id_enc: (authUser.is_google || (finalAvatar && finalAvatar.includes('googleusercontent.com')))
-          ? encryptData(`google_${authUser.id || Date.now()}`)
-          : null,
-        rol: authUser.rol || "cliente",
-        activo: 1
-      };
-      usuariosFallback.push(memUser);
-    } else {
-      memUser.nombre_completo_enc = nombreEnc;
-      memUser.empresa_enc = empresaEnc;
-      memUser.tipo_documento = cleanTipoDoc;
-      memUser.numero_documento_enc = numDocEnc;
-      memUser.telefono_enc = telEnc;
-      if (avatar_url && !avatar_url.includes('test-avatar-photo')) {
-        memUser.avatar_url = avatar_url;
-      } else if (!memUser.avatar_url && authUser.avatar_url && !authUser.avatar_url.includes('test-avatar-photo')) {
-        memUser.avatar_url = authUser.avatar_url;
-      }
-      if (email && (!memUser.email_enc || decryptData(memUser.email_enc).endsWith('@danillanos.com'))) {
-        memUser.email_enc = encryptData(email);
-        memUser.email_hash = hashLookup(email);
+    if (rows && rows[0]) {
+      const dbSafe = formatSafeUser(rows[0]);
+      if (dbSafe && dbSafe.telefono) {
+        safeUser = dbSafe;
       }
     }
-
-    saveFallbackStore();
-
-    return res.json({
-      ok: true,
-      source: 'fallback',
-      message: 'Información de perfil actualizada exitosamente.',
-      user: formatSafeUser(memUser)
-    });
+  } catch (_) {
+    // Si la BD externa está desconectada, safeUser ya está 100% garantizado con memUser
   }
+
+  return res.json({
+    ok: true,
+    message: 'Información de perfil actualizada exitosamente.',
+    user: safeUser
+  });
 });
 
 /**
- * POST /api/auth/cambiar-password
- * Permite cambiar la contraseña de la cuenta actual.
- * - Si el usuario ya tiene contraseña: se requiere y valida password_actual antes de cambiarla.
- * - Si el usuario inició con Google y no tiene contraseña: se asigna directamente la nueva contraseña.
- */
 router.post('/auth/cambiar-password', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
   if (!authUser) {
