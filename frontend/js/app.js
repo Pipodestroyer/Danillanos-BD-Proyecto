@@ -3825,9 +3825,20 @@
     });
 
     // Integración oficial de autenticación con Google Identity Services (GIS OAuth 2.0)
-    const GOOGLE_CLIENT_ID =
-      CONFIG.auth?.googleClientId ||
-      '394071429874-5ev2n04b6j7akvqg0rtaene6461smr10.apps.googleusercontent.com';
+    let GOOGLE_CLIENT_ID = CONFIG.auth?.googleClientId || '';
+    if (!GOOGLE_CLIENT_ID) {
+      try {
+        fetch(`${CONFIG.api.baseUrl}/health`)
+          .then((r) => r.json())
+          .then((data) => {
+            if (data && data.googleClientId) {
+              GOOGLE_CLIENT_ID = data.googleClientId;
+              initGoogleIdentityClient();
+            }
+          })
+          .catch(() => {});
+      } catch (_) {}
+    }
 
     let googleTokenClient = null;
 
@@ -3920,6 +3931,10 @@
     }
 
     document.getElementById('btnGoogleAuth')?.addEventListener('click', () => {
+      if (!GOOGLE_CLIENT_ID) {
+        showAuthInlineFeedback('login', 'El inicio con Google no está configurado en las variables de entorno del servidor.', 'info');
+        return;
+      }
       // Flujo de autenticación primario mediante ventana emergente OAuth 2.0
       if (googleTokenClient) {
         googleTokenClient.requestAccessToken({ prompt: 'select_account' });

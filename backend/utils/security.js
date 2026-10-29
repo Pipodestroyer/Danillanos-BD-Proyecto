@@ -17,17 +17,33 @@ require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 require('dotenv').config();
 
 /**
- * Semilla maestra para derivación de claves criptográficas.
- * Se obtiene prioritariamente desde SECURITY_SECRET en las variables de entorno.
- * @type {string}
+ * Resuelve las claves de cifrado y firma exclusivamente desde las variables de entorno.
+ * Si no se configuran en desarrollo, se genera una clave efímera segura para evitar secretos estáticos en código.
  */
-const SECRET_SEED = process.env.SECURITY_SECRET || 'Danillanos_AES256_Master_Key_Meta_Villavicencio_2026!';
+const rawEncryptionKey = process.env.ENCRYPTION_KEY || process.env.SECURITY_SECRET;
+const rawJwtSecret = process.env.JWT_SECRET || rawEncryptionKey;
+
+if (!rawEncryptionKey) {
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('⚠️ ADVERTENCIA DE SEGURIDAD: La variable ENCRYPTION_KEY no está configurada en el entorno de producción.');
+  }
+}
 
 /**
- * Clave simétrica de 256 bits (32 bytes) derivada con SHA-256 a partir de la semilla maestra.
+ * Clave simétrica de 256 bits (32 bytes) para cifrado AES-256-GCM.
  * @type {Buffer}
  */
-const AES_KEY = crypto.createHash('sha256').update(SECRET_SEED).digest();
+const AES_KEY = rawEncryptionKey
+  ? crypto.createHash('sha256').update(rawEncryptionKey).digest()
+  : crypto.randomBytes(32);
+
+/**
+ * Clave simétrica para firma y verificación de tokens de sesión JWT (HMAC-SHA256).
+ * @type {Buffer}
+ */
+const JWT_KEY = rawJwtSecret
+  ? crypto.createHash('sha256').update(rawJwtSecret).digest()
+  : AES_KEY;
 
 /**
  * Genera una derivación segura para contraseñas utilizando el algoritmo Scrypt con una sal aleatoria.
@@ -138,7 +154,7 @@ function signToken(payload, expiresInSeconds = 86400 * 7) {
   const exp = Math.floor(Date.now() / 1000) + expiresInSeconds;
   const body = Buffer.from(JSON.stringify({ ...payload, exp })).toString('base64url');
   const signature = crypto
-    .createHmac('sha256', AES_KEY)
+    .createHmac('sha256', JWT_KEY)
     .update(`${header}.${body}`)
     .digest('base64url');
   return `${header}.${body}.${signature}`;
@@ -159,7 +175,7 @@ function verifyToken(token) {
   try {
     const [header, body, signature] = parts;
     const expectedSig = crypto
-      .createHmac('sha256', AES_KEY)
+      .createHmac('sha256', JWT_KEY)
       .update(`${header}.${body}`)
       .digest('base64url');
 

@@ -37,10 +37,8 @@ const {
  * Instancia del cliente OAuth2 de Google para validación de tokens de identidad (GIS).
  * @type {OAuth2Client}
  */
-const GOOGLE_CLIENT_ID =
-  process.env.GOOGLE_CLIENT_ID ||
-  '394071429874-5ev2n04b6j7akvqg0rtaene6461smr10.apps.googleusercontent.com';
-const googleAuthClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const googleAuthClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
 /**
  * Coordenadas de referencia para el centro urbano de Villavicencio.
@@ -553,6 +551,7 @@ router.get('/health', async (req, res) => {
   res.json({
     ok: true,
     empresa: 'Danillanos Cárnicos, Congelados e Insumos',
+    googleClientId: GOOGLE_CLIENT_ID || null,
     sede: DANILLANOS_HQ,
     villavicencioCenter: VILLAVICENCIO_CENTER,
     villavicencioRadiusKm: VILLAVICENCIO_RADIUS_KM,

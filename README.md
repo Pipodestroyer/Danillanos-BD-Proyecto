@@ -211,7 +211,7 @@ JWT_SECRET=tu_clave_secreta_jwt_de_al_menos_32_caracteres
 ENCRYPTION_KEY=tu_clave_secreta_de_cifrado_de_32_caracteres_exactos
 
 # Google OAuth 2.0 (Opcional para Login con Google)
-GOOGLE_CLIENT_ID=394071429874-5ev2n04b6j7akvqg0rtaene6461smr10.apps.googleusercontent.com
+GOOGLE_CLIENT_ID=tu_cliente_id_de_google_oauth.apps.googleusercontent.com
 ```
 
 ### 3. Inicializar la Base de Datos
