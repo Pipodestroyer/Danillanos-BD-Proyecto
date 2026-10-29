@@ -297,14 +297,16 @@
 
       const logoutBtn = e.target.closest('#mobileDrawerLogoutBtn');
       if (logoutBtn) {
-        setSession(null, null, []);
-        closeMobileMenu();
-        showToast('Sesión cerrada correctamente', 'logout');
-        if (CURRENT_PAGE === 'panel' || CURRENT_PAGE === 'pagos') {
-          window.location.href = 'index.html';
-        } else if (CURRENT_PAGE === 'perfil') {
-          renderPerfilPageAuthState();
-        }
+        attemptUserLogout(() => {
+          setSession(null, null, []);
+          closeMobileMenu();
+          showToast('Sesión cerrada correctamente', 'logout');
+          if (CURRENT_PAGE === 'panel' || CURRENT_PAGE === 'pagos') {
+            window.location.href = 'index.html';
+          } else if (CURRENT_PAGE === 'perfil') {
+            renderPerfilPageAuthState();
+          }
+        });
         return;
       }
 
@@ -788,13 +790,15 @@
         const logoutBtn = document.getElementById('headerLogoutBtn');
         if (logoutBtn) {
           logoutBtn.addEventListener('click', () => {
-            setSession(null, null, []);
-            showToast('Sesión cerrada correctamente', 'logout');
-            if (CURRENT_PAGE === 'panel' || CURRENT_PAGE === 'pagos') {
-              window.location.href = 'index.html';
-            } else if (CURRENT_PAGE === 'perfil') {
-              renderPerfilPageAuthState();
-            }
+            attemptUserLogout(() => {
+              setSession(null, null, []);
+              showToast('Sesión cerrada correctamente', 'logout');
+              if (CURRENT_PAGE === 'panel' || CURRENT_PAGE === 'pagos') {
+                window.location.href = 'index.html';
+              } else if (CURRENT_PAGE === 'perfil') {
+                renderPerfilPageAuthState();
+              }
+            });
           });
         }
       }
@@ -2576,8 +2580,445 @@
     else if (h === '#mis-pedidos-section') switchCustomerProfileTab('pedidos');
   }
 
+  // ==========================================================================
+  // GESTION DE CONTRASENA Y POP-UP CUSTOMIZADO PARA ASIGNAR / CAMBIAR PASSWORD
+  // ==========================================================================
+  let currentPasswordModalCallback = null;
+  let currentPasswordModalRequiredForLogout = false;
+
+  function isGoogleUserWithoutPassword(user = state.user) {
+    if (!user) return false;
+    const isGoogle = Boolean(
+      user.is_google_account ||
+      (user.avatar_url && user.avatar_url.includes('googleusercontent.com'))
+    );
+    const hasPass = Boolean(user.has_password);
+    return isGoogle && !hasPass;
+  }
+
+  function attemptUserLogout(onSuccess) {
+    if (isGoogleUserWithoutPassword(state.user)) {
+      openPasswordModal({
+        isRequiredForLogout: true,
+        onPasswordSet: () => {
+          showToast('Contraseña asignada. Cerrando sesión...', 'success');
+          if (typeof onSuccess === 'function') {
+            setTimeout(() => {
+              onSuccess();
+            }, 700);
+          }
+        }
+      });
+      return false;
+    }
+
+    if (typeof onSuccess === 'function') {
+      onSuccess();
+    }
+    return true;
+  }
+
+  function ensureAccountPasswordModalInDOM() {
+    if (document.getElementById('accountPasswordModal')) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+    <div class="modal-backdrop hidden" id="accountPasswordModal" role="dialog" aria-modal="true" aria-labelledby="pwdModalTitle">
+      <div class="modal-card password-modal-dialog" style="max-width: 490px; width: 100%; padding: 1.85rem 2rem; border-radius: var(--radius-2xl);">
+        <div class="modal-header" style="margin-bottom: 1.25rem;">
+          <div class="modal-title-wrap">
+            <span class="material-symbols-rounded modal-title-icon" id="pwdModalIcon" style="font-size: 2rem; color: var(--brand-red);">lock</span>
+            <div>
+              <h3 class="modal-title" id="pwdModalTitle">Cambiar Contraseña</h3>
+              <p class="modal-subtitle" id="pwdModalSubtitle">
+                Actualiza tu clave de acceso para mayor seguridad.
+              </p>
+            </div>
+          </div>
+          <button type="button" class="icon-close-btn" id="btnClosePasswordModal" aria-label="Cerrar ventana">
+            <span class="material-symbols-rounded">close</span>
+          </button>
+        </div>
+
+        <div id="pwdModalRequiredNotice" class="hidden" style="background: rgba(224, 26, 44, 0.08); border: 1px solid rgba(224, 26, 44, 0.3); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 1.15rem; display: flex; align-items: flex-start; gap: 0.65rem;">
+          <span class="material-symbols-rounded" style="color: var(--brand-red); font-size: 1.35rem; flex-shrink: 0; margin-top: 2px;">shield_lock</span>
+          <div style="font-size: 0.82rem; line-height: 1.45; color: var(--text-primary);">
+            <strong style="color: var(--brand-red); display: block; margin-bottom: 2px;">Crea una contraseña antes de salir</strong>
+            Como ingresaste con tu cuenta de Google, debes asignar una contraseña personal a tu cuenta antes de cerrar sesión para que siempre puedas acceder a ella directamente.
+          </div>
+        </div>
+
+        <form id="accountPasswordForm" class="modal-form" novalidate>
+          <div class="form-group" id="pwdCurrentGroup">
+            <label for="pwdModalActual" style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 5px;">
+              Contraseña Actual *
+            </label>
+            <div style="position: relative;">
+              <input
+                type="password"
+                id="pwdModalActual"
+                class="modal-input"
+                placeholder="Ingresa tu contraseña actual"
+                autocomplete="current-password"
+                style="width: 100%; padding-right: 2.75rem; box-sizing: border-box;"
+              />
+              <button
+                type="button"
+                class="pwd-toggle-visibility-btn"
+                data-target="pwdModalActual"
+                style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 4px; display: flex; align-items: center;"
+                aria-label="Ver u ocultar contraseña"
+              >
+                <span class="material-symbols-rounded" style="font-size: 1.25rem;">visibility</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group" id="pwdNewGroup">
+            <label for="pwdModalNueva" style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 5px;">
+              Nueva Contraseña * (Mínimo 6 caracteres)
+            </label>
+            <div style="position: relative;">
+              <input
+                type="password"
+                id="pwdModalNueva"
+                class="modal-input"
+                placeholder="Define tu nueva contraseña"
+                minlength="6"
+                autocomplete="new-password"
+                required
+                style="width: 100%; padding-right: 2.75rem; box-sizing: border-box;"
+              />
+              <button
+                type="button"
+                class="pwd-toggle-visibility-btn"
+                data-target="pwdModalNueva"
+                style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 4px; display: flex; align-items: center;"
+                aria-label="Ver u ocultar contraseña"
+              >
+                <span class="material-symbols-rounded" style="font-size: 1.25rem;">visibility</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group" id="pwdConfirmGroup">
+            <label for="pwdModalConfirmar" style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 5px;">
+              Confirmar Nueva Contraseña *
+            </label>
+            <div style="position: relative;">
+              <input
+                type="password"
+                id="pwdModalConfirmar"
+                class="modal-input"
+                placeholder="Repite la nueva contraseña"
+                minlength="6"
+                autocomplete="new-password"
+                required
+                style="width: 100%; padding-right: 2.75rem; box-sizing: border-box;"
+              />
+              <button
+                type="button"
+                class="pwd-toggle-visibility-btn"
+                data-target="pwdModalConfirmar"
+                style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 4px; display: flex; align-items: center;"
+                aria-label="Ver u ocultar contraseña"
+              >
+                <span class="material-symbols-rounded" style="font-size: 1.25rem;">visibility</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="pwdModalFeedback" class="hidden" style="margin-top: 0.4rem; font-size: 0.82rem; padding: 0.65rem 0.85rem; border-radius: var(--radius-md);"></div>
+
+          <div class="modal-actions-row" style="margin-top: 1.25rem; display: flex; justify-content: flex-end; gap: 0.75rem;">
+            <button type="button" class="btn-secondary" id="btnCancelPasswordModal" style="padding: 0.65rem 1.2rem; font-size: 0.88rem;">
+              Cancelar
+            </button>
+            <button type="submit" class="btn-primary" id="btnSubmitPasswordModal" style="padding: 0.65rem 1.35rem; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 0.5rem;">
+              <span class="material-symbols-rounded" style="font-size: 1.15rem;">save</span>
+              <span id="btnSubmitPasswordText">Guardar Contraseña</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>`;
+    const el = wrapper.firstElementChild;
+    if (el) {
+      document.body.appendChild(el);
+    }
+  }
+
+  function openPasswordModal({ isRequiredForLogout = false, onPasswordSet = null } = {}) {
+    ensureAccountPasswordModalInDOM();
+    initAccountPasswordModal();
+
+    currentPasswordModalCallback = onPasswordSet;
+    currentPasswordModalRequiredForLogout = isRequiredForLogout;
+
+    const modal = document.getElementById('accountPasswordModal');
+    if (!modal) return;
+
+    const titleEl = document.getElementById('pwdModalTitle');
+    const subtitleEl = document.getElementById('pwdModalSubtitle');
+    const iconEl = document.getElementById('pwdModalIcon');
+    const noticeEl = document.getElementById('pwdModalRequiredNotice');
+    const currentGroup = document.getElementById('pwdCurrentGroup');
+    const submitTextEl = document.getElementById('btnSubmitPasswordText');
+    const cancelBtn = document.getElementById('btnCancelPasswordModal');
+    const feedbackEl = document.getElementById('pwdModalFeedback');
+    const form = document.getElementById('accountPasswordForm');
+
+    if (form) form.reset();
+    if (feedbackEl) {
+      feedbackEl.className = 'hidden';
+      feedbackEl.textContent = '';
+    }
+
+    modal.querySelectorAll('input[type="text"]').forEach((inp) => {
+      if (inp.id && inp.id.startsWith('pwdModal')) inp.type = 'password';
+    });
+    modal.querySelectorAll('.pwd-toggle-visibility-btn .material-symbols-rounded').forEach((icon) => {
+      icon.textContent = 'visibility';
+    });
+
+    const hasPass = Boolean(state.user && state.user.has_password);
+
+    if (isRequiredForLogout) {
+      if (titleEl) titleEl.textContent = 'Asignar Contraseña a tu Cuenta';
+      if (subtitleEl) subtitleEl.textContent = 'Crea una contraseña antes de salir para que puedas acceder siempre.';
+      if (iconEl) iconEl.textContent = 'shield_lock';
+      if (noticeEl) noticeEl.classList.remove('hidden');
+      if (currentGroup) currentGroup.classList.add('hidden');
+      if (submitTextEl) submitTextEl.textContent = 'Guardar y Cerrar Sesión';
+      if (cancelBtn) cancelBtn.textContent = 'Permanecer Conectado';
+    } else if (!hasPass) {
+      if (titleEl) titleEl.textContent = 'Crear Contraseña Personal';
+      if (subtitleEl) subtitleEl.textContent = 'Asigna una contraseña para acceder directamente con tu correo electrónico.';
+      if (iconEl) iconEl.textContent = 'lock_open';
+      if (noticeEl) noticeEl.classList.add('hidden');
+      if (currentGroup) currentGroup.classList.add('hidden');
+      if (submitTextEl) submitTextEl.textContent = 'Asignar Contraseña';
+      if (cancelBtn) cancelBtn.textContent = 'Cancelar';
+    } else {
+      if (titleEl) titleEl.textContent = 'Cambiar Contraseña';
+      if (subtitleEl) subtitleEl.textContent = 'Ingresa tu contraseña actual y define tu nueva contraseña segura.';
+      if (iconEl) iconEl.textContent = 'lock';
+      if (noticeEl) noticeEl.classList.add('hidden');
+      if (currentGroup) currentGroup.classList.remove('hidden');
+      if (submitTextEl) submitTextEl.textContent = 'Actualizar Contraseña';
+      if (cancelBtn) cancelBtn.textContent = 'Cancelar';
+    }
+
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+      const firstInput = isRequiredForLogout || !hasPass
+        ? document.getElementById('pwdModalNueva')
+        : document.getElementById('pwdModalActual');
+      firstInput?.focus();
+    }, 100);
+  }
+
+  function closePasswordModal() {
+    const modal = document.getElementById('accountPasswordModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    currentPasswordModalCallback = null;
+    currentPasswordModalRequiredForLogout = false;
+  }
+
+  async function handlePasswordFormSubmit(e) {
+    e.preventDefault();
+    const feedbackEl = document.getElementById('pwdModalFeedback');
+    const submitBtn = document.getElementById('btnSubmitPasswordModal');
+    const actualInp = document.getElementById('pwdModalActual');
+    const nuevaInp = document.getElementById('pwdModalNueva');
+    const confirmInp = document.getElementById('pwdModalConfirmar');
+
+    const passwordActual = actualInp ? actualInp.value : '';
+    const nuevaPassword = nuevaInp ? nuevaInp.value.trim() : '';
+    const confirmPassword = confirmInp ? confirmInp.value.trim() : '';
+
+    const hasPass = Boolean(state.user && state.user.has_password);
+
+    function showError(msg) {
+      if (!feedbackEl) return;
+      feedbackEl.textContent = msg;
+      feedbackEl.className = '';
+      feedbackEl.style.backgroundColor = 'rgba(224, 26, 44, 0.1)';
+      feedbackEl.style.color = 'var(--brand-red)';
+      feedbackEl.style.border = '1px solid rgba(224, 26, 44, 0.3)';
+      feedbackEl.classList.remove('hidden');
+    }
+
+    function showSuccess(msg) {
+      if (!feedbackEl) return;
+      feedbackEl.textContent = msg;
+      feedbackEl.className = '';
+      feedbackEl.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
+      feedbackEl.style.color = '#10b981';
+      feedbackEl.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+      feedbackEl.classList.remove('hidden');
+    }
+
+    if (hasPass && !currentPasswordModalRequiredForLogout && !passwordActual) {
+      showError('Por favor ingresa tu contraseña actual.');
+      actualInp?.focus();
+      return;
+    }
+
+    if (!nuevaPassword || nuevaPassword.length < 6) {
+      showError('La nueva contraseña debe tener al menos 6 caracteres.');
+      nuevaInp?.focus();
+      return;
+    }
+
+    if (nuevaPassword !== confirmPassword) {
+      showError('Las contraseñas no coinciden. Verifica e intenta nuevamente.');
+      confirmInp?.focus();
+      return;
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.style.opacity = '0.7';
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/auth/cambiar-password`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          password_actual: passwordActual,
+          nueva_password: nuevaPassword
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        showError(data.error || data.message || 'No se pudo actualizar la contraseña.');
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.style.opacity = '1';
+        }
+        return;
+      }
+
+      if (state.user) {
+        state.user.has_password = true;
+        if (data.user) {
+          state.user = { ...state.user, ...data.user, has_password: true };
+        }
+        localStorage.setItem('danillanos_user', JSON.stringify(state.user));
+        sessionStorage.setItem('danillanos_user', JSON.stringify(state.user));
+      }
+
+      showSuccess(data.message || '¡Contraseña establecida exitosamente!');
+
+      setTimeout(() => {
+        const callback = currentPasswordModalCallback;
+        closePasswordModal();
+        if (CURRENT_PAGE === 'perfil') {
+          renderPerfilPageAuthState();
+        }
+        if (typeof callback === 'function') {
+          callback();
+        }
+      }, 700);
+
+    } catch (err) {
+      showError('Error de red al procesar la solicitud. Verifica tu conexión.');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+      }
+    }
+  }
+
+  function initAccountPasswordModal() {
+    const modal = document.getElementById('accountPasswordModal');
+    if (!modal || modal._pwdInitialized) return;
+    modal._pwdInitialized = true;
+
+    document.getElementById('btnClosePasswordModal')?.addEventListener('click', closePasswordModal);
+    document.getElementById('btnCancelPasswordModal')?.addEventListener('click', closePasswordModal);
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closePasswordModal();
+      }
+    });
+
+    modal.addEventListener('click', (e) => {
+      const toggleBtn = e.target.closest('.pwd-toggle-visibility-btn');
+      if (!toggleBtn) return;
+      const targetId = toggleBtn.getAttribute('data-target');
+      const input = document.getElementById(targetId);
+      const icon = toggleBtn.querySelector('.material-symbols-rounded');
+      if (!input || !icon) return;
+
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.textContent = 'visibility_off';
+      } else {
+        input.type = 'password';
+        icon.textContent = 'visibility';
+      }
+    });
+
+    document.getElementById('accountPasswordForm')?.addEventListener('submit', handlePasswordFormSubmit);
+  }
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#btnOpenPasswordModal')) {
+      openPasswordModal({ isRequiredForLogout: false });
+    }
+  });
+
+  async function refreshCurrentUserSession() {
+    if (!state.token) return;
+    try {
+      const res = await fetch(`${API_URL}/auth/me`, {
+        headers: getAuthHeaders()
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.authenticated && data.user) {
+        state.user = { ...state.user, ...data.user, rol: normalizeRole(data.user.rol) };
+        if (Array.isArray(data.direcciones)) {
+          state.direcciones = data.direcciones;
+        }
+        localStorage.setItem('danillanos_user', JSON.stringify(state.user));
+        sessionStorage.setItem('danillanos_user', JSON.stringify(state.user));
+        syncSelectedAddressDefault();
+        if (CURRENT_PAGE === 'perfil') {
+          const securityCard = document.getElementById('securitySummaryCard');
+          if (securityCard) {
+            const hasPass = Boolean(state.user.has_password);
+            const iconEl = document.getElementById('securityCardIcon');
+            const statusTextEl = document.getElementById('securityCardStatusText');
+            const btnTextEl = document.getElementById('btnOpenPasswordModalText');
+            if (iconEl && statusTextEl && btnTextEl) {
+              if (hasPass) {
+                iconEl.textContent = 'lock';
+                statusTextEl.textContent = 'Tu cuenta está protegida con contraseña personal.';
+                btnTextEl.textContent = 'Cambiar Contraseña';
+              } else {
+                iconEl.textContent = 'lock_open';
+                statusTextEl.textContent = 'Iniciaste con Google. Asigna una contraseña para acceder directamente.';
+                btnTextEl.textContent = 'Asignar Contraseña';
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
   function initPerfilPage() {
     initSharedInvoiceModalEvents();
+    initAccountPasswordModal();
     renderPerfilPageAuthState();
     window.addEventListener('hashchange', syncProfileTabFromHash);
     window.addEventListener('resize', () => updateCustomerTabSlider(true));
@@ -2882,8 +3323,10 @@
     });
 
     document.getElementById('btnLogoutProfile')?.addEventListener('click', () => {
-      setSession(null, null, []);
-      renderPerfilPageAuthState();
+      attemptUserLogout(() => {
+        setSession(null, null, []);
+        renderPerfilPageAuthState();
+      });
     });
 
     const addAddressForm = document.getElementById('addAddressForm');
@@ -3366,7 +3809,6 @@
         companyCard.innerHTML = `
           <div class="company-card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom:0.45rem;">
             <div class="company-card-header-left" style="display:flex; align-items:center; gap:0.65rem;">
-              <span class="material-symbols-rounded" style="color:var(--brand-red); font-size:1.6rem;">verified_user</span>
               <div>
                 <strong style="font-size:1.1rem; display:block; font-weight:800;">Información Comercial y Facturación</strong>
               </div>
@@ -3476,6 +3918,25 @@
           <div id="inlineProfileSaveMsg" style="display:none; margin-top:0.85rem; font-size:0.85rem; font-weight:700;"></div>
         `;
         enhanceAllCustomSelects(companyCard);
+      }
+
+      const securityCard = document.getElementById('securitySummaryCard');
+      if (securityCard) {
+        const hasPass = Boolean(state.user && state.user.has_password);
+        const iconEl = document.getElementById('securityCardIcon');
+        const statusTextEl = document.getElementById('securityCardStatusText');
+        const btnTextEl = document.getElementById('btnOpenPasswordModalText');
+        if (iconEl && statusTextEl && btnTextEl) {
+          if (hasPass) {
+            iconEl.textContent = 'lock';
+            statusTextEl.textContent = 'Tu cuenta está protegida con contraseña personal.';
+            btnTextEl.textContent = 'Cambiar Contraseña';
+          } else {
+            iconEl.textContent = 'lock_open';
+            statusTextEl.textContent = 'Iniciaste con Google. Asigna una contraseña para acceder directamente.';
+            btnTextEl.textContent = 'Asignar Contraseña';
+          }
+        }
       }
 
       const staffBtn = document.getElementById('btnGoToStaffPanel');
@@ -6742,6 +7203,7 @@ async function loadCustomerSupportTickets() {
   // ==========================================================================
   document.addEventListener('DOMContentLoaded', () => {
     initSharedHeaderAndTheme();
+    refreshCurrentUserSession();
 
     if (CURRENT_PAGE === 'store') initStorePage();
     else if (CURRENT_PAGE === 'perfil') initPerfilPage();

@@ -303,7 +303,9 @@ function formatSafeUser(row) {
     telefono: decryptData(row.telefono_enc) || '',
     avatar_url: row.avatar_url || null,
     rol: row.rol || 'cliente',
-    activo: row.activo === undefined ? true : Boolean(row.activo)
+    activo: row.activo === undefined ? true : Boolean(row.activo),
+    has_password: Boolean(row.password_hash),
+    is_google_account: Boolean(row.google_id_enc || row.is_google)
   };
 }
 
@@ -1039,6 +1041,108 @@ router.patch('/auth/perfil', async (req, res) => {
       message: 'Información de perfil actualizada exitosamente.',
       user: formatSafeUser(memUser)
     });
+  }
+});
+
+/**
+ * POST /api/auth/cambiar-password
+ * Permite cambiar la contraseña de la cuenta actual.
+ * - Si el usuario ya tiene contraseña: se requiere y valida password_actual antes de cambiarla.
+ * - Si el usuario inició con Google y no tiene contraseña: se asigna directamente la nueva contraseña.
+ */
+router.post('/auth/cambiar-password', async (req, res) => {
+  const authUser = getAuthUserFromRequest(req);
+  if (!authUser) {
+    return res.status(401).json({ ok: false, error: 'Sesión no válida o expirada. Inicie sesión nuevamente.' });
+  }
+
+  const { password_actual, nueva_password } = req.body || {};
+
+  if (!nueva_password || String(nueva_password).trim().length < 6) {
+    return res.status(400).json({ ok: false, error: 'La nueva contraseña debe tener al menos 6 caracteres.' });
+  }
+
+  const cleanNewPass = String(nueva_password).trim();
+
+  try {
+    const [rows] = await pool.query('SELECT * FROM usuarios WHERE id = ? LIMIT 1', [authUser.id]);
+    const userRow = rows[0];
+
+    if (userRow) {
+      if (userRow.password_hash) {
+        if (!password_actual || !String(password_actual).trim()) {
+          return res.status(400).json({ ok: false, error: 'Debes ingresar tu contraseña actual para cambiarla.' });
+        }
+        if (!verifyPassword(String(password_actual), userRow.password_hash)) {
+          return res.status(400).json({ ok: false, error: 'La contraseña actual no es correcta.' });
+        }
+      }
+
+      const newHash = hashPassword(cleanNewPass);
+      await pool.query('UPDATE usuarios SET password_hash = ? WHERE id = ?', [newHash, authUser.id]);
+      userRow.password_hash = newHash;
+
+      const memUser = usuariosFallback.find((u) => Number(u.id) === Number(authUser.id));
+      if (memUser) {
+        memUser.password_hash = newHash;
+      }
+
+      const safeUser = formatSafeUser(userRow);
+      return res.json({
+        ok: true,
+        message: 'Contraseña actualizada exitosamente.',
+        user: safeUser
+      });
+    }
+
+    let memUser = usuariosFallback.find((u) => Number(u.id) === Number(authUser.id));
+    if (memUser) {
+      if (memUser.password_hash) {
+        if (!password_actual || !String(password_actual).trim()) {
+          return res.status(400).json({ ok: false, error: 'Debes ingresar tu contraseña actual para cambiarla.' });
+        }
+        if (!verifyPassword(String(password_actual), memUser.password_hash)) {
+          return res.status(400).json({ ok: false, error: 'La contraseña actual no es correcta.' });
+        }
+      }
+      const newHash = hashPassword(cleanNewPass);
+      memUser.password_hash = newHash;
+      const safeUser = formatSafeUser(memUser);
+      return res.json({
+        ok: true,
+        message: 'Contraseña actualizada exitosamente.',
+        user: safeUser
+      });
+    }
+
+    return res.status(404).json({ ok: false, error: 'Usuario no encontrado.' });
+  } catch (error) {
+    let memUser = usuariosFallback.find((u) =>
+      Number(u.id) === Number(authUser.id) ||
+      (authUser.email && u.email_enc && decryptData(u.email_enc) === authUser.email) ||
+      (authUser.username && u.username === authUser.username)
+    );
+
+    if (memUser) {
+      if (memUser.password_hash) {
+        if (!password_actual || !String(password_actual).trim()) {
+          return res.status(400).json({ ok: false, error: 'Debes ingresar tu contraseña actual para cambiarla.' });
+        }
+        if (!verifyPassword(String(password_actual), memUser.password_hash)) {
+          return res.status(400).json({ ok: false, error: 'La contraseña actual no es correcta.' });
+        }
+      }
+      const newHash = hashPassword(cleanNewPass);
+      memUser.password_hash = newHash;
+      return res.json({
+        ok: true,
+        source: 'fallback',
+        message: 'Contraseña actualizada exitosamente.',
+        user: formatSafeUser(memUser)
+      });
+    }
+
+    return res.status(500).json({ ok: false, error: 'No se pudo actualizar la contraseña. Intente nuevamente.' });
   }
 });
 

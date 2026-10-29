@@ -259,8 +259,8 @@
           <span class="tab-notification-dot hidden" id="tabPedidosDot" title="Actualización activa en tus despachos"></span>
         </button>
         <button type="button" class="customer-tab-btn" data-profile-tab="direcciones">
-          <span class="material-symbols-rounded">pin_drop</span>
-          <span>Direcciones y Empresa</span>
+          <span class="material-symbols-rounded">manage_accounts</span>
+          <span>Mi Cuenta</span>
           <span class="customer-tab-count" id="addressCountBadge">0/5</span>
         </button>
         <button type="button" class="customer-tab-btn" data-profile-tab="historial">
@@ -295,15 +295,38 @@
     <section class="page-block hidden" id="direcciones-mapa-section" data-profile-window="direcciones">
       <div class="block-header">
         <div>
-          <h2 class="section-title">Mis Direcciones y Empresa</h2>
+          <h2 class="section-title">Mi Cuenta</h2>
           <p class="section-subtitle">
-            Gestiona tus datos comerciales de facturación y registra tus puntos de entrega.
+            Gestiona tus datos comerciales de facturación, seguridad de acceso y puntos de entrega.
           </p>
         </div>
       </div>
 
       <!-- Tarjeta de Empresa y Datos Comerciales Modificables Inline -->
       <div class="surface-card company-summary-card" id="companySummaryCard" style="margin-bottom: 1.5rem; padding: 1.15rem 1.45rem;"></div>
+
+      <!-- Tarjeta de Seguridad y Contraseña de la Cuenta -->
+      <div class="surface-card security-summary-card" id="securitySummaryCard" style="margin-bottom: 1.5rem; padding: 1.15rem 1.45rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+          <div style="display:flex; align-items:center; gap:0.85rem;">
+            <div class="security-card-icon-badge" style="width:42px; height:42px; border-radius:50%; background:var(--bg-elevated); display:flex; align-items:center; justify-content:center; border:1px solid var(--border-strong); flex-shrink:0;">
+              <span class="material-symbols-rounded" id="securityCardIcon" style="color:var(--brand-red); font-size:1.4rem;">lock</span>
+            </div>
+            <div>
+              <strong style="font-size:1.08rem; display:block; font-weight:800;">Seguridad y Contraseña</strong>
+              <p style="font-size:0.82rem; color:var(--text-secondary); margin:2px 0 0;" id="securityCardStatusText">
+                Protege tu cuenta y gestiona tu clave de acceso.
+              </p>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.6rem;">
+            <button type="button" class="btn-secondary" id="btnOpenPasswordModal" style="padding:0.58rem 1.25rem; font-size:0.86rem; display:inline-flex; align-items:center; gap:0.45rem;">
+              <span class="material-symbols-rounded" style="font-size:1.15rem;">password</span>
+              <span id="btnOpenPasswordModalText">Cambiar Contraseña</span>
+            </button>
+          </div>
+        </div>
+      </div>
 
       <!-- Menú Desplegable Animado de Registro de Direcciones con Mapa -->
       <div class="wide-map-workspace hidden" id="addressRegistrationWorkspace" style="margin-bottom: 1.5rem;">
@@ -556,6 +579,136 @@
   </main>
 
   
+
+  <!-- MODAL CUSTOMIZADO: CAMBIAR / ASIGNAR CONTRASEÑA -->
+  <div class="modal-backdrop hidden" id="accountPasswordModal" role="dialog" aria-modal="true" aria-labelledby="pwdModalTitle">
+    <div class="modal-card password-modal-dialog" style="max-width: 490px; width: 100%; padding: 1.85rem 2rem; border-radius: var(--radius-2xl);">
+      
+      <div class="modal-header" style="margin-bottom: 1.25rem;">
+        <div class="modal-title-wrap">
+          <span class="material-symbols-rounded modal-title-icon" id="pwdModalIcon" style="font-size: 2rem; color: var(--brand-red);">lock</span>
+          <div>
+            <h3 class="modal-title" id="pwdModalTitle">Cambiar Contraseña</h3>
+            <p class="modal-subtitle" id="pwdModalSubtitle">
+              Actualiza tu clave de acceso para mayor seguridad.
+            </p>
+          </div>
+        </div>
+        <button type="button" class="icon-close-btn" id="btnClosePasswordModal" aria-label="Cerrar ventana">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+
+      <!-- Aviso para usuarios Google que intentan cerrar sesión -->
+      <div id="pwdModalRequiredNotice" class="hidden" style="background: rgba(224, 26, 44, 0.08); border: 1px solid rgba(224, 26, 44, 0.3); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 1.15rem; display: flex; align-items: flex-start; gap: 0.65rem;">
+        <span class="material-symbols-rounded" style="color: var(--brand-red); font-size: 1.35rem; flex-shrink: 0; margin-top: 2px;">shield_lock</span>
+        <div style="font-size: 0.82rem; line-height: 1.45; color: var(--text-primary);">
+          <strong style="color: var(--brand-red); display: block; margin-bottom: 2px;">Crea una contraseña antes de salir</strong>
+          Como ingresaste con tu cuenta de Google, debes asignar una contraseña personal a tu cuenta antes de cerrar sesión para que siempre puedas acceder a ella directamente.
+        </div>
+      </div>
+
+      <form id="accountPasswordForm" class="modal-form" novalidate>
+        
+        <!-- Contraseña Actual (solo requerida si ya tiene contraseña) -->
+        <div class="form-group" id="pwdCurrentGroup">
+          <label for="pwdModalActual" style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 5px;">
+            Contraseña Actual *
+          </label>
+          <div style="position: relative;">
+            <input
+              type="password"
+              id="pwdModalActual"
+              class="modal-input"
+              placeholder="Ingresa tu contraseña actual"
+              autocomplete="current-password"
+              style="width: 100%; padding-right: 2.75rem; box-sizing: border-box;"
+            />
+            <button
+              type="button"
+              class="pwd-toggle-visibility-btn"
+              data-target="pwdModalActual"
+              style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 4px; display: flex; align-items: center;"
+              aria-label="Ver u ocultar contraseña"
+            >
+              <span class="material-symbols-rounded" style="font-size: 1.25rem;">visibility</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Nueva Contraseña -->
+        <div class="form-group" id="pwdNewGroup">
+          <label for="pwdModalNueva" style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 5px;">
+            Nueva Contraseña * (Mínimo 6 caracteres)
+          </label>
+          <div style="position: relative;">
+            <input
+              type="password"
+              id="pwdModalNueva"
+              class="modal-input"
+              placeholder="Define tu nueva contraseña"
+              minlength="6"
+              autocomplete="new-password"
+              required
+              style="width: 100%; padding-right: 2.75rem; box-sizing: border-box;"
+            />
+            <button
+              type="button"
+              class="pwd-toggle-visibility-btn"
+              data-target="pwdModalNueva"
+              style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 4px; display: flex; align-items: center;"
+              aria-label="Ver u ocultar contraseña"
+            >
+              <span class="material-symbols-rounded" style="font-size: 1.25rem;">visibility</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Confirmar Nueva Contraseña -->
+        <div class="form-group" id="pwdConfirmGroup">
+          <label for="pwdModalConfirmar" style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 5px;">
+            Confirmar Nueva Contraseña *
+          </label>
+          <div style="position: relative;">
+            <input
+              type="password"
+              id="pwdModalConfirmar"
+              class="modal-input"
+              placeholder="Repite la nueva contraseña"
+              minlength="6"
+              autocomplete="new-password"
+              required
+              style="width: 100%; padding-right: 2.75rem; box-sizing: border-box;"
+            />
+            <button
+              type="button"
+              class="pwd-toggle-visibility-btn"
+              data-target="pwdModalConfirmar"
+              style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 4px; display: flex; align-items: center;"
+              aria-label="Ver u ocultar contraseña"
+            >
+              <span class="material-symbols-rounded" style="font-size: 1.25rem;">visibility</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Mensaje de feedback/error -->
+        <div id="pwdModalFeedback" class="hidden" style="margin-top: 0.4rem; font-size: 0.82rem; padding: 0.65rem 0.85rem; border-radius: var(--radius-md);"></div>
+
+        <!-- Botones de Acción -->
+        <div class="modal-actions-row" style="margin-top: 1.25rem; display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <button type="button" class="btn-secondary" id="btnCancelPasswordModal" style="padding: 0.65rem 1.2rem; font-size: 0.88rem;">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-primary" id="btnSubmitPasswordModal" style="padding: 0.65rem 1.35rem; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 0.5rem;">
+            <span class="material-symbols-rounded" style="font-size: 1.15rem;">save</span>
+            <span id="btnSubmitPasswordText">Guardar Contraseña</span>
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
 
   <!-- MODAL VISOR DE FACTURA ELECTRÓNICA GRÁFICA -->
   <div class="invoice-modal-backdrop hidden" id="invoiceModalBackdrop">
