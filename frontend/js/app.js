@@ -905,7 +905,7 @@
           closeMobileMenu();
           showToast('Sesión cerrada correctamente', 'logout');
           if (CURRENT_PAGE === 'panel' || CURRENT_PAGE === 'pagos') {
-            window.location.href = 'index.html';
+            window.location.href = '/';
           } else if (CURRENT_PAGE === 'perfil') {
             renderPerfilPageAuthState();
           }
@@ -956,7 +956,7 @@
     const authLinks = !state.user
       ? `
         <div class="mobile-nav-section-title">Tu Cuenta</div>
-        <a href="perfil.html#cuenta-section" class="mobile-nav-link mobile-nav-highlight">
+        <a href="/perfil#cuenta-section" class="mobile-nav-link mobile-nav-highlight">
           <span class="material-symbols-rounded">login</span>
           <span>Iniciar Sesión / Crear Cuenta</span>
         </a>
@@ -971,13 +971,13 @@
         </div>
         ${
           isStaffUser()
-            ? `<a href="panel.html" class="mobile-nav-link mobile-nav-highlight">
+            ? `<a href="/panel" class="mobile-nav-link mobile-nav-highlight">
                  <span class="material-symbols-rounded">dashboard_customize</span>
                  <span>Panel Operativo (${normalizeRole(state.user.rol).toUpperCase()})</span>
                </a>`
             : ''
         }
-        <a href="perfil.html#mis-pedidos-section" class="mobile-nav-link" data-mobile-profile-tab="pedidos">
+        <a href="/perfil#mis-pedidos-section" class="mobile-nav-link" data-mobile-profile-tab="pedidos">
           <span class="material-symbols-rounded">local_shipping</span>
           <span>Pedidos en Curso</span>
           <span class="mobile-nav-right-meta">
@@ -985,16 +985,16 @@
             ${hasActiveOrderDot ? `<span class="notification-red-dot"></span>` : ''}
           </span>
         </a>
-        <a href="perfil.html#direcciones-mapa-section" class="mobile-nav-link" data-mobile-profile-tab="direcciones">
+        <a href="/perfil#direcciones-mapa-section" class="mobile-nav-link" data-mobile-profile-tab="direcciones">
           <span class="material-symbols-rounded">manage_accounts</span>
           <span>Mi Cuenta y Direcciones</span>
           <span class="mobile-nav-pill">${(state.direcciones || []).length}/5</span>
         </a>
-        <a href="perfil.html#historial-compras-section" class="mobile-nav-link" data-mobile-profile-tab="historial">
+        <a href="/perfil#historial-compras-section" class="mobile-nav-link" data-mobile-profile-tab="historial">
           <span class="material-symbols-rounded">receipt_long</span>
           <span>Historial de Compras</span>
         </a>
-        <a href="perfil.html#soporte-cliente" class="mobile-nav-link" data-mobile-profile-tab="soporte">
+        <a href="/perfil#soporte-cliente" class="mobile-nav-link" data-mobile-profile-tab="soporte">
           <span class="material-symbols-rounded">support_agent</span>
           <span>Soporte y Mis Tickets</span>
           ${hasTicketDot ? `<span class="notification-red-dot"></span>` : ''}
@@ -1002,7 +1002,7 @@
       `;
 
     const cartActionLink = hasCartItems
-      ? `<a href="pagos.html" class="mobile-nav-link mobile-nav-checkout">
+      ? `<a href="/pagos" class="mobile-nav-link mobile-nav-checkout">
            <span class="material-symbols-rounded">shopping_cart_checkout</span>
            <span>Finalizar Compra</span>
            <span class="mobile-nav-pill is-red">${cartUnits}</span>
@@ -1016,54 +1016,54 @@
     navBody.innerHTML = `
       ${authLinks}
       <div class="mobile-nav-section-title">Tienda</div>
-      <a href="index.html" class="mobile-nav-link">
+      <a href="/" class="mobile-nav-link">
         <span class="material-symbols-rounded">storefront</span>
         <span>Inicio y Promociones</span>
       </a>
       ${cartActionLink}
       ${
         !state.user
-          ? `<a href="perfil.html#soporte-cliente" class="mobile-nav-link">
+          ? `<a href="/perfil#soporte-cliente" class="mobile-nav-link">
                <span class="material-symbols-rounded">support_agent</span>
                <span>Atención y Soporte</span>
              </a>`
           : ''
       }
       <div class="mobile-nav-section-title">Catálogo por Categoría${totalProdCount ? ` (${totalProdCount})` : ''}</div>
-      <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="todos">
+      <a href="/#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="todos">
         <span class="material-symbols-rounded">apps</span>
         <span>Catálogo Completo</span>
         ${totalProdCount ? `<span class="mobile-nav-pill">${totalProdCount}</span>` : ''}
       </a>
-      <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="embutidos">
+      <a href="/#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="embutidos">
         <span class="material-symbols-rounded">kebab_dining</span>
         <span>Cárnicos y Embutidos</span>
       </a>
-      <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="congelados">
+      <a href="/#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="congelados">
         <span class="material-symbols-rounded">ac_unit</span>
         <span>Congelados</span>
       </a>
-      <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="pulpas">
+      <a href="/#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="pulpas">
         <span class="material-symbols-rounded">local_drink</span>
         <span>Pulpas y Limonadas</span>
       </a>
-      <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="salsas">
+      <a href="/#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="salsas">
         <span class="material-symbols-rounded">soup_kitchen</span>
         <span>Salsas Institucionales</span>
       </a>
-      <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="pan">
+      <a href="/#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="pan">
         <span class="material-symbols-rounded">bakery_dining</span>
         <span>Panadería</span>
       </a>
-      <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="adobos">
+      <a href="/#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="adobos">
         <span class="material-symbols-rounded">nutrition</span>
         <span>Adobos y Sazonadores</span>
       </a>
-      <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="desechables">
+      <a href="/#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="desechables">
         <span class="material-symbols-rounded">takeout_dining</span>
         <span>Desechables e Icopor</span>
       </a>
-      <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="secos">
+      <a href="/#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="secos">
         <span class="material-symbols-rounded">eco</span>
         <span>Frutos Secos y Dulcería</span>
       </a>
@@ -1522,7 +1522,7 @@
     if (avatarBtn) {
       if (!state.user) {
         avatarBtn.classList.add('is-guest');
-        avatarBtn.setAttribute('href', 'perfil.html#cuenta-section');
+        avatarBtn.setAttribute('href', '/perfil#cuenta-section');
         avatarBtn.title = 'Modo visitante sin sesión (Ir a Iniciar Sesión)';
         if (guestIcon) guestIcon.classList.remove('hidden');
         if (avatarInitial) avatarInitial.classList.add('hidden');
@@ -1532,7 +1532,7 @@
         const displayName = (state.user.nombre_completo || state.user.username || 'U').trim();
         const initial = displayName.charAt(0).toUpperCase();
         avatarBtn.classList.remove('is-guest');
-        avatarBtn.setAttribute('href', isStaffUser() ? 'panel.html' : 'perfil.html');
+        avatarBtn.setAttribute('href', isStaffUser() ? '/panel' : '/perfil');
         avatarBtn.title = `Cuenta activa: ${state.user.nombre_completo}`;
         if (guestIcon) guestIcon.classList.add('hidden');
         syncUserNotificationDots();
@@ -1561,14 +1561,14 @@
       if (!state.user) {
         profileMenu.innerHTML = `
           <div class="dropdown-header-label">Modo Visitante (Sin Sesión)</div>
-          <a href="perfil.html#cuenta-section" class="dropdown-item">
+          <a href="/perfil#cuenta-section" class="dropdown-item">
             <span class="material-symbols-rounded dropdown-item-icon">login</span>
             <div class="dropdown-item-content">
               <span class="dropdown-item-title">Iniciar Sesión / Crear Cuenta</span>
               <span class="dropdown-item-desc">Requerido para hacer pedidos y ver direcciones</span>
             </div>
           </a>
-          <a href="perfil.html#soporte-cliente" class="dropdown-item">
+          <a href="/perfil#soporte-cliente" class="dropdown-item">
             <span class="material-symbols-rounded dropdown-item-icon">support_agent</span>
             <div class="dropdown-item-content">
               <span class="dropdown-item-title">Centro de Soporte</span>
@@ -1579,7 +1579,7 @@
       } else {
         const staffLink = isStaffUser()
           ? `
-            <a href="panel.html" class="dropdown-item">
+            <a href="/panel" class="dropdown-item">
               <span class="material-symbols-rounded dropdown-item-icon">dashboard_customize</span>
               <div class="dropdown-item-content">
                 <span class="dropdown-item-title">Panel de Control (${state.user.rol.toUpperCase()})</span>
@@ -1592,21 +1592,21 @@
         profileMenu.innerHTML = `
           <div class="dropdown-header-label">${state.user.nombre_completo}</div>
           ${staffLink}
-          <a href="perfil.html#cuenta-section" class="dropdown-item">
+          <a href="/perfil#cuenta-section" class="dropdown-item">
             <span class="material-symbols-rounded dropdown-item-icon">badge</span>
             <div class="dropdown-item-content">
               <span class="dropdown-item-title">Mi Perfil y Cuenta</span>
               <span class="dropdown-item-desc">Información y seguridad de tu cuenta</span>
             </div>
           </a>
-          <a href="perfil.html#direcciones-mapa-section" class="dropdown-item">
+          <a href="/perfil#direcciones-mapa-section" class="dropdown-item">
             <span class="material-symbols-rounded dropdown-item-icon">add_location_alt</span>
             <div class="dropdown-item-content">
               <span class="dropdown-item-title">Mis Direcciones (${state.direcciones.length}/5)</span>
               <span class="dropdown-item-desc">Gestión de direcciones y entregas</span>
             </div>
           </a>
-          <a href="perfil.html#mis-pedidos-section" class="dropdown-item">
+          <a href="/perfil#mis-pedidos-section" class="dropdown-item">
             <span class="material-symbols-rounded dropdown-item-icon">local_shipping</span>
             <div class="dropdown-item-content">
               <span class="dropdown-item-title">Mis Pedidos en Progreso</span>
@@ -1629,7 +1629,7 @@
               setSession(null, null, []);
               showToast('Sesión cerrada correctamente', 'logout');
               if (CURRENT_PAGE === 'panel' || CURRENT_PAGE === 'pagos') {
-                window.location.href = 'index.html';
+                window.location.href = '/';
               } else if (CURRENT_PAGE === 'perfil') {
                 renderPerfilPageAuthState();
               }
@@ -1782,7 +1782,7 @@
           renderStoreProducts();
           document.getElementById('catalogo-tienda')?.scrollIntoView({ behavior: 'smooth' });
         } else if (val) {
-          window.location.href = `index.html?q=${encodeURIComponent(val)}#catalogo-tienda`;
+          window.location.href = `/?q=${encodeURIComponent(val)}#catalogo-tienda`;
         }
       });
 
@@ -1808,7 +1808,7 @@
             renderStoreProducts();
             document.getElementById('catalogo-tienda')?.scrollIntoView({ behavior: 'smooth' });
           } else {
-            window.location.href = `index.html?q=${encodeURIComponent(name)}#catalogo-tienda`;
+            window.location.href = `/?q=${encodeURIComponent(name)}#catalogo-tienda`;
           }
         }
       });
@@ -1927,12 +1927,12 @@
         </div>
       `;
     enhanceAllCustomSelects(box);
-      if (checkoutBtn) checkoutBtn.setAttribute('href', 'perfil.html#cuenta-section');
+      if (checkoutBtn) checkoutBtn.setAttribute('href', '/perfil#cuenta-section');
       if (checkoutText) checkoutText.textContent = 'Iniciar Sesión para Hacer Pedido';
       return;
     }
 
-    if (checkoutBtn) checkoutBtn.setAttribute('href', 'pagos.html');
+    if (checkoutBtn) checkoutBtn.setAttribute('href', '/pagos');
     if (checkoutText) checkoutText.textContent = 'Continuar a la Página de Pagos';
 
     syncSelectedAddressDefault();
@@ -1953,7 +1953,7 @@
     box.innerHTML = `
       <div class="cart-addr-header">
         <span>📍 Dirección de entrega (${dirs.length}/5)</span>
-        <a href="perfil.html#direcciones-mapa-section" style="color:var(--brand-red); font-size:0.73rem;">Abrir Mapa</a>
+        <a href="/perfil#direcciones-mapa-section" style="color:var(--brand-red); font-size:0.73rem;">Abrir Mapa</a>
       </div>
       <div class="cart-addr-actions-row">
         <select class="cart-addr-select" id="cartLiveAddressSelect" aria-label="Cambiar dirección desde el carrito">
@@ -2014,10 +2014,10 @@
         checkoutBtn.classList.remove('is-disabled');
         checkoutBtn.removeAttribute('aria-disabled');
         if (!state.user) {
-          checkoutBtn.setAttribute('href', 'perfil.html#cuenta-section');
+          checkoutBtn.setAttribute('href', '/perfil#cuenta-section');
           if (checkoutText) checkoutText.textContent = 'Iniciar Sesión para Pagar';
         } else {
-          checkoutBtn.setAttribute('href', 'pagos.html');
+          checkoutBtn.setAttribute('href', '/pagos');
           if (checkoutText) checkoutText.textContent = 'Continuar a la Página de Pagos';
         }
       }
@@ -2106,7 +2106,7 @@
       if (!state.user) {
         e.preventDefault();
         showToast('Debes iniciar sesión o crear tu cuenta para realizar un pedido', 'lock');
-        window.location.href = 'perfil.html#cuenta-section';
+        window.location.href = '/perfil#cuenta-section';
       }
     });
 
@@ -2981,7 +2981,7 @@
       if (product) {
         addToCart(product, 1);
         if (action === 'buy_now') {
-          window.location.href = state.user ? 'pagos.html' : 'perfil.html#cuenta-section';
+          window.location.href = state.user ? '/pagos' : '/perfil#cuenta-section';
         }
       }
     });
@@ -4171,7 +4171,7 @@
         if (CURRENT_PAGE === 'perfil') {
           renderPerfilPageAuthState();
         } else if (CURRENT_PAGE === 'panel' || CURRENT_PAGE === 'pagos') {
-          window.location.href = 'perfil.html#cuenta-section';
+          window.location.href = '/perfil#cuenta-section';
         }
       }
     } catch (_) {}
@@ -4304,7 +4304,7 @@
           : { ...data.user, rol: normalizeRole(data.user.rol) };
         setSession(data.token, finalUser, data.direcciones);
         if (isStaffUser(finalUser)) {
-          window.location.href = 'panel.html';
+          window.location.href = '/panel';
           return;
         }
         renderPerfilPageAuthState();
@@ -4317,7 +4317,7 @@
           };
           setSession(`local_token_${fallbackUser.id}_${Date.now()}`, fallbackUser, []);
           if (isStaffUser(fallbackUser)) {
-            window.location.href = 'panel.html';
+            window.location.href = '/panel';
             return;
           }
           renderPerfilPageAuthState();
@@ -6255,7 +6255,7 @@
   function initPagosPage() {
     // Redirección preventiva si se ingresa a la pasarela con el carrito vacío
     if (!Array.isArray(state.cart) || state.cart.length === 0) {
-      window.location.replace('404.html');
+      window.location.replace('/404');
       return;
     }
     const guestBlockCard = document.getElementById('checkoutGuestBlockCard');
@@ -6353,7 +6353,7 @@
     checkoutForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (!state.user) {
-        window.location.href = 'perfil.html#cuenta-section';
+        window.location.href = '/perfil#cuenta-section';
         return;
       }
       if (state.cart.length === 0) {
@@ -6429,7 +6429,7 @@
           if (barEl) barEl.style.width = `${Math.max(0, (secondsLeft / 10) * 100)}%`;
           if (secondsLeft <= 0) {
             clearInterval(state.invoiceRedirectTimer);
-            window.location.href = 'perfil.html#mis-pedidos-section';
+            window.location.href = '/perfil#mis-pedidos-section';
           }
         }, 1000);
       }
@@ -6545,7 +6545,7 @@
       listEl.innerHTML = `
         <div class="detail-box" style="text-align:center; padding:2rem;">
           <p>No tienes productos en el carrito.</p>
-          <a href="index.html" class="btn-primary" style="margin-top:0.85rem;">Ir al Catálogo</a>
+          <a href="/" class="btn-primary" style="margin-top:0.85rem;">Ir al Catálogo</a>
         </div>
       `;
       return;
@@ -6742,7 +6742,7 @@
   function initPanelPage() {
     syncCurrentUserRoleFromLocalStore();
     if (!isStaffUser()) {
-      window.location.replace('404.html');
+      window.location.replace('/404');
       return;
     }
 
@@ -6798,7 +6798,7 @@
 
     document.getElementById('btnStaffLogout')?.addEventListener('click', () => {
       setSession(null, null, []);
-      window.location.href = 'index.html';
+      window.location.href = '/';
     });
 
     ['btnAdminRefresh', 'btnEmpleadoRefresh', 'btnBodegaRefresh', 'btnEntregadorRefresh', 'btnSoporteRefresh'].forEach((id) => {

@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <base href="/" />
   <title>Panel Operativo y Administración | Danillanos</title>
 
   <!-- Tipografías corporativas e iconografía Material Symbols -->
@@ -26,18 +27,18 @@
         <button type="button" class="action-icon-btn hamburger-btn" id="mobileMenuBtn" aria-label="Abrir menú">
           <span class="material-symbols-rounded">menu</span>
         </button>
-        <a href="index.html" class="action-icon-btn mobile-quick-profile-btn" aria-label="Tienda Pública">
+        <a href="/" class="action-icon-btn mobile-quick-profile-btn" aria-label="Tienda Pública">
           <span class="material-symbols-rounded">storefront</span>
         </a>
       </div>
 
       <!-- Navegación hacia la tienda pública y perfil -->
       <nav class="header-nav-left" aria-label="Navegación">
-        <a href="index.html" class="nav-btn">
+        <a href="/" class="nav-btn">
           <span class="nav-btn-text">Tienda Pública</span>
           <span class="material-symbols-rounded nav-btn-icon">storefront</span>
         </a>
-        <a href="perfil.html" class="nav-btn">
+        <a href="/perfil" class="nav-btn">
           <span class="nav-btn-text">Mi Cuenta</span>
           <span class="material-symbols-rounded nav-btn-icon">badge</span>
         </a>
@@ -45,7 +46,7 @@
 
       <!-- Logotipo central del panel operativo -->
       <div class="header-brand-center">
-        <a href="index.html" class="brand-link" id="brandLink">
+        <a href="/" class="brand-link" id="brandLink">
           <div class="brand-text-wrapper">
             <span class="brand-name">DANILLANOS</span>
             <span class="brand-tagline">PANEL OPERATIVO</span>
@@ -62,7 +63,7 @@
           </span>
         </button>
 
-        <a href="perfil.html" class="user-avatar-btn" id="userAvatarBtn">
+        <a href="/perfil" class="user-avatar-btn" id="userAvatarBtn">
           <img src="" alt="Foto de perfil" class="user-avatar-img hidden" id="userAvatarImg" />
           <span class="material-symbols-rounded guest-avatar-icon hidden" id="guestAvatarIcon">person</span>
           <span class="user-avatar-initial" id="userAvatarInitial">D</span>
@@ -117,7 +118,7 @@
           <div class="staff-nav-label">Opciones Directas</div>
           <div class="staff-nav-list" id="staffNavList"></div>
           <div class="staff-nav-Divider"></div>
-          <a href="index.html" class="staff-nav-option">
+          <a href="/" class="staff-nav-option">
             <span class="material-symbols-rounded">storefront</span>
             <span>Ir a la Tienda</span>
           </a>

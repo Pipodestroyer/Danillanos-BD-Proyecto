@@ -105,6 +105,12 @@ app.use(
       if (/^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(cleanOrigin)) {
         return callback(null, true);
       }
+      if (/^https:\/\/[a-z0-9.-]+\.up\.railway\.app$/i.test(cleanOrigin)) {
+        return callback(null, true);
+      }
+      if (/^https?:\/\/(.*\.)?icedlemontea\.dev$/i.test(cleanOrigin)) {
+        return callback(null, true);
+      }
       return callback(null, false);
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -156,14 +162,50 @@ app.use('/api/*', (req, res) => {
 
 // Directorio raíz de recursos estáticos del cliente (bloquea cualquier acceso a archivos ocultos o dotfiles)
 const frontendPath = path.join(__dirname, '..', 'frontend');
+
+/**
+ * Middleware canónico para URLs limpias:
+ * 1. Redirige /index.html y /index directamente a la raíz / (preservando query params)
+ * 2. Redirige cualquier archivo *.html a su ruta limpia sin extensión (ej. /perfil.html -> /perfil)
+ * 3. Normaliza rutas eliminando barras diagonales finales innecesarias (ej. /perfil/ -> /perfil)
+ */
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    return next();
+  }
+
+  const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+
+  // Redireccionar /index.html o /index canónicamente a la raíz /
+  if (req.path === '/index.html' || req.path === '/index') {
+    return res.redirect(301, '/' + query);
+  }
+
+  // Redireccionar archivos con extensión .html a su versión sin extensión
+  if (req.path.endsWith('.html')) {
+    const cleanPath = req.path.slice(0, -5);
+    return res.redirect(301, cleanPath + query);
+  }
+
+  // Normalizar rutas con barra diagonal final redundante (excepto la raíz "/")
+  if (req.path.length > 1 && req.path.endsWith('/')) {
+    const cleanPath = req.path.replace(/\/+$/, '');
+    return res.redirect(301, cleanPath + query);
+  }
+
+  next();
+});
+
+// Servicio de recursos estáticos del frontend (imágenes, CSS, JS) sin servir index automático
 app.use(
   express.static(frontendPath, {
     dotfiles: 'deny',
-    index: 'index.html'
+    index: false
   })
 );
 
 // Rutas amigables de navegación del frontend
+app.get('/', (req, res) => res.sendFile(path.join(frontendPath, 'index.html')));
 app.get('/perfil', (req, res) => res.sendFile(path.join(frontendPath, 'perfil.html')));
 app.get('/pagos', (req, res) => res.sendFile(path.join(frontendPath, 'pagos.html')));
 app.get('/panel', (req, res) => res.sendFile(path.join(frontendPath, 'panel.html')));
@@ -200,10 +242,10 @@ if (require.main === module) {
     const isConnected = await checkDatabaseConnection();
     console.log('============================================================');
     console.log('🥩 DANILLANOS - CÁRNICOS, CONGELADOS E INSUMOS PARA RESTAURANTE');
-    console.log(`🚀 Tienda principal:   http://localhost:${PORT}/index.html`);
-    console.log(`👤 Perfil y Mapa:      http://localhost:${PORT}/perfil.html`);
-    console.log(`💳 Pasarela de Pagos:  http://localhost:${PORT}/pagos.html`);
-    console.log(`🛠️  Panel Operativo:    http://localhost:${PORT}/panel.html`);
+    console.log(`🚀 Tienda principal:   http://localhost:${PORT}/`);
+    console.log(`👤 Perfil y Mapa:      http://localhost:${PORT}/perfil`);
+    console.log(`💳 Pasarela de Pagos:  http://localhost:${PORT}/pagos`);
+    console.log(`🛠️  Panel Operativo:    http://localhost:${PORT}/panel`);
     if (isConnected) {
       console.log(`✅ Base de datos MySQL conectada (${dbConfig.host}:${dbConfig.port}/${dbConfig.database})`);
     } else {

@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <base href="/" />
   <title>Mi Cuenta | Danillanos</title>
 
   <!-- Tipografías corporativas e iconografía Material Symbols -->
@@ -29,14 +30,14 @@
         <button type="button" class="action-icon-btn hamburger-btn" id="mobileMenuBtn" aria-label="Abrir menú de navegación">
           <span class="material-symbols-rounded">menu</span>
         </button>
-        <a href="index.html" class="action-icon-btn mobile-quick-profile-btn" aria-label="Ir a tienda">
+        <a href="/" class="action-icon-btn mobile-quick-profile-btn" aria-label="Ir a tienda">
           <span class="material-symbols-rounded">storefront</span>
         </a>
       </div>
 
       <!-- Logotipo e identidad corporativa -->
       <div class="header-brand-left">
-        <a href="index.html" class="brand-link" id="brandLink">
+        <a href="/" class="brand-link" id="brandLink">
           <div class="brand-text-wrapper">
             <span class="brand-name">DANILLANOS</span>
             <span class="brand-tagline">DISTRIBUIMOS CALIDAD</span>
@@ -70,7 +71,7 @@
           </span>
         </button>
 
-        <a href="perfil.html" class="user-avatar-btn is-guest" id="userAvatarBtn">
+        <a href="/perfil" class="user-avatar-btn is-guest" id="userAvatarBtn">
           <img src="" alt="Foto de perfil" class="user-avatar-img hidden" id="userAvatarImg" />
           <span class="material-symbols-rounded guest-avatar-icon" id="guestAvatarIcon">person</span>
           <span class="user-avatar-initial hidden" id="userAvatarInitial"></span>
@@ -238,12 +239,12 @@
           </div>
         </div>
         <div class="logged-profile-actions">
-          <a href="panel.html" class="btn-primary hidden" id="btnGoToStaffPanel">
+          <a href="/panel" class="btn-primary hidden" id="btnGoToStaffPanel">
             <span class="material-symbols-rounded">dashboard_customize</span>
             <span class="btn-label-desktop">Panel Operativo</span>
             <span class="btn-label-mobile">Panel</span>
           </a>
-          <a href="index.html" class="btn-secondary" id="btnReturnHome">
+          <a href="/" class="btn-secondary" id="btnReturnHome">
             <span class="material-symbols-rounded">storefront</span>
             <span class="btn-label-desktop">Volver al Inicio</span>
             <span class="btn-label-mobile">Tienda</span>
@@ -736,7 +737,7 @@
         <span>Subtotal productos</span>
         <strong id="cartSubtotalValue">$0</strong>
       </div>
-      <a href="pagos.html" class="btn-checkout" id="btnGoToCheckoutPage">
+      <a href="/pagos" class="btn-checkout" id="btnGoToCheckoutPage">
         <span id="btnCheckoutText">Continuar al Pago</span>
         <span class="material-symbols-rounded">arrow_forward</span>
       </a>
