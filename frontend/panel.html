@@ -241,8 +241,8 @@
               </div>
               <div class="form-row-2">
                 <div class="form-group">
-                  <label for="admProdPrecio">Precio de Venta (COP) *</label>
-                  <input type="number" id="admProdPrecio" class="modal-input" min="100" step="100" placeholder="Ej: 45000" required />
+                  <label for="admProdPrecio">Precio Base Regular (COP) *</label>
+                  <input type="number" id="admProdPrecio" class="modal-input" min="1" step="1" placeholder="Ej: 45000" required />
                 </div>
                 <div class="form-group">
                   <label for="admProdPresentacion">Presentación *</label>
@@ -273,6 +273,53 @@
                   <input type="text" id="admProdDesc" class="modal-input" placeholder="Calidad garantizada Danillanos." />
                 </div>
               </div>
+
+              <!-- Configuración integrada de Descuento Promocional (0% a 100%) -->
+              <div class="admin-form-discount-section">
+                <div class="admin-form-discount-header">
+                  <div class="admin-form-discount-title">
+                    <span class="material-symbols-rounded">sell</span>
+                    <span>Descuento Promocional (0% a 100%)</span>
+                  </div>
+                  <span class="admin-form-price-preview" id="admProdPricePreview">Sin descuento activo</span>
+                </div>
+
+                <div class="form-row-2">
+                  <div class="form-group">
+                    <label for="admProdDescPct">Porcentaje de Descuento (%)</label>
+                    <input type="number" id="admProdDescPct" class="modal-input" min="0" max="100" step="1" value="0" placeholder="0 a 100" />
+                  </div>
+                  <div class="form-group" id="admProdDiscountModeGroup">
+                    <label for="admProdDescTipo">¿Cuándo termina el descuento?</label>
+                    <select id="admProdDescTipo" class="modal-input">
+                      <option value="manual">Quitar manualmente</option>
+                      <option value="tiempo">Durar cierta cantidad de tiempo</option>
+                      <option value="unidades">Hasta vender cierta cantidad de unidades</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-row-2 hidden" id="admProdTimeFields">
+                  <div class="form-group">
+                    <label for="admProdDuracionValor">Duración del Descuento *</label>
+                    <input type="number" id="admProdDuracionValor" class="modal-input" min="1" max="9999" step="1" value="24" placeholder="Ej: 24" />
+                  </div>
+                  <div class="form-group">
+                    <label for="admProdDuracionUnidad">Unidad de Tiempo *</label>
+                    <select id="admProdDuracionUnidad" class="modal-input">
+                      <option value="horas">Horas</option>
+                      <option value="dias">Días</option>
+                      <option value="minutos">Minutos</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-group hidden" id="admProdUnitsFields">
+                  <label for="admProdUnidadesLimite">Unidades en Promoción (se quitará al vender esta cantidad) *</label>
+                  <input type="number" id="admProdUnidadesLimite" class="modal-input" min="1" max="999999" step="1" value="20" placeholder="Ej: 50 unidades" />
+                </div>
+              </div>
+
               <div style="display:flex; justify-content:flex-end; gap:0.75rem; margin-top:0.5rem;">
                 <button type="button" class="btn-secondary" id="btnCancelCatalogForm">Cancelar</button>
                 <button type="submit" class="btn-primary">
@@ -288,8 +335,18 @@
               type="search"
               id="adminCatalogSearchInput"
               class="modal-input"
-              placeholder="Buscar por nombre, SKU o categoría para editar o eliminar..."
+              placeholder="Buscar por nombre, SKU o categoría para editar, aplicar descuento o eliminar..."
             />
+            <div class="admin-catalog-filter-chips" id="adminCatalogFilterChips">
+              <button type="button" class="admin-cat-filter-btn active" data-admin-cat-filter="todos">
+                <span>Todos</span>
+              </button>
+              <button type="button" class="admin-cat-filter-btn" data-admin-cat-filter="descuentos">
+                <span class="material-symbols-rounded" style="font-size:0.95rem;">sell</span>
+                <span>Con Descuento</span>
+                <span class="admin-cat-filter-count" id="adminDiscountActiveCount">0</span>
+              </button>
+            </div>
           </div>
 
           <div class="admin-catalog-table-wrap" id="adminCatalogListContainer"></div>
@@ -616,6 +673,146 @@
 
     </div>
   </section>
+
+  <!-- Modal rápido: configuración en 1 clic de Descuento Promocional para Administrador -->
+  <div class="modal-backdrop hidden" id="adminQuickDiscountBackdrop" style="z-index: 9800;">
+    <div class="modal-card quick-discount-modal-card">
+      <div class="quick-discount-header">
+        <div class="quick-discount-header-left">
+          <div class="quick-discount-icon-circle">
+            <span class="material-symbols-rounded">sell</span>
+          </div>
+          <div>
+            <h3 id="quickDiscountModalTitle">Configurar Descuento</h3>
+            <p id="quickDiscountProductSubtitle">Selecciona un porcentaje entre 0% y 100% y su duración.</p>
+          </div>
+        </div>
+        <button type="button" class="icon-close-btn" id="btnCloseQuickDiscountModal" aria-label="Cerrar ventana de descuento">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+
+      <form id="adminQuickDiscountForm" class="modal-form">
+        <input type="hidden" id="quickDiscountProdId" value="" />
+
+        <div class="discount-preview-box" id="quickDiscountPreviewBox">
+          <div class="discount-preview-col">
+            <span class="discount-preview-label">Precio Base</span>
+            <strong class="discount-preview-base" id="quickDiscountBasePriceText">$ 0</strong>
+          </div>
+          <span class="material-symbols-rounded discount-preview-arrow">trending_flat</span>
+          <div class="discount-preview-col">
+            <span class="discount-preview-label">Precio Final al Público</span>
+            <strong class="discount-preview-final" id="quickDiscountFinalPriceText">$ 0</strong>
+          </div>
+          <span class="discount-preview-badge" id="quickDiscountSavingsBadge">0% OFF</span>
+        </div>
+
+        <div class="form-group">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
+            <label for="quickDiscountPctInput">Porcentaje de Descuento (0% a 100%)</label>
+            <div class="discount-pct-number-wrap">
+              <input type="number" id="quickDiscountPctInput" class="modal-input discount-pct-number" min="0" max="100" step="1" value="0" required />
+              <span class="discount-pct-symbol">%</span>
+            </div>
+          </div>
+          <input type="range" id="quickDiscountPctRange" class="discount-range-slider" min="0" max="100" step="1" value="0" />
+          <div class="discount-preset-chips" id="quickDiscountPresets">
+            <button type="button" class="discount-preset-chip" data-discount-preset="0">Sin desc. (0%)</button>
+            <button type="button" class="discount-preset-chip" data-discount-preset="10">-10%</button>
+            <button type="button" class="discount-preset-chip" data-discount-preset="15">-15%</button>
+            <button type="button" class="discount-preset-chip" data-discount-preset="20">-20%</button>
+            <button type="button" class="discount-preset-chip" data-discount-preset="30">-30%</button>
+            <button type="button" class="discount-preset-chip" data-discount-preset="50">-50%</button>
+            <button type="button" class="discount-preset-chip" data-discount-preset="100">-100%</button>
+          </div>
+        </div>
+
+        <div id="quickDiscountConditionsBlock">
+          <label class="discount-mode-section-label">¿Cómo quieres que finalice este descuento?</label>
+          <div class="discount-mode-grid" id="quickDiscountModeGrid">
+            <button type="button" class="discount-mode-card active" data-discount-mode="manual">
+              <span class="material-symbols-rounded">pan_tool_alt</span>
+              <div>
+                <strong>Manualmente</strong>
+                <span>Activo hasta que lo quites</span>
+              </div>
+            </button>
+            <button type="button" class="discount-mode-card" data-discount-mode="tiempo">
+              <span class="material-symbols-rounded">schedule</span>
+              <div>
+                <strong>Por Tiempo</strong>
+                <span>Dura X min, horas o días</span>
+              </div>
+            </button>
+            <button type="button" class="discount-mode-card" data-discount-mode="unidades">
+              <span class="material-symbols-rounded">inventory_2</span>
+              <div>
+                <strong>Por Unidades</strong>
+                <span>Hasta vender X unidades</span>
+              </div>
+            </button>
+          </div>
+          <input type="hidden" id="quickDiscountModeInput" value="manual" />
+
+          <div class="form-row-2 hidden" id="quickDiscountTimeRow" style="margin-top:0.85rem;">
+            <div class="form-group">
+              <label for="quickDiscountTimeValue">Cantidad de tiempo *</label>
+              <input type="number" id="quickDiscountTimeValue" class="modal-input" min="1" max="9999" step="1" value="24" />
+            </div>
+            <div class="form-group">
+              <label for="quickDiscountTimeUnit">Unidad *</label>
+              <select id="quickDiscountTimeUnit" class="modal-input">
+                <option value="horas">Horas</option>
+                <option value="dias">Días</option>
+                <option value="minutos">Minutos</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group hidden" id="quickDiscountUnitsRow" style="margin-top:0.85rem;">
+            <label for="quickDiscountUnitsLimit">Cantidad de unidades con descuento *</label>
+            <input type="number" id="quickDiscountUnitsLimit" class="modal-input" min="1" max="999999" step="1" value="25" placeholder="Ej: 25 unidades" />
+            <span class="discount-units-helper" id="quickDiscountUnitsHelper">El precio volverá automáticamente a su valor regular apenas se vendan estas unidades.</span>
+          </div>
+        </div>
+
+        <div id="quickDiscountInlineFeedback" class="auth-inline-feedback hidden"></div>
+
+        <div class="quick-discount-footer">
+          <button type="button" class="btn-cancel-order hidden" id="btnRemoveQuickDiscount">
+            <span class="material-symbols-rounded">layers_clear</span>
+            <span>Quitar Descuento</span>
+          </button>
+          <div style="display:flex; gap:0.65rem; margin-left:auto;">
+            <button type="button" class="btn-secondary" id="btnCancelQuickDiscount">Cancelar</button>
+            <button type="submit" class="btn-primary" id="btnSaveQuickDiscount">
+              <span class="material-symbols-rounded">sell</span>
+              <span id="btnSaveQuickDiscountText">Aplicar Descuento</span>
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de confirmación para eliminar producto del catálogo (sin alertas nativas) -->
+  <div class="modal-backdrop hidden" id="adminDeleteProductBackdrop" style="z-index: 9850;">
+    <div class="modal-card" style="max-width: 430px; text-align: center; padding: 1.85rem 1.5rem;">
+      <div style="width: 54px; height: 54px; border-radius: 50%; background: rgba(224, 26, 44, 0.12); color: var(--brand-red, #e01a2c); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+        <span class="material-symbols-rounded" style="font-size: 1.9rem;">delete_forever</span>
+      </div>
+      <h3 style="font-size: 1.18rem; font-weight: 800; margin-bottom: 0.5rem;">¿Eliminar producto del catálogo?</h3>
+      <p id="adminDeleteProductMessage" style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.45; margin-bottom: 1.35rem;"></p>
+      <div style="display: flex; justify-content: center; gap: 0.7rem;">
+        <button type="button" class="btn-secondary" id="btnCancelDeleteProduct">Cancelar</button>
+        <button type="button" class="btn-cancel-order" id="btnConfirmDeleteProduct" style="background: #dc2626; color: #fff; border-color: #dc2626;">
+          <span class="material-symbols-rounded">delete</span>
+          <span>Sí, Eliminar</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal interactivo: visualizador de comprobante y factura electrónica gráfica -->
   <div class="invoice-modal-backdrop hidden" id="invoiceModalBackdrop">

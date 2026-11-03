@@ -599,15 +599,220 @@ router.get('/categorias', async (req, res) => {
   }
 });
 
+// ============================================================================
+// MIGRACIÓN AUTOMÁTICA Y UTILIDADES DE DESCUENTOS PROMOCIONALES EN PRODUCTOS
+// ============================================================================
+
+let discountColumnsChecked = false;
+
+/**
+ * Garantiza de forma idempotente que la tabla `productos` cuente con las columnas
+ * de descuentos promocionales (porcentaje, modalidad manual/tiempo/unidades, expiración y conteo).
+ *
+ * @function ensureProductDiscountColumns
+ * @returns {Promise<void>}
+ */
+async function ensureProductDiscountColumns() {
+  if (discountColumnsChecked) return;
+  const alterStatements = [
+    'ALTER TABLE productos ADD COLUMN descuento_porcentaje DECIMAL(5, 2) NOT NULL DEFAULT 0',
+    "ALTER TABLE productos ADD COLUMN descuento_tipo VARCHAR(20) NOT NULL DEFAULT 'manual'",
+    'ALTER TABLE productos ADD COLUMN descuento_expira_en DATETIME DEFAULT NULL',
+    'ALTER TABLE productos ADD COLUMN descuento_unidades_limite INT DEFAULT NULL',
+    'ALTER TABLE productos ADD COLUMN descuento_unidades_vendidas INT NOT NULL DEFAULT 0'
+  ];
+  try {
+    for (const stmt of alterStatements) {
+      try {
+        await pool.query(stmt);
+      } catch (colErr) {
+        if (colErr && colErr.errno !== 1060 && !String(colErr.message || '').includes('Duplicate column')) {
+          throw colErr;
+        }
+      }
+    }
+    discountColumnsChecked = true;
+  } catch (_) {
+    // Si MySQL no está disponible temporalmente, se reintentará en la siguiente consulta exitosa
+  }
+}
+
+/**
+ * Convierte una fecha ISO o Date a formato DATETIME compatible con MySQL ('YYYY-MM-DD HH:MM:SS').
+ *
+ * @function toMysqlDateTime
+ * @param {string|Date|null} val - Valor de fecha a formatear.
+ * @returns {string|null} Cadena DATETIME en UTC o null.
+ */
+function toMysqlDateTime(val) {
+  if (!val) return null;
+  const d = new Date(val);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 19).replace('T', ' ');
+}
+
+/**
+ * Normaliza los parámetros de descuento enviados por el administrador (0-100%, manual, tiempo o unidades).
+ *
+ * @function parseDiscountPayload
+ * @param {object} body - Cuerpo de la petición HTTP.
+ * @param {object|null} [existing=null] - Registro previo del producto si aplica.
+ * @returns {object} Campos normalizados de descuento listos para persistencia.
+ */
+function parseDiscountPayload(body = {}, existing = null) {
+  const hasExplicitPct = body.descuento_porcentaje !== undefined && body.descuento_porcentaje !== null && body.descuento_porcentaje !== '';
+  const rawPct = hasExplicitPct
+    ? Number(body.descuento_porcentaje)
+    : Number(existing?.descuento_porcentaje || 0);
+  const pct = Number.isFinite(rawPct) ? Math.min(100, Math.max(0, Number(rawPct.toFixed(2)))) : 0;
+
+  if (pct <= 0) {
+    return {
+      descuento_porcentaje: 0,
+      descuento_tipo: 'manual',
+      descuento_expira_en: null,
+      descuento_expira_mysql: null,
+      descuento_unidades_limite: null,
+      descuento_unidades_vendidas: 0
+    };
+  }
+
+  const rawTipo = String(body.descuento_tipo || existing?.descuento_tipo || 'manual').trim().toLowerCase();
+  const tipo = ['manual', 'tiempo', 'unidades'].includes(rawTipo) ? rawTipo : 'manual';
+
+  let expiraIso = null;
+  let unidadesLimite = null;
+  let unidadesVendidas = 0;
+
+  if (tipo === 'tiempo') {
+    if (body.duracion_valor !== undefined && Number(body.duracion_valor) > 0) {
+      const val = Math.max(1, Number(body.duracion_valor));
+      const unit = String(body.duracion_unidad || 'horas').trim().toLowerCase();
+      let multMs = 3600 * 1000;
+      if (unit.startsWith('min')) multMs = 60 * 1000;
+      else if (unit.startsWith('dia') || unit.startsWith('día')) multMs = 24 * 3600 * 1000;
+      expiraIso = new Date(Date.now() + val * multMs).toISOString();
+    } else if (body.descuento_expira_en) {
+      const parsed = new Date(body.descuento_expira_en);
+      if (!Number.isNaN(parsed.getTime())) expiraIso = parsed.toISOString();
+    } else if (existing?.descuento_expira_en) {
+      const parsed = new Date(existing.descuento_expira_en);
+      if (!Number.isNaN(parsed.getTime())) expiraIso = parsed.toISOString();
+    }
+    if (!expiraIso) {
+      expiraIso = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+    }
+  } else if (tipo === 'unidades') {
+    const rawLimit = body.descuento_unidades_limite !== undefined
+      ? Number(body.descuento_unidades_limite)
+      : Number(existing?.descuento_unidades_limite || 10);
+    unidadesLimite = Math.max(1, Math.round(Number.isFinite(rawLimit) ? rawLimit : 10));
+    if (body.preserve_vendidas && existing) {
+      unidadesVendidas = Math.max(0, Number(existing.descuento_unidades_vendidas || 0));
+    } else {
+      unidadesVendidas = 0;
+    }
+  }
+
+  return {
+    descuento_porcentaje: pct,
+    descuento_tipo: tipo,
+    descuento_expira_en: expiraIso,
+    descuento_expira_mysql: toMysqlDateTime(expiraIso),
+    descuento_unidades_limite: unidadesLimite,
+    descuento_unidades_vendidas: unidadesVendidas
+  };
+}
+
+/**
+ * Calcula en tiempo real la vigencia del descuento de un producto (verificando tiempo o límite de unidades)
+ * y proyecta `precio` (activo de venta), `precio_base` (regular) y `precio_anterior` (tachado).
+ *
+ * @function formatProductWithDiscount
+ * @param {object} row - Fila cruda del producto desde MySQL o memoria.
+ * @returns {{product: object, justExpired: boolean}} Producto enriquecido e indicador de expiración automática.
+ */
+function formatProductWithDiscount(row) {
+  const precioBase = Math.max(0, Number(row.precio_base ?? row.precio ?? 0));
+  const rawPct = Number(row.descuento_porcentaje || 0);
+  const pct = Number.isFinite(rawPct) ? Math.min(100, Math.max(0, rawPct)) : 0;
+  const tipo = ['manual', 'tiempo', 'unidades'].includes(row.descuento_tipo) ? row.descuento_tipo : 'manual';
+  const expiraRaw = row.descuento_expira_en
+    ? (row.descuento_expira_en instanceof Date
+        ? row.descuento_expira_en.toISOString()
+        : (String(row.descuento_expira_en).includes('T')
+            ? String(row.descuento_expira_en)
+            : `${String(row.descuento_expira_en).replace(' ', 'T')}Z`))
+    : null;
+  const limite = row.descuento_unidades_limite !== null && row.descuento_unidades_limite !== undefined
+    ? Number(row.descuento_unidades_limite)
+    : null;
+  const vendidas = Math.max(0, Number(row.descuento_unidades_vendidas || 0));
+
+  let isActive = pct > 0;
+  let justExpired = false;
+
+  if (isActive && tipo === 'tiempo') {
+    const expMs = expiraRaw ? new Date(expiraRaw).getTime() : 0;
+    if (!expMs || Number.isNaN(expMs) || expMs <= Date.now()) {
+      isActive = false;
+      justExpired = true;
+    }
+  } else if (isActive && tipo === 'unidades') {
+    if (!limite || limite <= 0 || vendidas >= limite) {
+      isActive = false;
+      justExpired = true;
+    }
+  }
+
+  if (isActive) {
+    const precioConDescuento = Math.max(0, Math.round(precioBase * (1 - pct / 100)));
+    return {
+      justExpired: false,
+      product: {
+        ...row,
+        precio_base: precioBase,
+        precio: precioConDescuento,
+        precio_anterior: precioBase,
+        descuento_activo: true,
+        descuento_porcentaje: pct,
+        descuento_tipo: tipo,
+        descuento_expira_en: expiraRaw,
+        descuento_unidades_limite: limite,
+        descuento_unidades_vendidas: vendidas,
+        descuento_unidades_restantes: tipo === 'unidades' && limite ? Math.max(0, limite - vendidas) : null
+      }
+    };
+  }
+
+  return {
+    justExpired,
+    product: {
+      ...row,
+      precio_base: precioBase,
+      precio: precioBase,
+      precio_anterior: null,
+      descuento_activo: false,
+      descuento_porcentaje: 0,
+      descuento_tipo: 'manual',
+      descuento_expira_en: null,
+      descuento_unidades_limite: null,
+      descuento_unidades_vendidas: 0,
+      descuento_unidades_restantes: null
+    }
+  };
+}
+
 /**
  * @route GET /api/productos
- * @desc Consulta el catálogo de productos con filtros por categoría, búsqueda textual y destacados.
+ * @desc Consulta el catálogo de productos con filtros por categoría, búsqueda textual, destacados y descuentos activos.
  * @access Público
  */
 router.get('/productos', async (req, res) => {
   const { categoria, q, mas_vendidos } = req.query;
 
   try {
+    await ensureProductDiscountColumns();
     let sql = `
       SELECT
         p.id,
@@ -620,6 +825,11 @@ router.get('/productos', async (req, res) => {
         p.presentacion,
         p.precio,
         p.precio_anterior,
+        p.descuento_porcentaje,
+        p.descuento_tipo,
+        p.descuento_expira_en,
+        p.descuento_unidades_limite,
+        p.descuento_unidades_vendidas,
         p.imagen_url,
         p.stock,
         p.es_mas_vendido,
@@ -631,7 +841,7 @@ router.get('/productos', async (req, res) => {
     `;
     const params = [];
 
-    if (categoria && categoria !== 'todos') {
+    if (categoria && categoria !== 'todos' && categoria !== 'ofertas') {
       sql += ' AND cat.slug = ?';
       params.push(categoria);
     }
@@ -649,11 +859,49 @@ router.get('/productos', async (req, res) => {
     sql += ' ORDER BY p.es_mas_vendido DESC, p.id ASC';
 
     const [rows] = await pool.query(sql, params);
-    return res.json({ source: 'mysql', total: rows.length, data: rows });
-  } catch (error) {
-    let filtered = [...productosFallback];
+    const expiredIds = [];
+    let formatted = rows.map((r) => {
+      const { product, justExpired } = formatProductWithDiscount(r);
+      if (justExpired) expiredIds.push(r.id);
+      return product;
+    });
 
-    if (categoria && categoria !== 'todos') {
+    if (categoria === 'ofertas') {
+      formatted = formatted.filter((p) => p.descuento_activo);
+    }
+
+    if (expiredIds.length > 0) {
+      pool
+        .query(
+          `UPDATE productos
+           SET descuento_porcentaje = 0, descuento_tipo = 'manual', descuento_expira_en = NULL,
+               descuento_unidades_limite = NULL, descuento_unidades_vendidas = 0
+           WHERE id IN (?)`,
+          [expiredIds]
+        )
+        .catch(() => {});
+    }
+
+    return res.json({ source: 'mysql', apiVersion: 3, total: formatted.length, data: formatted });
+  } catch (error) {
+    let fallbackChanged = false;
+    let filtered = productosFallback.map((p) => {
+      const { product, justExpired } = formatProductWithDiscount(p);
+      if (justExpired) {
+        p.descuento_porcentaje = 0;
+        p.descuento_tipo = 'manual';
+        p.descuento_expira_en = null;
+        p.descuento_unidades_limite = null;
+        p.descuento_unidades_vendidas = 0;
+        fallbackChanged = true;
+      }
+      return product;
+    });
+    if (fallbackChanged) saveFallbackStore();
+
+    if (categoria === 'ofertas') {
+      filtered = filtered.filter((p) => p.descuento_activo);
+    } else if (categoria && categoria !== 'todos') {
       filtered = filtered.filter((p) => p.categoria_slug === categoria);
     }
     if (mas_vendidos === '1' || mas_vendidos === 'true') {
@@ -669,7 +917,7 @@ router.get('/productos', async (req, res) => {
       );
     }
 
-    return res.json({ source: 'fallback', total: filtered.length, data: filtered });
+    return res.json({ source: 'fallback', apiVersion: 3, total: filtered.length, data: filtered });
   }
 });
 
@@ -1742,8 +1990,84 @@ router.post('/pedidos', async (req, res) => {
 
   let connection;
   try {
+    await ensureProductDiscountColumns();
     connection = await pool.getConnection();
     await connection.beginTransaction();
+
+    // Resolver precios vigentes en servidor y contabilizar unidades en promociones limitadas por cantidad
+    const itemIds = items.map((i) => Number(i.id)).filter((id) => Number.isFinite(id) && id > 0);
+    let prodMap = new Map();
+    if (itemIds.length > 0) {
+      const [prodRows] = await connection.query(
+        `SELECT id, nombre, precio, descuento_porcentaje, descuento_tipo,
+                descuento_expira_en, descuento_unidades_limite, descuento_unidades_vendidas
+         FROM productos WHERE id IN (?) FOR UPDATE`,
+        [itemIds]
+      );
+      prodRows.forEach((r) => prodMap.set(Number(r.id), r));
+    }
+
+    const resolvedItems = [];
+    for (const item of items) {
+      const qty = Math.max(1, Number(item.cantidad) || 1);
+      const dbProd = prodMap.get(Number(item.id));
+      let unitPrice = Number(item.precio) || 0;
+
+      if (dbProd) {
+        const { product: liveProd, justExpired } = formatProductWithDiscount(dbProd);
+        unitPrice = Number(liveProd.precio);
+
+        if (justExpired) {
+          await connection.query(
+            `UPDATE productos
+             SET descuento_porcentaje = 0, descuento_tipo = 'manual', descuento_expira_en = NULL,
+                 descuento_unidades_limite = NULL, descuento_unidades_vendidas = 0
+             WHERE id = ?`,
+            [dbProd.id]
+          );
+        } else if (liveProd.descuento_activo && liveProd.descuento_tipo === 'unidades') {
+          const nextSold = Number(dbProd.descuento_unidades_vendidas || 0) + qty;
+          const limit = Number(dbProd.descuento_unidades_limite || 0);
+          if (limit > 0 && nextSold >= limit) {
+            await connection.query(
+              `UPDATE productos
+               SET descuento_porcentaje = 0, descuento_tipo = 'manual', descuento_expira_en = NULL,
+                   descuento_unidades_limite = NULL, descuento_unidades_vendidas = 0
+               WHERE id = ?`,
+              [dbProd.id]
+            );
+          } else {
+            await connection.query(
+              'UPDATE productos SET descuento_unidades_vendidas = ? WHERE id = ?',
+              [nextSold, dbProd.id]
+            );
+          }
+        }
+
+        const fbProd = productosFallback.find((p) => Number(p.id) === Number(dbProd.id));
+        if (fbProd && fbProd.descuento_porcentaje > 0 && fbProd.descuento_tipo === 'unidades') {
+          const nextFbSold = Number(fbProd.descuento_unidades_vendidas || 0) + qty;
+          if (Number(fbProd.descuento_unidades_limite || 0) > 0 && nextFbSold >= Number(fbProd.descuento_unidades_limite)) {
+            fbProd.descuento_porcentaje = 0;
+            fbProd.descuento_tipo = 'manual';
+            fbProd.descuento_unidades_limite = null;
+            fbProd.descuento_unidades_vendidas = 0;
+          } else {
+            fbProd.descuento_unidades_vendidas = nextFbSold;
+          }
+        }
+      }
+
+      resolvedItems.push({
+        id: item.id,
+        nombre: item.nombre || dbProd?.nombre || 'Producto Danillanos',
+        cantidad: qty,
+        precio: unitPrice,
+        subtotal: unitPrice * qty
+      });
+    }
+
+    const finalOrderTotal = resolvedItems.reduce((acc, i) => acc + i.subtotal, 0);
 
     const [pedidoRes] = await connection.query(
       `INSERT INTO pedidos (
@@ -1763,19 +2087,18 @@ router.post('/pedidos', async (req, res) => {
         zone.tiempo_entrega_estimado,
         validMethod,
         referencia_pago || `DAN-${Date.now().toString().slice(-6)}`,
-        totalCalculado,
+        finalOrderTotal,
         observaciones_cliente || null
       ]
     );
 
     const pedidoId = pedidoRes.insertId;
 
-    for (const item of items) {
-      const subtotal = Number(item.precio) * Number(item.cantidad);
+    for (const item of resolvedItems) {
       await connection.query(
         `INSERT INTO pedido_items (pedido_id, producto_id, nombre_producto, cantidad, precio_unitario, subtotal)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [pedidoId, item.id, item.nombre, item.cantidad, item.precio, subtotal]
+        [pedidoId, item.id, item.nombre, item.cantidad, item.precio, item.subtotal]
       );
     }
 
@@ -1785,7 +2108,7 @@ router.post('/pedidos', async (req, res) => {
     return res.status(201).json({
       ok: true,
       pedido_id: pedidoId,
-      total: totalCalculado,
+      total: finalOrderTotal,
       tiempo_entrega_estimado: zone.tiempo_entrega_estimado,
       message: '¡Pedido registrado y encriptado con éxito!'
     });
@@ -1794,6 +2117,45 @@ router.post('/pedidos', async (req, res) => {
       await connection.rollback();
       connection.release();
     }
+
+    let fbDiscountMutated = false;
+    const resolvedFallbackItems = items.map((i) => {
+      const qty = Math.max(1, Number(i.cantidad) || 1);
+      const fbProd = productosFallback.find((p) => Number(p.id) === Number(i.id));
+      let unitPrice = Number(i.precio) || 0;
+      if (fbProd) {
+        const { product: liveFb, justExpired } = formatProductWithDiscount(fbProd);
+        unitPrice = Number(liveFb.precio);
+        if (justExpired) {
+          fbProd.descuento_porcentaje = 0;
+          fbProd.descuento_tipo = 'manual';
+          fbProd.descuento_expira_en = null;
+          fbProd.descuento_unidades_limite = null;
+          fbProd.descuento_unidades_vendidas = 0;
+          fbDiscountMutated = true;
+        } else if (liveFb.descuento_activo && liveFb.descuento_tipo === 'unidades') {
+          const nextSold = Number(fbProd.descuento_unidades_vendidas || 0) + qty;
+          if (Number(fbProd.descuento_unidades_limite || 0) > 0 && nextSold >= Number(fbProd.descuento_unidades_limite)) {
+            fbProd.descuento_porcentaje = 0;
+            fbProd.descuento_tipo = 'manual';
+            fbProd.descuento_unidades_limite = null;
+            fbProd.descuento_unidades_vendidas = 0;
+          } else {
+            fbProd.descuento_unidades_vendidas = nextSold;
+          }
+          fbDiscountMutated = true;
+        }
+      }
+      return {
+        producto_id: i.id,
+        nombre_producto: i.nombre,
+        cantidad: qty,
+        precio_unitario: unitPrice,
+        subtotal: unitPrice * qty
+      };
+    });
+    if (fbDiscountMutated) saveFallbackStore();
+    const fallbackTotal = resolvedFallbackItems.reduce((acc, i) => acc + i.subtotal, 0);
 
     const fallbackId = pedidosFallback.length + 1;
     pedidosFallback.unshift({
@@ -1809,26 +2171,21 @@ router.post('/pedidos', async (req, res) => {
       tiempo_entrega_estimado: zone.tiempo_entrega_estimado,
       metodo_pago: validMethod,
       referencia_pago: referencia_pago || `DAN-${Date.now().toString().slice(-6)}`,
-      total: totalCalculado,
+      total: fallbackTotal,
       estado: 'pendiente',
       observaciones_cliente: observaciones_cliente || '',
       razon_cancelacion: null,
       reembolso_estado: 'no_aplica',
       creado_en: new Date().toISOString(),
-      items: items.map((i) => ({
-        producto_id: i.id,
-        nombre_producto: i.nombre,
-        cantidad: i.cantidad,
-        precio_unitario: i.precio,
-        subtotal: i.precio * i.cantidad
-      }))
+      items: resolvedFallbackItems
     });
+    saveFallbackStore();
 
     return res.status(201).json({
       ok: true,
       source: 'fallback',
       pedido_id: fallbackId,
-      total: totalCalculado,
+      total: fallbackTotal,
       tiempo_entrega_estimado: zone.tiempo_entrega_estimado,
       message: '¡Pedido registrado con éxito!'
     });
@@ -2406,7 +2763,7 @@ router.patch(
 
 /**
  * @route POST /api/staff/catalogo
- * @desc Da de alta un nuevo producto en el catálogo oficial de Danillanos.
+ * @desc Da de alta un nuevo producto en el catálogo oficial de Danillanos (incluyendo configuración opcional de descuento).
  * @access Administrador
  */
 router.post('/staff/catalogo', requireStaffRole(['admin']), async (req, res) => {
@@ -2416,30 +2773,36 @@ router.post('/staff/catalogo', requireStaffRole(['admin']), async (req, res) => 
     presentacion,
     descripcion,
     precio,
+    precio_base,
     temperatura_conservacion,
     etiqueta,
     imagen_url,
     es_mas_vendido
   } = req.body;
 
-  if (!nombre || precio === undefined) {
-    return res.status(400).json({ ok: false, message: 'Ingresa el nombre y el precio del producto.' });
+  const rawBasePrice = precio_base !== undefined ? precio_base : precio;
+  if (!nombre || rawBasePrice === undefined) {
+    return res.status(400).json({ ok: false, message: 'Ingresa el nombre y el precio base del producto.' });
   }
 
   const catId = Number(categoria_id) || 1;
   const catObj = categoriasFallback.find((c) => Number(c.id) === catId) || categoriasFallback[0];
   const sku = `DAN-ADM-${Date.now().toString().slice(-4)}`;
-  const cleanPrice = Number(precio) || 0;
+  const cleanPrice = Math.max(0, Number(rawBasePrice) || 0);
+  const disc = parseDiscountPayload(req.body, null);
   const defaultImg =
     imagen_url ||
     'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=900&q=80';
 
   try {
+    await ensureProductDiscountColumns();
     const [result] = await pool.query(
       `INSERT INTO productos (
         categoria_id, codigo_sku, nombre, descripcion, presentacion, precio,
+        descuento_porcentaje, descuento_tipo, descuento_expira_en,
+        descuento_unidades_limite, descuento_unidades_vendidas,
         imagen_url, stock, es_mas_vendido, etiqueta, temperatura_conservacion, activo
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, 150, ?, ?, ?, 1)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 150, ?, ?, ?, 1)`,
       [
         catObj.id,
         sku,
@@ -2447,6 +2810,11 @@ router.post('/staff/catalogo', requireStaffRole(['admin']), async (req, res) => 
         descripcion || 'Calidad garantizada Danillanos.',
         presentacion || 'Unidad',
         cleanPrice,
+        disc.descuento_porcentaje,
+        disc.descuento_tipo,
+        disc.descuento_expira_mysql,
+        disc.descuento_unidades_limite,
+        disc.descuento_unidades_vendidas,
         defaultImg,
         es_mas_vendido ? 1 : 0,
         etiqueta || null,
@@ -2464,7 +2832,12 @@ router.post('/staff/catalogo', requireStaffRole(['admin']), async (req, res) => 
       descripcion: descripcion || 'Calidad garantizada Danillanos.',
       presentacion: presentacion || 'Unidad',
       precio: cleanPrice,
-      precio_anterior: null,
+      precio_base: cleanPrice,
+      descuento_porcentaje: disc.descuento_porcentaje,
+      descuento_tipo: disc.descuento_tipo,
+      descuento_expira_en: disc.descuento_expira_en,
+      descuento_unidades_limite: disc.descuento_unidades_limite,
+      descuento_unidades_vendidas: disc.descuento_unidades_vendidas,
       imagen_url: defaultImg,
       stock: 150,
       es_mas_vendido: es_mas_vendido ? 1 : 0,
@@ -2472,8 +2845,9 @@ router.post('/staff/catalogo', requireStaffRole(['admin']), async (req, res) => 
       temperatura_conservacion: temperatura_conservacion || 'Congelado -18°C'
     };
     productosFallback.unshift(newProd);
+    saveFallbackStore();
 
-    return res.status(201).json({ ok: true, product: newProd });
+    return res.status(201).json({ ok: true, product: formatProductWithDiscount(newProd).product });
   } catch (error) {
     const nextId = productosFallback.reduce((max, p) => Math.max(max, Number(p.id) || 0), 0) + 1;
     const newProd = {
@@ -2486,7 +2860,12 @@ router.post('/staff/catalogo', requireStaffRole(['admin']), async (req, res) => 
       descripcion: descripcion || 'Calidad garantizada Danillanos.',
       presentacion: presentacion || 'Unidad',
       precio: cleanPrice,
-      precio_anterior: null,
+      precio_base: cleanPrice,
+      descuento_porcentaje: disc.descuento_porcentaje,
+      descuento_tipo: disc.descuento_tipo,
+      descuento_expira_en: disc.descuento_expira_en,
+      descuento_unidades_limite: disc.descuento_unidades_limite,
+      descuento_unidades_vendidas: disc.descuento_unidades_vendidas,
       imagen_url: defaultImg,
       stock: 150,
       es_mas_vendido: es_mas_vendido ? 1 : 0,
@@ -2494,13 +2873,14 @@ router.post('/staff/catalogo', requireStaffRole(['admin']), async (req, res) => 
       temperatura_conservacion: temperatura_conservacion || 'Congelado -18°C'
     };
     productosFallback.unshift(newProd);
-    return res.status(201).json({ ok: true, source: 'fallback', product: newProd });
+    saveFallbackStore();
+    return res.status(201).json({ ok: true, source: 'fallback', product: formatProductWithDiscount(newProd).product });
   }
 });
 
 /**
  * @route PUT /api/staff/catalogo/:id
- * @desc Actualiza la ficha técnica, precio, categoría, stock o imagen de un producto existente.
+ * @desc Actualiza la ficha técnica, precio base, categoría, imagen y configuración de descuento de un producto.
  * @access Administrador
  */
 router.put('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) => {
@@ -2511,6 +2891,7 @@ router.put('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) 
     presentacion,
     descripcion,
     precio,
+    precio_base,
     temperatura_conservacion,
     etiqueta,
     imagen_url,
@@ -2519,8 +2900,19 @@ router.put('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) 
 
   const catId = Number(categoria_id) || 1;
   const catObj = categoriasFallback.find((c) => Number(c.id) === catId) || categoriasFallback[0];
-
   const existing = productosFallback.find((p) => Number(p.id) === prodId);
+
+  const rawBasePrice = precio_base !== undefined ? precio_base : precio;
+  const resolvedBasePrice =
+    rawBasePrice !== undefined
+      ? Math.max(0, Number(rawBasePrice) || 0)
+      : Number(existing?.precio_base ?? existing?.precio ?? 0);
+
+  const hasDiscountFields = req.body.descuento_porcentaje !== undefined;
+  const disc = hasDiscountFields
+    ? parseDiscountPayload(req.body, existing)
+    : parseDiscountPayload({ preserve_vendidas: true }, existing);
+
   if (existing) {
     if (nombre !== undefined) existing.nombre = String(nombre).trim().toUpperCase();
     if (categoria_id !== undefined) {
@@ -2530,17 +2922,27 @@ router.put('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) 
     }
     if (presentacion !== undefined) existing.presentacion = presentacion;
     if (descripcion !== undefined) existing.descripcion = descripcion;
-    if (precio !== undefined) existing.precio = Number(precio) || existing.precio;
+    existing.precio = resolvedBasePrice;
+    existing.precio_base = resolvedBasePrice;
+    existing.descuento_porcentaje = disc.descuento_porcentaje;
+    existing.descuento_tipo = disc.descuento_tipo;
+    existing.descuento_expira_en = disc.descuento_expira_en;
+    existing.descuento_unidades_limite = disc.descuento_unidades_limite;
+    existing.descuento_unidades_vendidas = disc.descuento_unidades_vendidas;
     if (temperatura_conservacion !== undefined) existing.temperatura_conservacion = temperatura_conservacion;
     if (etiqueta !== undefined) existing.etiqueta = etiqueta || null;
     if (imagen_url !== undefined && imagen_url.trim()) existing.imagen_url = imagen_url.trim();
     if (es_mas_vendido !== undefined) existing.es_mas_vendido = es_mas_vendido ? 1 : 0;
+    saveFallbackStore();
   }
 
   try {
+    await ensureProductDiscountColumns();
     await pool.query(
       `UPDATE productos
        SET categoria_id = ?, nombre = ?, presentacion = ?, descripcion = ?, precio = ?,
+           descuento_porcentaje = ?, descuento_tipo = ?, descuento_expira_en = ?,
+           descuento_unidades_limite = ?, descuento_unidades_vendidas = ?,
            temperatura_conservacion = ?, etiqueta = ?, imagen_url = COALESCE(NULLIF(?, ''), imagen_url),
            es_mas_vendido = ?
        WHERE id = ?`,
@@ -2549,7 +2951,12 @@ router.put('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) 
         String(nombre || existing?.nombre || '').trim().toUpperCase(),
         presentacion || existing?.presentacion || 'Unidad',
         descripcion || existing?.descripcion || '',
-        Number(precio ?? existing?.precio ?? 0),
+        resolvedBasePrice,
+        disc.descuento_porcentaje,
+        disc.descuento_tipo,
+        disc.descuento_expira_mysql,
+        disc.descuento_unidades_limite,
+        disc.descuento_unidades_vendidas,
         temperatura_conservacion || existing?.temperatura_conservacion || 'Congelado -18°C',
         etiqueta || null,
         imagen_url || '',
@@ -2557,9 +2964,96 @@ router.put('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) 
         prodId
       ]
     );
+    const [dbRows] = await pool.query(
+      `SELECT p.*, cat.slug AS categoria_slug, cat.nombre AS categoria_nombre
+       FROM productos p
+       INNER JOIN categorias cat ON p.categoria_id = cat.id
+       WHERE p.id = ? LIMIT 1`,
+      [prodId]
+    );
+    if (dbRows && dbRows[0]) {
+      return res.json({ ok: true, product: formatProductWithDiscount(dbRows[0]).product });
+    }
   } catch (_) {}
 
-  return res.json({ ok: true, product: existing });
+  return res.json({ ok: true, product: existing ? formatProductWithDiscount(existing).product : null });
+});
+
+/**
+ * @route PATCH /api/staff/catalogo/:id/descuento
+ * @desc Aplica, modifica o retira rápidamente un descuento promocional (0% a 100%, manual, por tiempo o por unidades) sobre un producto.
+ * @access Administrador
+ */
+router.patch('/staff/catalogo/:id/descuento', requireStaffRole(['admin']), async (req, res) => {
+  const prodId = Number(req.params.id);
+  const existing = productosFallback.find((p) => Number(p.id) === prodId) || null;
+  const disc = parseDiscountPayload(req.body, existing);
+
+  if (existing) {
+    if (existing.precio_base === undefined) {
+      existing.precio_base = Number(existing.precio || 0);
+    }
+    existing.precio = Number(existing.precio_base);
+    existing.descuento_porcentaje = disc.descuento_porcentaje;
+    existing.descuento_tipo = disc.descuento_tipo;
+    existing.descuento_expira_en = disc.descuento_expira_en;
+    existing.descuento_unidades_limite = disc.descuento_unidades_limite;
+    existing.descuento_unidades_vendidas = disc.descuento_unidades_vendidas;
+    saveFallbackStore();
+  }
+
+  try {
+    await ensureProductDiscountColumns();
+    await pool.query(
+      `UPDATE productos
+       SET descuento_porcentaje = ?,
+           descuento_tipo = ?,
+           descuento_expira_en = ?,
+           descuento_unidades_limite = ?,
+           descuento_unidades_vendidas = ?
+       WHERE id = ?`,
+      [
+        disc.descuento_porcentaje,
+        disc.descuento_tipo,
+        disc.descuento_expira_mysql,
+        disc.descuento_unidades_limite,
+        disc.descuento_unidades_vendidas,
+        prodId
+      ]
+    );
+
+    const [dbRows] = await pool.query(
+      `SELECT p.*, cat.slug AS categoria_slug, cat.nombre AS categoria_nombre
+       FROM productos p
+       INNER JOIN categorias cat ON p.categoria_id = cat.id
+       WHERE p.id = ? LIMIT 1`,
+      [prodId]
+    );
+    if (dbRows && dbRows[0]) {
+      return res.json({
+        ok: true,
+        product: formatProductWithDiscount(dbRows[0]).product,
+        message:
+          disc.descuento_porcentaje > 0
+            ? `Descuento del ${disc.descuento_porcentaje}% aplicado exitosamente.`
+            : 'Descuento retirado; el producto volvió a su precio regular.'
+      });
+    }
+  } catch (_) {}
+
+  if (!existing) {
+    return res.status(404).json({ ok: false, message: 'Producto no encontrado en el catálogo.' });
+  }
+
+  return res.json({
+    ok: true,
+    source: 'fallback',
+    product: formatProductWithDiscount(existing).product,
+    message:
+      disc.descuento_porcentaje > 0
+        ? `Descuento del ${disc.descuento_porcentaje}% aplicado exitosamente.`
+        : 'Descuento retirado; el producto volvió a su precio regular.'
+  });
 });
 
 /**

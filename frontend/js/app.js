@@ -100,6 +100,9 @@
     staffDrivers: [],
     staffUsers: [],
     adminCatalogQuery: '',
+    adminCatalogFilter: 'todos',
+    pendingDeleteProductId: null,
+    quickDiscountBasePrice: 0,
     serverApiV3: false,
     staffHistoryExpandedIds: new Set(),
     custCancelOpenId: null,
@@ -136,6 +139,228 @@
       currency: 'COP',
       maximumFractionDigits: 0
     }).format(Number(amount) || 0);
+  }
+
+  /**
+   * Formatea el tiempo restante de un descuento temporal en texto compacto legible.
+   * @param {string|Date} isoStr - Fecha y hora de expiración.
+   * @returns {string} Tiempo restante formateado (ej. "45m", "12h 20m", "2d 5h").
+   */
+  function formatRemainingDiscountTime(isoStr) {
+    if (!isoStr) return '';
+    const expMs = new Date(isoStr).getTime();
+    if (isNaN(expMs)) return '';
+    const diffMs = expMs - Date.now();
+    if (diffMs <= 0) return 'Expirado';
+    const totalMins = Math.max(1, Math.ceil(diffMs / 60000));
+    if (totalMins < 60) return `${totalMins} min`;
+    const totalHours = Math.floor(totalMins / 60);
+    const remMins = totalMins % 60;
+    if (totalHours < 24) return remMins > 0 ? `${totalHours}h ${remMins}m` : `${totalHours}h`;
+    const days = Math.floor(totalHours / 24);
+    const remHours = totalHours % 24;
+    return remHours > 0 ? `${days}d ${remHours}h` : `${days} días`;
+  }
+
+  /**
+   * Obtiene el diccionario local de respaldos de descuentos de catálogo.
+   * @returns {Object.<string, Object>}
+   */
+  function getLocalProductDiscountsMap() {
+    try {
+      const raw = localStorage.getItem('danillanos_catalog_discounts_v1');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch (_) {}
+    return {};
+  }
+
+  /**
+   * Guarda en almacenamiento local el estado de descuento de un producto como respaldo inmediato.
+   * @param {number|string} prodId
+   * @param {Object|null} discountData
+   */
+  function saveLocalProductDiscountOverride(prodId, discountData) {
+    try {
+      const map = getLocalProductDiscountsMap();
+      if (!discountData || !(Number(discountData.descuento_porcentaje) > 0)) {
+        delete map[String(prodId)];
+      } else {
+        map[String(prodId)] = discountData;
+      }
+      localStorage.setItem('danillanos_catalog_discounts_v1', JSON.stringify(map));
+    } catch (_) {}
+  }
+
+  /**
+   * Evalúa en vivo la vigencia de un descuento por porcentaje (0-100%), tiempo o unidades vendidas,
+   * garantizando que el precio base original nunca se pierda al expirar la promoción.
+   * @param {Object} rawProd - Objeto de producto proveniente del servidor o configuración local.
+   * @returns {Object} Producto normalizado con precio final y metadatos de descuento.
+   */
+  function evaluateClientProductDiscount(rawProd) {
+    if (!rawProd) return rawProd;
+    const basePrice = Math.max(
+      0,
+      Number(
+        rawProd.precio_base !== undefined && rawProd.precio_base !== null
+          ? rawProd.precio_base
+          : rawProd.precio_anterior && rawProd.descuento_activo
+          ? rawProd.precio_anterior
+          : rawProd.precio
+      ) || 0
+    );
+
+    const rawPct = Number(rawProd.descuento_porcentaje) || 0;
+    const pct = Math.max(0, Math.min(100, rawPct));
+    const tipo = ['manual', 'tiempo', 'unidades'].includes(rawProd.descuento_tipo)
+      ? rawProd.descuento_tipo
+      : 'manual';
+    const expiraEn = rawProd.descuento_expira_en || null;
+    const unidadesLimite =
+      rawProd.descuento_unidades_limite !== null && rawProd.descuento_unidades_limite !== undefined
+        ? Number(rawProd.descuento_unidades_limite)
+        : null;
+    const unidadesVendidas = Math.max(0, Number(rawProd.descuento_unidades_vendidas) || 0);
+
+    let active = pct > 0;
+    if (active && tipo === 'tiempo') {
+      if (!expiraEn) {
+        active = false;
+      } else {
+        const expMs = new Date(expiraEn).getTime();
+        if (isNaN(expMs) || expMs <= Date.now()) active = false;
+      }
+    }
+    if (active && tipo === 'unidades') {
+      if (!unidadesLimite || unidadesLimite <= 0 || unidadesVendidas >= unidadesLimite) {
+        active = false;
+      }
+    }
+
+    const finalPrice = active
+      ? Math.max(0, Math.round(basePrice * (1 - pct / 100)))
+      : basePrice;
+
+    const unidadesRestantes =
+      active && tipo === 'unidades' && unidadesLimite
+        ? Math.max(0, unidadesLimite - unidadesVendidas)
+        : null;
+
+    return {
+      ...rawProd,
+      precio_base: basePrice,
+      precio: finalPrice,
+      precio_anterior: active && pct > 0 ? basePrice : null,
+      descuento_activo: active,
+      descuento_porcentaje: active ? Number(pct.toFixed(2)) : 0,
+      descuento_tipo: active ? tipo : 'manual',
+      descuento_expira_en: active && tipo === 'tiempo' ? expiraEn : null,
+      descuento_unidades_limite: active && tipo === 'unidades' ? unidadesLimite : null,
+      descuento_unidades_vendidas: active && tipo === 'unidades' ? unidadesVendidas : 0,
+      descuento_unidades_restantes: unidadesRestantes
+    };
+  }
+
+  /**
+   * Re-evalúa vigencias temporales de todo el catálogo en memoria, sincroniza precios del carrito
+   * y actualiza píldoras, contadores y vistas activas.
+   */
+  function refreshAllCatalogViewsAndPills() {
+    state.products = (state.products || []).map((p) => evaluateClientProductDiscount(p));
+
+    const totalCatalogEl = document.getElementById('totalCatalogCount');
+    if (totalCatalogEl) totalCatalogEl.textContent = String(state.products.length);
+
+    const activeDiscountCount = state.products.filter((p) => p.descuento_activo).length;
+
+    const ofertasPill = document.getElementById('categoryPillOfertas');
+    const ofertasCountEl = document.getElementById('ofertasPillCount');
+    if (ofertasPill) {
+      if (ofertasCountEl) ofertasCountEl.textContent = String(activeDiscountCount);
+      ofertasPill.classList.toggle('hidden', activeDiscountCount === 0);
+      if (activeDiscountCount === 0 && state.filteredCategory === 'ofertas') {
+        state.filteredCategory = 'mas_vendidos';
+        document.querySelectorAll('#categoryPills .category-pill').forEach((btn) => {
+          btn.classList.toggle('active', btn.getAttribute('data-category') === 'mas_vendidos');
+        });
+      }
+    }
+
+    const adminDiscBadge = document.getElementById('adminDiscountActiveCount');
+    if (adminDiscBadge) adminDiscBadge.textContent = String(activeDiscountCount);
+
+    // Sincronizar precios vigentes en artículos ya agregados al carrito
+    if (Array.isArray(state.cart) && state.cart.length > 0) {
+      let cartChanged = false;
+      state.cart.forEach((item) => {
+        const liveProd = state.products.find((p) => Number(p.id) === Number(item.id));
+        if (liveProd) {
+          const nextPrice = Number(liveProd.precio);
+          const nextOld = liveProd.descuento_activo ? Number(liveProd.precio_anterior) : null;
+          const nextPct = liveProd.descuento_activo ? Number(liveProd.descuento_porcentaje) : 0;
+          if (
+            Number(item.precio) !== nextPrice ||
+            item.precio_anterior !== nextOld ||
+            Number(item.descuento_porcentaje || 0) !== nextPct
+          ) {
+            item.precio = nextPrice;
+            item.precio_anterior = nextOld;
+            item.descuento_porcentaje = nextPct;
+            item.nombre = liveProd.nombre || item.nombre;
+            item.imagen_url = liveProd.imagen_url || item.imagen_url;
+            cartChanged = true;
+          }
+        }
+      });
+      if (cartChanged) {
+        saveAndRenderCart();
+      }
+    }
+
+    if (CURRENT_PAGE === 'store' && typeof renderStoreProducts === 'function') {
+      renderStoreProducts();
+    } else if (CURRENT_PAGE === 'pagos' && typeof renderCheckoutPageItems === 'function') {
+      renderCheckoutPageItems();
+    } else if (
+      CURRENT_PAGE === 'panel' &&
+      state.activeStaffTab === 'catalogo' &&
+      typeof renderAdminCatalogoPanel === 'function'
+    ) {
+      renderAdminCatalogoPanel();
+    }
+  }
+
+  /**
+   * Sincroniza el catálogo completo y sus descuentos vigentes desde el servidor MySQL / API REST.
+   */
+  async function syncCatalogFromServer() {
+    try {
+      const apiBase = (CONFIG && CONFIG.api && CONFIG.api.baseUrl) || '/api';
+      const res = await fetch(`${apiBase}/productos`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.apiVersion >= 3) state.serverApiV3 = true;
+        if (data.ok && Array.isArray(data.data) && data.data.length > 0) {
+          state.products = data.data.map((p) => evaluateClientProductDiscount(p));
+          try {
+            localStorage.removeItem('danillanos_catalog_discounts_v1');
+          } catch (_) {}
+          refreshAllCatalogViewsAndPills();
+          return;
+        }
+      }
+    } catch (_) {}
+
+    // Respaldo local en caso de operar sin conexión temporal al API
+    const localMap = getLocalProductDiscountsMap();
+    state.products = (state.products || []).map((p) => {
+      const override = localMap[String(p.id)];
+      return evaluateClientProductDiscount(override ? { ...p, ...override } : p);
+    });
+    refreshAllCatalogViewsAndPills();
   }
 
   /**
@@ -214,6 +439,81 @@
   function closeAppDialog() {
     const modal = document.getElementById('danillanosAppDialogModal');
     if (modal) modal.classList.add('hidden');
+  }
+
+  /**
+   * Despliega un modal interactivo de confirmación o entrada de texto sin utilizar diálogos nativos del navegador.
+   * @param {Object} options
+   * @returns {Promise<boolean|string|null>}
+   */
+  function showAppActionModal({
+    title = 'Confirmar Acción',
+    message = '',
+    withInput = false,
+    defaultValue = '',
+    placeholder = '',
+    confirmText = 'Confirmar',
+    cancelText = 'Cancelar'
+  } = {}) {
+    return new Promise((resolve) => {
+      let modal = document.getElementById('danillanosAppActionModal');
+      if (!modal) {
+        const wrap = document.createElement('div');
+        wrap.innerHTML = `
+          <div class="modal-backdrop hidden" id="danillanosAppActionModal" style="z-index: 9998;">
+            <div class="modal-card" style="max-width: 440px; padding: 1.85rem 1.55rem; border-radius: var(--radius-xl, 20px);">
+              <h3 id="danillanosActionTitle" style="font-size: 1.15rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--text-primary);"></h3>
+              <p id="danillanosActionMessage" style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.45; margin-bottom: 1rem;"></p>
+              <input type="text" id="danillanosActionInput" class="modal-input hidden" style="margin-bottom: 1.1rem;" />
+              <div style="display: flex; justify-content: flex-end; gap: 0.65rem;">
+                <button type="button" class="btn-secondary" id="danillanosActionCancelBtn"></button>
+                <button type="button" class="btn-primary" id="danillanosActionConfirmBtn"></button>
+              </div>
+            </div>
+          </div>
+        `;
+        modal = wrap.firstElementChild;
+        document.body.appendChild(modal);
+      }
+
+      const titleEl = modal.querySelector('#danillanosActionTitle');
+      const msgEl = modal.querySelector('#danillanosActionMessage');
+      const inpEl = modal.querySelector('#danillanosActionInput');
+      const cancelBtn = modal.querySelector('#danillanosActionCancelBtn');
+      const confirmBtn = modal.querySelector('#danillanosActionConfirmBtn');
+
+      titleEl.textContent = title;
+      msgEl.textContent = message;
+      cancelBtn.textContent = cancelText;
+      confirmBtn.textContent = confirmText;
+
+      if (withInput) {
+        inpEl.classList.remove('hidden');
+        inpEl.value = defaultValue || '';
+        inpEl.placeholder = placeholder || '';
+      } else {
+        inpEl.classList.add('hidden');
+      }
+
+      const cleanup = (result) => {
+        modal.classList.add('hidden');
+        cancelBtn.onclick = null;
+        confirmBtn.onclick = null;
+        modal.onclick = null;
+        resolve(result);
+      };
+
+      cancelBtn.onclick = () => cleanup(withInput ? null : false);
+      confirmBtn.onclick = () => cleanup(withInput ? inpEl.value : true);
+      modal.onclick = (e) => {
+        if (e.target === modal) cleanup(withInput ? null : false);
+      };
+
+      modal.classList.remove('hidden');
+      if (withInput) {
+        setTimeout(() => inpEl.focus(), 40);
+      }
+    });
   }
 
   /**
@@ -1351,8 +1651,15 @@
               <div class="autocomplete-item-left" data-autocomplete-select="${item.nombre}">
                 <img src="${item.imagen_url}" alt="${item.nombre}" class="autocomplete-thumb" />
                 <div class="autocomplete-info">
-                  <div class="autocomplete-title">${item.nombre}</div>
-                  <div class="autocomplete-meta">${item.categoria_nombre} • <strong>${formatCurrency(item.precio)}</strong></div>
+                  <div class="autocomplete-title">
+                    ${item.nombre}
+                    ${item.descuento_activo ? `<span class="inline-discount-chip">-${Math.round(item.descuento_porcentaje)}%</span>` : ''}
+                  </div>
+                  <div class="autocomplete-meta">
+                    ${item.categoria_nombre} •
+                    ${item.descuento_activo && item.precio_anterior ? `<span class="inline-old-price">${formatCurrency(item.precio_anterior)}</span> ` : ''}
+                    <strong>${formatCurrency(item.precio)}</strong>
+                  </div>
                 </div>
               </div>
               <div class="autocomplete-actions">
@@ -1485,24 +1792,30 @@
    * @param {number} [quantityToAdd=1] - Cantidad de unidades a adicionar.
    */
   function addToCart(product, quantityToAdd = 1) {
+    const evaluated = evaluateClientProductDiscount(product);
     const cleanQty = Math.max(1, parseInt(quantityToAdd, 10) || 1);
-    const existing = state.cart.find((item) => Number(item.id) === Number(product.id));
+    const existing = state.cart.find((item) => Number(item.id) === Number(evaluated.id));
     if (existing) {
       existing.cantidad += cleanQty;
+      existing.precio = Number(evaluated.precio);
+      existing.precio_anterior = evaluated.descuento_activo ? Number(evaluated.precio_anterior) : null;
+      existing.descuento_porcentaje = evaluated.descuento_activo ? Number(evaluated.descuento_porcentaje) : 0;
     } else {
       state.cart.push({
-        id: product.id,
-        nombre: product.nombre,
-        precio: Number(product.precio),
-        presentacion: product.presentacion,
-        imagen_url: product.imagen_url,
+        id: evaluated.id,
+        nombre: evaluated.nombre,
+        precio: Number(evaluated.precio),
+        precio_anterior: evaluated.descuento_activo ? Number(evaluated.precio_anterior) : null,
+        descuento_porcentaje: evaluated.descuento_activo ? Number(evaluated.descuento_porcentaje) : 0,
+        presentacion: evaluated.presentacion,
+        imagen_url: evaluated.imagen_url,
         cantidad: cleanQty
       });
     }
 
     saveAndRenderCart();
     triggerCartHeaderAnimation();
-    showToast(`Añadido: ${cleanQty} und. de ${product.nombre}`, 'shopping_cart_checkout');
+    showToast(`Añadido: ${cleanQty} und. de ${evaluated.nombre}`, 'shopping_cart_checkout');
   }
 
   /**
@@ -1676,8 +1989,13 @@
         <div class="cart-item">
           <img src="${item.imagen_url}" alt="${item.nombre}" class="cart-item-img" />
           <div class="cart-item-info">
-            <div class="cart-item-name">${item.nombre}</div>
-            <div class="cart-item-price">${formatCurrency(item.precio)} c/u • Subtotal: ${formatCurrency(item.precio * item.cantidad)}</div>
+            <div class="cart-item-name">
+              ${item.nombre}
+              ${Number(item.descuento_porcentaje) > 0 ? `<span class="inline-discount-chip">-${Math.round(item.descuento_porcentaje)}%</span>` : ''}
+            </div>
+            <div class="cart-item-price">
+              ${item.precio_anterior ? `<span class="inline-old-price">${formatCurrency(item.precio_anterior)}</span> ` : ''}${formatCurrency(item.precio)} c/u • Subtotal: ${formatCurrency(item.precio * item.cantidad)}
+            </div>
             <div class="cart-item-qty">
               <button type="button" class="qty-btn" data-cart-step-id="${item.id}" data-cart-delta="-1">-</button>
               <input
@@ -2626,6 +2944,17 @@
     document.querySelectorAll('#categoryPills .category-pill').forEach((btn) => {
       btn.classList.toggle('active', btn.getAttribute('data-category') === catSlug);
     });
+    const titleEl = document.getElementById('catalogSectionTitle');
+    if (titleEl) {
+      if (catSlug === 'ofertas') titleEl.textContent = 'Ofertas y Descuentos Especiales';
+      else if (catSlug === 'mas_vendidos') titleEl.textContent = 'Productos Más Vendidos';
+      else if (catSlug === 'todos') titleEl.textContent = 'Catálogo Completo Danillanos';
+      else {
+        const activeBtn = document.querySelector(`#categoryPills .category-pill[data-category="${catSlug}"]`);
+        const spanLabel = activeBtn ? activeBtn.querySelectorAll('span')[1]?.textContent : null;
+        titleEl.textContent = spanLabel || 'Catálogo Danillanos';
+      }
+    }
     renderStoreProducts();
   }
 
@@ -2640,12 +2969,17 @@
     const btnLoadMore = document.getElementById('btnLoadMore');
     if (!grid) return;
 
+    state.products = (state.products || []).map((p) => evaluateClientProductDiscount(p));
+
     const q = state.searchQuery.trim().toLowerCase();
     const filtered = state.products.filter((product) => {
       let matchesCat = true;
       if (q === '') {
         if (state.filteredCategory === 'mas_vendidos') matchesCat = Boolean(product.es_mas_vendido);
+        else if (state.filteredCategory === 'ofertas') matchesCat = Boolean(product.descuento_activo);
         else if (state.filteredCategory !== 'todos') matchesCat = product.categoria_slug === state.filteredCategory;
+      } else if (state.filteredCategory === 'ofertas') {
+        matchesCat = Boolean(product.descuento_activo);
       } else if (state.filteredCategory !== 'todos' && state.filteredCategory !== 'mas_vendidos') {
         matchesCat = product.categoria_slug === state.filteredCategory;
       }
@@ -2670,12 +3004,34 @@
 
     const visible = filtered.slice(0, state.visibleProductsLimit);
     grid.innerHTML = visible
-      .map(
-        (product) => `
-        <article class="product-card">
+      .map((product) => {
+        const hasDiscount = Boolean(product.descuento_activo && product.descuento_porcentaje > 0);
+        const pctRound = Math.round(product.descuento_porcentaje || 0);
+        const discountBadgeHtml = hasDiscount
+          ? `<span class="product-discount-badge"><span class="material-symbols-rounded" style="font-size:0.88rem;">sell</span><span>${pctRound >= 100 ? '¡GRATIS! -100%' : `-${pctRound}% OFF`}</span></span>`
+          : product.etiqueta
+          ? `<span class="product-tag-badge">${product.etiqueta}</span>`
+          : '';
+
+        let promoMetaHtml = '';
+        if (hasDiscount && product.descuento_tipo === 'tiempo' && product.descuento_expira_en) {
+          const remTxt = formatRemainingDiscountTime(product.descuento_expira_en);
+          if (remTxt && remTxt !== 'Expirado') {
+            promoMetaHtml = `<div class="product-promo-meta-pill is-time"><span class="material-symbols-rounded">schedule</span><span>Termina en ${remTxt}</span></div>`;
+          }
+        } else if (
+          hasDiscount &&
+          product.descuento_tipo === 'unidades' &&
+          product.descuento_unidades_restantes !== null
+        ) {
+          promoMetaHtml = `<div class="product-promo-meta-pill is-units"><span class="material-symbols-rounded">local_fire_department</span><span>¡Últimas ${product.descuento_unidades_restantes} unds.!</span></div>`;
+        }
+
+        return `
+        <article class="product-card ${hasDiscount ? 'has-active-discount' : ''}">
           <div class="product-image-wrap">
             <img src="${product.imagen_url}" alt="${product.nombre}" class="product-image" loading="lazy" />
-            ${product.etiqueta ? `<span class="product-tag-badge">${product.etiqueta}</span>` : ''}
+            ${discountBadgeHtml}
             <span class="product-temp-badge">
               <span class="material-symbols-rounded">ac_unit</span>
               <span>${product.temperatura_conservacion || 'Fresco'}</span>
@@ -2688,16 +3044,17 @@
             </div>
             <h3 class="product-title">${product.nombre}</h3>
             <p class="product-desc">${product.presentacion} — ${product.descripcion}</p>
+            ${promoMetaHtml}
             <div class="product-footer">
               <div class="product-footer-top">
-                <span class="product-price-label">Precio unitario</span>
+                <span class="product-price-label">${hasDiscount ? 'Oferta unitaria' : 'Precio unitario'}</span>
                 <div class="product-price-box">
                   ${
                     product.precio_anterior
                       ? `<span class="product-price-old">${formatCurrency(product.precio_anterior)}</span>`
                       : ''
                   }
-                  <span class="product-price-current">${formatCurrency(product.precio)}</span>
+                  <span class="product-price-current ${hasDiscount ? 'is-discounted-price' : ''}">${formatCurrency(product.precio)}</span>
                 </div>
               </div>
               <div class="product-bulk-row">
@@ -2722,8 +3079,8 @@
             </div>
           </div>
         </article>
-      `
-      )
+      `;
+      })
       .join('');
 
     if (loadMoreBox && btnLoadMore) {
@@ -5643,7 +6000,13 @@
       const resolveBtn = e.target.closest('[data-cust-resolve-ticket]');
       if (resolveBtn) {
         const tkId = Number(resolveBtn.getAttribute('data-cust-resolve-ticket'));
-        if (confirm('¿Estás seguro de que deseas cerrar y dar por resuelto este ticket de soporte?')) {
+        const confirmed = await showAppActionModal({
+          title: '¿Cerrar Ticket de Soporte?',
+          message: '¿Estás seguro de que deseas cerrar y dar por resuelto este ticket de soporte?',
+          confirmText: 'Sí, Cerrar Ticket',
+          cancelText: 'Volver'
+        });
+        if (confirmed) {
           await closeTicketAsCustomer(tkId);
         }
         return;
@@ -5962,10 +6325,31 @@
       });
       const data = await res.json();
       if (data.ok) {
+        // Actualizar unidades vendidas en memoria/respaldo si algún ítem tenía descuento por unidades
+        itemsSnapshot.forEach((it) => {
+          const pIdx = state.products.findIndex((p) => Number(p.id) === Number(it.id));
+          if (pIdx !== -1 && state.products[pIdx].descuento_activo && state.products[pIdx].descuento_tipo === 'unidades') {
+            const pObj = { ...state.products[pIdx] };
+            const newSold = (Number(pObj.descuento_unidades_vendidas) || 0) + (Number(it.cantidad) || 0);
+            pObj.descuento_unidades_vendidas = newSold;
+            if (pObj.descuento_unidades_limite && newSold >= Number(pObj.descuento_unidades_limite)) {
+              pObj.descuento_porcentaje = 0;
+              pObj.descuento_tipo = 'manual';
+              saveLocalProductDiscountOverride(pObj.id, null);
+            } else {
+              saveLocalProductDiscountOverride(pObj.id, pObj);
+            }
+            state.products[pIdx] = evaluateClientProductDiscount(pObj);
+          }
+        });
+
         state.cart = [];
         saveAndRenderCart();
+        syncCatalogFromServer();
 
-        renderVisualInvoiceCard(data, payload, itemsSnapshot, totalSnapshot);
+        const finalInvoiceTotal =
+          data.total !== undefined && data.total !== null ? Number(data.total) : totalSnapshot;
+        renderVisualInvoiceCard(data, payload, itemsSnapshot, finalInvoiceTotal);
         goToCheckoutStep(4);
 
         const checkCircle = document.getElementById('animatedCheckmarkCircle');
@@ -6117,9 +6501,12 @@
           <div class="checkout-item-left">
             <img src="${item.imagen_url}" alt="${item.nombre}" class="checkout-item-img" />
             <div>
-              <strong>${item.nombre}</strong>
+              <strong>
+                ${item.nombre}
+                ${Number(item.descuento_porcentaje) > 0 ? `<span class="inline-discount-chip">-${Math.round(item.descuento_porcentaje)}%</span>` : ''}
+              </strong>
               <div style="font-size:0.8rem; color:var(--text-secondary);">
-                Precio unitario: ${formatCurrency(item.precio)} • Subtotal: <strong>${formatCurrency(item.precio * item.cantidad)}</strong>
+                Precio unitario: ${item.precio_anterior ? `<span class="inline-old-price">${formatCurrency(item.precio_anterior)}</span> ` : ''}${formatCurrency(item.precio)} • Subtotal: <strong>${formatCurrency(item.precio * item.cantidad)}</strong>
               </div>
             </div>
           </div>
@@ -6497,8 +6884,16 @@
       const cancelBtn = e.target.closest('[data-emp-cancel]');
       if (cancelBtn) {
         const id = Number(cancelBtn.getAttribute('data-emp-cancel'));
-        const razon = prompt(`Cancelar Pedido #${id}:\nIndica el motivo de la cancelación:`, 'Cancelado en validación operativa');
-        if (!razon || !razon.trim()) return;
+        const razon = await showAppActionModal({
+          title: `Cancelar Pedido #${id}`,
+          message: 'Indica el motivo de la cancelación operativa:',
+          withInput: true,
+          defaultValue: 'Cancelado en validación operativa',
+          placeholder: 'Ej: Sin inventario disponible / Solicitud del cliente',
+          confirmText: 'Confirmar Cancelación',
+          cancelText: 'Volver'
+        });
+        if (!razon || !String(razon).trim()) return;
         saveOrderOverride(id, {
           estado: 'cancelado',
           razon_cancelacion: razon.trim()
@@ -6645,6 +7040,15 @@
         return;
       }
 
+      // Administración: Apertura rápida de configuración de Descuento Promocional
+      const discountProdBtn = e.target.closest('[data-admin-discount-prod]');
+      if (discountProdBtn) {
+        const prodId = Number(discountProdBtn.getAttribute('data-admin-discount-prod'));
+        const prod = state.products.find((p) => Number(p.id) === prodId);
+        if (prod) openQuickDiscountModal(prod);
+        return;
+      }
+
       // Administración: Edición de producto en catálogo comercial
       const editProdBtn = e.target.closest('[data-admin-edit-prod]');
       if (editProdBtn) {
@@ -6654,23 +7058,12 @@
         return;
       }
 
-      // Administración: Eliminación de producto del catálogo con persistencia dual
+      // Administración: Eliminación de producto del catálogo con diálogo personalizado
       const delProdBtn = e.target.closest('[data-admin-del-prod]');
       if (delProdBtn) {
         const prodId = Number(delProdBtn.getAttribute('data-admin-del-prod'));
         const prod = state.products.find((p) => Number(p.id) === prodId);
-        if (!confirm(`¿Eliminar "${prod?.nombre || prodId}" del catálogo?`)) return;
-
-        state.products = state.products.filter((p) => Number(p.id) !== prodId);
-        if (state.serverApiV3) {
-          try {
-            await fetch(`${CONFIG.api.baseUrl}/staff/catalogo/${prodId}`, {
-              method: 'DELETE',
-              headers: getAuthHeaders()
-            });
-          } catch (_) {}
-        }
-        renderAdminCatalogoPanel();
+        openDeleteProductModal(prodId, prod?.nombre || `Producto #${prodId}`);
         return;
       }
 
@@ -7173,6 +7566,57 @@
       renderAdminCatalogoPanel();
     });
 
+    document.getElementById('adminCatalogFilterChips')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-admin-cat-filter]');
+      if (!btn) return;
+      state.adminCatalogFilter = btn.getAttribute('data-admin-cat-filter') || 'todos';
+      document.querySelectorAll('#adminCatalogFilterChips [data-admin-cat-filter]').forEach((b) => {
+        b.classList.toggle('active', b === btn);
+      });
+      renderAdminCatalogoPanel();
+    });
+
+    // Sincronización en vivo de campos de descuento dentro del formulario Crear/Editar Producto
+    const syncAdminFormPriceAndDiscountUI = () => {
+      const baseVal = Math.max(0, Number(document.getElementById('admProdPrecio')?.value) || 0);
+      const pctInput = document.getElementById('admProdDescPct');
+      const rawPct = Number(pctInput?.value) || 0;
+      const pct = Math.max(0, Math.min(100, rawPct));
+      const tipo = document.getElementById('admProdDescTipo')?.value || 'manual';
+      const previewEl = document.getElementById('admProdPricePreview');
+      const modeGroup = document.getElementById('admProdDiscountModeGroup');
+      const timeFields = document.getElementById('admProdTimeFields');
+      const unitsFields = document.getElementById('admProdUnitsFields');
+
+      if (modeGroup) {
+        modeGroup.style.opacity = pct > 0 ? '1' : '0.55';
+      }
+      if (timeFields) {
+        timeFields.classList.toggle('hidden', !(pct > 0 && tipo === 'tiempo'));
+      }
+      if (unitsFields) {
+        unitsFields.classList.toggle('hidden', !(pct > 0 && tipo === 'unidades'));
+      }
+      if (previewEl) {
+        if (pct > 0 && baseVal > 0) {
+          const finalVal = Math.max(0, Math.round(baseVal * (1 - pct / 100)));
+          previewEl.textContent = `${formatCurrency(baseVal)} → ${formatCurrency(finalVal)} (-${Math.round(pct)}%)`;
+          previewEl.classList.add('is-active');
+        } else if (pct > 0) {
+          previewEl.textContent = `Descuento de -${Math.round(pct)}% activo`;
+          previewEl.classList.add('is-active');
+        } else {
+          previewEl.textContent = 'Sin descuento activo';
+          previewEl.classList.remove('is-active');
+        }
+      }
+    };
+
+    ['admProdPrecio', 'admProdDescPct'].forEach((id) => {
+      document.getElementById(id)?.addEventListener('input', syncAdminFormPriceAndDiscountUI);
+    });
+    document.getElementById('admProdDescTipo')?.addEventListener('change', syncAdminFormPriceAndDiscountUI);
+
     document.getElementById('adminProductForm')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const prodId = document.getElementById('admProdId').value;
@@ -7183,50 +7627,107 @@
         nombre: 'Cárnicos y Embutidos'
       };
 
+      const basePrice = Math.max(0, Number(document.getElementById('admProdPrecio').value) || 0);
+      const descPct = Math.max(0, Math.min(100, Number(document.getElementById('admProdDescPct')?.value) || 0));
+      const descTipo = document.getElementById('admProdDescTipo')?.value || 'manual';
+      const durValor = Math.max(1, Number(document.getElementById('admProdDuracionValor')?.value) || 24);
+      const durUnidad = document.getElementById('admProdDuracionUnidad')?.value || 'horas';
+      const uniLimite = Math.max(1, Math.round(Number(document.getElementById('admProdUnidadesLimite')?.value) || 20));
+
+      let localExpiraEn = null;
+      if (descPct > 0 && descTipo === 'tiempo') {
+        const mult = durUnidad === 'minutos' ? 60000 : durUnidad === 'dias' ? 86400000 : 3600000;
+        localExpiraEn = new Date(Date.now() + durValor * mult).toISOString();
+      }
+
       const payload = {
         nombre: document.getElementById('admProdNombre').value.trim().toUpperCase(),
         categoria_id: catObj.id,
         categoria_slug: catObj.slug,
         categoria_nombre: catObj.nombre,
-        precio: Number(document.getElementById('admProdPrecio').value) || 0,
+        precio_base: basePrice,
+        precio: basePrice,
         presentacion: document.getElementById('admProdPresentacion').value.trim() || 'Unidad',
         temperatura_conservacion: document.getElementById('admProdTemp').value,
         etiqueta: document.getElementById('admProdEtiqueta').value.trim() || null,
         imagen_url:
           document.getElementById('admProdImagen').value.trim() ||
           'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=900&q=80',
-        descripcion: document.getElementById('admProdDesc').value.trim() || 'Calidad garantizada Danillanos.'
+        descripcion: document.getElementById('admProdDesc').value.trim() || 'Calidad garantizada Danillanos.',
+        descuento_porcentaje: descPct,
+        descuento_tipo: descPct > 0 ? descTipo : 'manual',
+        descuento_duracion_valor: descPct > 0 && descTipo === 'tiempo' ? durValor : null,
+        descuento_duracion_unidad: descPct > 0 && descTipo === 'tiempo' ? durUnidad : null,
+        descuento_unidades_limite: descPct > 0 && descTipo === 'unidades' ? uniLimite : null
       };
 
       const isEdit = Boolean(prodId);
+      let serverUpdatedProd = null;
+      const url = isEdit
+        ? `${CONFIG.api.baseUrl}/staff/catalogo/${prodId}`
+        : `${CONFIG.api.baseUrl}/staff/catalogo`;
+      try {
+        const res = await fetch(url, {
+          method: isEdit ? 'PUT' : 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          state.serverApiV3 = true;
+          const data = await res.json();
+          if (data && data.product) {
+            serverUpdatedProd = evaluateClientProductDiscount(data.product);
+          }
+        }
+      } catch (_) {}
+
+      const localFallbackDiscountFields = {
+        precio_base: basePrice,
+        descuento_porcentaje: descPct,
+        descuento_tipo: descPct > 0 ? descTipo : 'manual',
+        descuento_expira_en: localExpiraEn,
+        descuento_unidades_limite: descPct > 0 && descTipo === 'unidades' ? uniLimite : null,
+        descuento_unidades_vendidas: 0
+      };
+
       if (isEdit) {
         const idx = state.products.findIndex((p) => Number(p.id) === Number(prodId));
-        if (idx !== -1) state.products[idx] = { ...state.products[idx], ...payload };
+        if (idx !== -1) {
+          state.products[idx] =
+            serverUpdatedProd ||
+            evaluateClientProductDiscount({
+              ...state.products[idx],
+              ...payload,
+              ...localFallbackDiscountFields
+            });
+          if (!serverUpdatedProd) {
+            saveLocalProductDiscountOverride(prodId, state.products[idx]);
+          }
+        }
       } else {
-        const nextId = state.products.reduce((max, p) => Math.max(max, Number(p.id) || 0), 0) + 1;
-        state.products.unshift({
-          id: nextId,
-          codigo_sku: `DAN-ADM-${Date.now().toString().slice(-4)}`,
-          ...payload
-        });
-      }
-
-      if (state.serverApiV3) {
-        const url = isEdit
-          ? `${CONFIG.api.baseUrl}/staff/catalogo/${prodId}`
-          : `${CONFIG.api.baseUrl}/staff/catalogo`;
-        try {
-          await fetch(url, {
-            method: isEdit ? 'PUT' : 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify(payload)
+        const nextId =
+          serverUpdatedProd?.id ||
+          state.products.reduce((max, p) => Math.max(max, Number(p.id) || 0), 0) + 1;
+        const createdObj =
+          serverUpdatedProd ||
+          evaluateClientProductDiscount({
+            id: nextId,
+            codigo_sku: `DAN-ADM-${Date.now().toString().slice(-4)}`,
+            ...payload,
+            ...localFallbackDiscountFields
           });
-        } catch (_) {}
+        state.products.unshift(createdObj);
+        if (!serverUpdatedProd) {
+          saveLocalProductDiscountOverride(createdObj.id, createdObj);
+        }
       }
 
       document.getElementById('adminCatalogFormCard')?.classList.add('hidden');
-      renderAdminCatalogoPanel();
+      refreshAllCatalogViewsAndPills();
     });
+
+    // Inicializar modal rápido de descuentos en 1 clic y modal de eliminación de productos
+    initQuickDiscountAndDeleteModals();
 
     // Manejador del formulario administrativo para vincular cuentas de personal
     const newEmpForm = document.getElementById('adminNewEmployeeForm');
@@ -7322,59 +7823,507 @@
     if (!card) return;
 
     card.classList.remove('hidden');
+    const descPctEl = document.getElementById('admProdDescPct');
+    const descTipoEl = document.getElementById('admProdDescTipo');
+    const durValEl = document.getElementById('admProdDuracionValor');
+    const durUnitEl = document.getElementById('admProdDuracionUnidad');
+    const uniLimEl = document.getElementById('admProdUnidadesLimite');
+
     if (prod) {
-      title.textContent = `Editar Producto #${prod.id}`;
+      const evaluated = evaluateClientProductDiscount(prod);
+      title.textContent = `Editar Producto #${evaluated.id}`;
       submitText.textContent = 'Guardar Cambios';
-      document.getElementById('admProdId').value = prod.id;
-      document.getElementById('admProdNombre').value = prod.nombre || '';
-      document.getElementById('admProdCategoria').value = prod.categoria_id || 1;
-      document.getElementById('admProdPrecio').value = prod.precio || 0;
-      document.getElementById('admProdPresentacion').value = prod.presentacion || 'Unidad';
-      document.getElementById('admProdTemp').value = prod.temperatura_conservacion || 'Congelado -18°C';
-      document.getElementById('admProdEtiqueta').value = prod.etiqueta || '';
-      document.getElementById('admProdImagen').value = prod.imagen_url || '';
-      document.getElementById('admProdDesc').value = prod.descripcion || '';
+      document.getElementById('admProdId').value = evaluated.id;
+      document.getElementById('admProdNombre').value = evaluated.nombre || '';
+      document.getElementById('admProdCategoria').value = evaluated.categoria_id || 1;
+      document.getElementById('admProdPrecio').value =
+        evaluated.precio_base !== undefined ? evaluated.precio_base : evaluated.precio || 0;
+      document.getElementById('admProdPresentacion').value = evaluated.presentacion || 'Unidad';
+      document.getElementById('admProdTemp').value = evaluated.temperatura_conservacion || 'Congelado -18°C';
+      document.getElementById('admProdEtiqueta').value = evaluated.etiqueta || '';
+      document.getElementById('admProdImagen').value = evaluated.imagen_url || '';
+      document.getElementById('admProdDesc').value = evaluated.descripcion || '';
+
+      if (descPctEl) descPctEl.value = evaluated.descuento_activo ? Math.round(evaluated.descuento_porcentaje) : 0;
+      if (descTipoEl) descTipoEl.value = evaluated.descuento_activo ? evaluated.descuento_tipo || 'manual' : 'manual';
+      if (evaluated.descuento_activo && evaluated.descuento_tipo === 'tiempo' && evaluated.descuento_expira_en) {
+        const remMins = Math.max(1, Math.round((new Date(evaluated.descuento_expira_en).getTime() - Date.now()) / 60000));
+        if (remMins >= 1440 && remMins % 1440 === 0) {
+          if (durValEl) durValEl.value = Math.round(remMins / 1440);
+          if (durUnitEl) durUnitEl.value = 'dias';
+        } else if (remMins >= 60) {
+          if (durValEl) durValEl.value = Math.max(1, Math.round(remMins / 60));
+          if (durUnitEl) durUnitEl.value = 'horas';
+        } else {
+          if (durValEl) durValEl.value = remMins;
+          if (durUnitEl) durUnitEl.value = 'minutos';
+        }
+      } else {
+        if (durValEl) durValEl.value = 24;
+        if (durUnitEl) durUnitEl.value = 'horas';
+      }
+      if (uniLimEl) {
+        uniLimEl.value =
+          evaluated.descuento_activo && evaluated.descuento_unidades_limite
+            ? evaluated.descuento_unidades_limite
+            : 20;
+      }
     } else {
       title.textContent = 'Crear Nuevo Producto';
       submitText.textContent = 'Crear Producto';
       document.getElementById('adminProductForm')?.reset();
       document.getElementById('admProdId').value = '';
+      if (descPctEl) descPctEl.value = 0;
+      if (descTipoEl) descTipoEl.value = 'manual';
+      if (durValEl) durValEl.value = 24;
+      if (durUnitEl) durUnitEl.value = 'horas';
+      if (uniLimEl) uniLimEl.value = 20;
+    }
+
+    enhanceAllCustomSelects(card);
+    descTipoEl?.dispatchEvent(new Event('change', { bubbles: true }));
+    durUnitEl?.dispatchEvent(new Event('change', { bubbles: true }));
+    document.getElementById('admProdPrecio')?.dispatchEvent(new Event('input', { bubbles: true }));
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  /**
+   * Abre el diálogo modal personalizado para confirmar la eliminación de un producto del catálogo.
+   * @param {number} prodId - Identificador del producto.
+   * @param {string} prodName - Nombre comercial del producto.
+   */
+  function openDeleteProductModal(prodId, prodName) {
+    state.pendingDeleteProductId = Number(prodId);
+    const modal = document.getElementById('adminDeleteProductBackdrop');
+    const msg = document.getElementById('adminDeleteProductMessage');
+    if (!modal) return;
+    if (msg) {
+      msg.textContent = `Estás a punto de retirar "${prodName}" del catálogo comercial. Esta acción se aplicará de inmediato en la tienda.`;
+    }
+    modal.classList.remove('hidden');
+  }
+
+  /**
+   * Abre el modal rápido de 1 clic para aplicar o retirar un Descuento Promocional (0% a 100%)
+   * con condición manual, por tiempo o por cantidad de unidades vendidas.
+   * @param {Object} rawProd - Producto seleccionado.
+   */
+  function openQuickDiscountModal(rawProd) {
+    const modal = document.getElementById('adminQuickDiscountBackdrop');
+    if (!modal || !rawProd) return;
+
+    const prod = evaluateClientProductDiscount(rawProd);
+    const basePrice = Math.max(0, Number(prod.precio_base !== undefined ? prod.precio_base : prod.precio) || 0);
+    state.quickDiscountBasePrice = basePrice;
+
+    document.getElementById('quickDiscountProdId').value = String(prod.id);
+    const titleEl = document.getElementById('quickDiscountModalTitle');
+    const subEl = document.getElementById('quickDiscountProductSubtitle');
+    if (titleEl) titleEl.textContent = prod.nombre;
+    if (subEl) subEl.textContent = `${prod.categoria_nombre || 'Catálogo'} • Presentación: ${prod.presentacion || 'Unidad'}`;
+
+    const pct = prod.descuento_activo ? Math.round(Number(prod.descuento_porcentaje) || 0) : 0;
+    const pctInput = document.getElementById('quickDiscountPctInput');
+    const pctRange = document.getElementById('quickDiscountPctRange');
+    if (pctInput) pctInput.value = String(pct);
+    if (pctRange) pctRange.value = String(pct);
+
+    const activeMode = prod.descuento_activo ? prod.descuento_tipo || 'manual' : 'manual';
+    const modeInput = document.getElementById('quickDiscountModeInput');
+    if (modeInput) modeInput.value = activeMode;
+
+    const timeValEl = document.getElementById('quickDiscountTimeValue');
+    const timeUnitEl = document.getElementById('quickDiscountTimeUnit');
+    if (prod.descuento_activo && prod.descuento_tipo === 'tiempo' && prod.descuento_expira_en) {
+      const remMins = Math.max(1, Math.round((new Date(prod.descuento_expira_en).getTime() - Date.now()) / 60000));
+      if (remMins >= 1440 && remMins % 1440 === 0) {
+        if (timeValEl) timeValEl.value = String(Math.round(remMins / 1440));
+        if (timeUnitEl) timeUnitEl.value = 'dias';
+      } else if (remMins >= 60) {
+        if (timeValEl) timeValEl.value = String(Math.max(1, Math.round(remMins / 60)));
+        if (timeUnitEl) timeUnitEl.value = 'horas';
+      } else {
+        if (timeValEl) timeValEl.value = String(remMins);
+        if (timeUnitEl) timeUnitEl.value = 'minutos';
+      }
+    } else {
+      if (timeValEl) timeValEl.value = '24';
+      if (timeUnitEl) timeUnitEl.value = 'horas';
+    }
+
+    const unitsLimitEl = document.getElementById('quickDiscountUnitsLimit');
+    const unitsHelperEl = document.getElementById('quickDiscountUnitsHelper');
+    if (unitsLimitEl) {
+      unitsLimitEl.value = String(
+        prod.descuento_activo && prod.descuento_unidades_limite ? prod.descuento_unidades_limite : 25
+      );
+    }
+    if (unitsHelperEl) {
+      if (prod.descuento_activo && prod.descuento_tipo === 'unidades' && prod.descuento_unidades_limite) {
+        unitsHelperEl.textContent = `Progreso actual: ${prod.descuento_unidades_vendidas || 0} de ${prod.descuento_unidades_limite} unidades vendidas (quedan ${prod.descuento_unidades_restantes} unds.). Al guardar se reiniciará el conteo con el nuevo límite.`;
+      } else {
+        unitsHelperEl.textContent =
+          'El precio volverá automáticamente a su valor regular apenas se vendan estas unidades.';
+      }
+    }
+
+    const removeBtn = document.getElementById('btnRemoveQuickDiscount');
+    if (removeBtn) {
+      removeBtn.classList.toggle('hidden', !prod.descuento_activo);
+    }
+
+    const feedbackEl = document.getElementById('quickDiscountInlineFeedback');
+    if (feedbackEl) {
+      feedbackEl.classList.add('hidden');
+      feedbackEl.textContent = '';
+    }
+
+    enhanceAllCustomSelects(modal);
+    timeUnitEl?.dispatchEvent(new Event('change', { bubbles: true }));
+    if (typeof modal._syncQuickDiscountUI === 'function') {
+      modal._syncQuickDiscountUI();
+    }
+    modal.classList.remove('hidden');
+  }
+
+  /**
+   * Inicializa los controladores interactivos del modal rápido de Descuento Promocional
+   * y del modal de confirmación de eliminación de productos.
+   */
+  function initQuickDiscountAndDeleteModals() {
+    const discModal = document.getElementById('adminQuickDiscountBackdrop');
+    if (discModal && !discModal._initialized) {
+      discModal._initialized = true;
+
+      const pctInput = document.getElementById('quickDiscountPctInput');
+      const pctRange = document.getElementById('quickDiscountPctRange');
+      const modeInput = document.getElementById('quickDiscountModeInput');
+      const modeGrid = document.getElementById('quickDiscountModeGrid');
+      const presetsWrap = document.getElementById('quickDiscountPresets');
+      const condBlock = document.getElementById('quickDiscountConditionsBlock');
+      const timeRow = document.getElementById('quickDiscountTimeRow');
+      const unitsRow = document.getElementById('quickDiscountUnitsRow');
+      const baseText = document.getElementById('quickDiscountBasePriceText');
+      const finalText = document.getElementById('quickDiscountFinalPriceText');
+      const badgeEl = document.getElementById('quickDiscountSavingsBadge');
+      const saveBtnText = document.getElementById('btnSaveQuickDiscountText');
+      const feedbackEl = document.getElementById('quickDiscountInlineFeedback');
+
+      const showQuickFeedback = (msg) => {
+        if (!feedbackEl) return;
+        if (!msg) {
+          feedbackEl.classList.add('hidden');
+          feedbackEl.textContent = '';
+          return;
+        }
+        feedbackEl.style.backgroundColor = 'rgba(224, 26, 44, 0.1)';
+        feedbackEl.style.color = 'var(--brand-red, #e01a2c)';
+        feedbackEl.style.border = '1px solid rgba(224, 26, 44, 0.3)';
+        feedbackEl.style.borderRadius = '12px';
+        feedbackEl.style.padding = '0.65rem 0.9rem';
+        feedbackEl.style.fontSize = '0.84rem';
+        feedbackEl.style.fontWeight = '600';
+        feedbackEl.style.marginTop = '0.75rem';
+        feedbackEl.style.display = 'flex';
+        feedbackEl.style.alignItems = 'center';
+        feedbackEl.style.gap = '0.45rem';
+        feedbackEl.innerHTML = `<span class="material-symbols-rounded" style="font-size:1.1rem;">error</span><span>${msg}</span>`;
+        feedbackEl.classList.remove('hidden');
+      };
+
+      const syncUI = () => {
+        const base = Math.max(0, Number(state.quickDiscountBasePrice) || 0);
+        const rawPct = Number(pctInput?.value) || 0;
+        const pct = Math.max(0, Math.min(100, rawPct));
+        const mode = modeInput?.value || 'manual';
+        const finalPrice = pct > 0 ? Math.max(0, Math.round(base * (1 - pct / 100))) : base;
+
+        if (baseText) baseText.textContent = formatCurrency(base);
+        if (finalText) finalText.textContent = formatCurrency(finalPrice);
+        if (badgeEl) {
+          badgeEl.textContent = pct >= 100 ? '¡GRATIS! -100%' : pct > 0 ? `-${Math.round(pct)}% OFF` : 'Sin desc.';
+          badgeEl.classList.toggle('is-active', pct > 0);
+        }
+
+        presetsWrap?.querySelectorAll('[data-discount-preset]').forEach((chip) => {
+          chip.classList.toggle('active', Number(chip.getAttribute('data-discount-preset')) === Math.round(pct));
+        });
+
+        modeGrid?.querySelectorAll('[data-discount-mode]').forEach((card) => {
+          card.classList.toggle('active', card.getAttribute('data-discount-mode') === mode);
+        });
+
+        if (condBlock) {
+          condBlock.style.opacity = pct > 0 ? '1' : '0.45';
+          condBlock.style.pointerEvents = pct > 0 ? 'auto' : 'none';
+        }
+        if (timeRow) timeRow.classList.toggle('hidden', !(pct > 0 && mode === 'tiempo'));
+        if (unitsRow) unitsRow.classList.toggle('hidden', !(pct > 0 && mode === 'unidades'));
+        if (saveBtnText) {
+          saveBtnText.textContent = pct > 0 ? `Aplicar -${Math.round(pct)}%` : 'Guardar sin Descuento';
+        }
+        showQuickFeedback('');
+      };
+
+      discModal._syncQuickDiscountUI = syncUI;
+
+      const closeDiscModal = () => discModal.classList.add('hidden');
+      document.getElementById('btnCloseQuickDiscountModal')?.addEventListener('click', closeDiscModal);
+      document.getElementById('btnCancelQuickDiscount')?.addEventListener('click', closeDiscModal);
+      discModal.addEventListener('click', (e) => {
+        if (e.target === discModal) closeDiscModal();
+      });
+
+      pctInput?.addEventListener('input', () => {
+        let val = Number(pctInput.value);
+        if (isNaN(val)) val = 0;
+        if (val > 100) {
+          val = 100;
+          pctInput.value = '100';
+        } else if (val < 0) {
+          val = 0;
+          pctInput.value = '0';
+        }
+        if (pctRange) pctRange.value = String(Math.round(val));
+        syncUI();
+      });
+
+      pctRange?.addEventListener('input', () => {
+        if (pctInput) pctInput.value = pctRange.value;
+        syncUI();
+      });
+
+      presetsWrap?.addEventListener('click', (e) => {
+        const chip = e.target.closest('[data-discount-preset]');
+        if (!chip) return;
+        const val = chip.getAttribute('data-discount-preset') || '0';
+        if (pctInput) pctInput.value = val;
+        if (pctRange) pctRange.value = val;
+        syncUI();
+      });
+
+      modeGrid?.addEventListener('click', (e) => {
+        const card = e.target.closest('[data-discount-mode]');
+        if (!card) return;
+        if (modeInput) modeInput.value = card.getAttribute('data-discount-mode') || 'manual';
+        syncUI();
+      });
+
+      const applyDiscountRequest = async (prodId, reqBody) => {
+        const saveBtn = document.getElementById('btnSaveQuickDiscount');
+        if (saveBtn) saveBtn.disabled = true;
+
+        let serverProduct = null;
+        try {
+          const res = await fetch(`${CONFIG.api.baseUrl}/staff/catalogo/${prodId}/descuento`, {
+            method: 'PATCH',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(reqBody)
+          });
+          if (res.ok) {
+            state.serverApiV3 = true;
+            const data = await res.json();
+            if (data && data.product) {
+              serverProduct = evaluateClientProductDiscount(data.product);
+            }
+          } else {
+            const errData = await res.json().catch(() => ({}));
+            if (errData && errData.message && res.status === 400) {
+              showQuickFeedback(errData.message);
+              if (saveBtn) saveBtn.disabled = false;
+              return false;
+            }
+          }
+        } catch (_) {}
+
+        const idx = state.products.findIndex((p) => Number(p.id) === Number(prodId));
+        if (idx !== -1) {
+          if (serverProduct) {
+            state.products[idx] = serverProduct;
+          } else {
+            const cur = state.products[idx];
+            const pct = Math.max(0, Math.min(100, Number(reqBody.descuento_porcentaje) || 0));
+            const tipo = pct > 0 ? reqBody.descuento_tipo || 'manual' : 'manual';
+            let expiraEn = null;
+            if (pct > 0 && tipo === 'tiempo') {
+              const v = Math.max(1, Number(reqBody.descuento_duracion_valor) || 24);
+              const u = reqBody.descuento_duracion_unidad || 'horas';
+              const mult = u === 'minutos' ? 60000 : u === 'dias' ? 86400000 : 3600000;
+              expiraEn = new Date(Date.now() + v * mult).toISOString();
+            }
+            const updatedLocal = evaluateClientProductDiscount({
+              ...cur,
+              precio_base: cur.precio_base !== undefined ? cur.precio_base : cur.precio,
+              descuento_porcentaje: pct,
+              descuento_tipo: tipo,
+              descuento_expira_en: expiraEn,
+              descuento_unidades_limite: pct > 0 && tipo === 'unidades' ? Number(reqBody.descuento_unidades_limite) : null,
+              descuento_unidades_vendidas: 0
+            });
+            state.products[idx] = updatedLocal;
+            saveLocalProductDiscountOverride(prodId, pct > 0 ? updatedLocal : null);
+          }
+        }
+
+        if (saveBtn) saveBtn.disabled = false;
+        closeDiscModal();
+        refreshAllCatalogViewsAndPills();
+        return true;
+      };
+
+      document.getElementById('btnRemoveQuickDiscount')?.addEventListener('click', async () => {
+        const prodId = Number(document.getElementById('quickDiscountProdId')?.value);
+        if (!prodId) return;
+        await applyDiscountRequest(prodId, { descuento_porcentaje: 0, descuento_tipo: 'manual' });
+      });
+
+      document.getElementById('adminQuickDiscountForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const prodId = Number(document.getElementById('quickDiscountProdId')?.value);
+        if (!prodId) return;
+
+        const rawPct = Number(pctInput?.value);
+        if (isNaN(rawPct) || rawPct < 0 || rawPct > 100) {
+          showQuickFeedback('Ingresa un porcentaje válido entre 0 y 100.');
+          return;
+        }
+        const pct = Math.max(0, Math.min(100, rawPct));
+        const mode = modeInput?.value || 'manual';
+        const durVal = Number(document.getElementById('quickDiscountTimeValue')?.value);
+        const durUnit = document.getElementById('quickDiscountTimeUnit')?.value || 'horas';
+        const unitsLim = Math.round(Number(document.getElementById('quickDiscountUnitsLimit')?.value));
+
+        if (pct > 0 && mode === 'tiempo' && (!durVal || durVal <= 0)) {
+          showQuickFeedback('Indica una duración mayor a 0 para el descuento temporal.');
+          return;
+        }
+        if (pct > 0 && mode === 'unidades' && (!unitsLim || unitsLim < 1)) {
+          showQuickFeedback('Indica al menos 1 unidad para el límite promocional.');
+          return;
+        }
+
+        await applyDiscountRequest(prodId, {
+          descuento_porcentaje: pct,
+          descuento_tipo: pct > 0 ? mode : 'manual',
+          descuento_duracion_valor: pct > 0 && mode === 'tiempo' ? durVal : null,
+          descuento_duracion_unidad: pct > 0 && mode === 'tiempo' ? durUnit : null,
+          descuento_unidades_limite: pct > 0 && mode === 'unidades' ? unitsLim : null
+        });
+      });
+    }
+
+    const delModal = document.getElementById('adminDeleteProductBackdrop');
+    if (delModal && !delModal._initialized) {
+      delModal._initialized = true;
+      const closeDelModal = () => {
+        state.pendingDeleteProductId = null;
+        delModal.classList.add('hidden');
+      };
+      document.getElementById('btnCancelDeleteProduct')?.addEventListener('click', closeDelModal);
+      delModal.addEventListener('click', (e) => {
+        if (e.target === delModal) closeDelModal();
+      });
+      document.getElementById('btnConfirmDeleteProduct')?.addEventListener('click', async () => {
+        const prodId = Number(state.pendingDeleteProductId);
+        if (!prodId) {
+          closeDelModal();
+          return;
+        }
+        state.products = state.products.filter((p) => Number(p.id) !== prodId);
+        saveLocalProductDiscountOverride(prodId, null);
+        try {
+          await fetch(`${CONFIG.api.baseUrl}/staff/catalogo/${prodId}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+          });
+        } catch (_) {}
+        closeDelModal();
+        refreshAllCatalogViewsAndPills();
+      });
     }
   }
 
   /**
-   * Renderiza la tabla de gestión de inventario y catálogo para el Administrador con opciones CRUD.
+   * Renderiza la tabla de gestión de inventario y catálogo para el Administrador con opciones CRUD y Descuentos.
    */
   function renderAdminCatalogoPanel() {
     const listEl = document.getElementById('adminCatalogListContainer');
     const badge = document.getElementById('adminCatalogTotalBadge');
+    const discCountEl = document.getElementById('adminDiscountActiveCount');
+
+    state.products = (state.products || []).map((p) => evaluateClientProductDiscount(p));
+
     if (badge) badge.textContent = String(state.products.length);
+    if (discCountEl) {
+      discCountEl.textContent = String(state.products.filter((p) => p.descuento_activo).length);
+    }
     if (!listEl) return;
 
     const q = (state.adminCatalogQuery || '').trim().toLowerCase();
-    const filtered = state.products.filter(
-      (p) =>
-        !q ||
+    const onlyDiscounts = state.adminCatalogFilter === 'descuentos';
+
+    const filtered = state.products.filter((p) => {
+      if (onlyDiscounts && !p.descuento_activo) return false;
+      if (!q) return true;
+      return (
         p.nombre.toLowerCase().includes(q) ||
         (p.categoria_nombre && p.categoria_nombre.toLowerCase().includes(q)) ||
         (p.codigo_sku && p.codigo_sku.toLowerCase().includes(q))
-    );
+      );
+    });
+
+    if (filtered.length === 0) {
+      listEl.innerHTML = `
+        <div class="detail-box" style="text-align:center; padding:2rem 1rem;">
+          <span class="material-symbols-rounded" style="font-size:2.4rem; color:var(--text-muted); display:block; margin-bottom:0.4rem;">sell</span>
+          <p style="margin:0; color:var(--text-secondary);">
+            ${onlyDiscounts ? 'No hay productos con descuento activo en este momento. Haz clic en el botón "Descuento" de cualquier producto para activar una promoción.' : 'No se encontraron productos con esa búsqueda.'}
+          </p>
+        </div>
+      `;
+      return;
+    }
 
     listEl.innerHTML = filtered
-      .slice(0, 60)
-      .map(
-        (p) => `
-        <div class="admin-catalog-row">
+      .slice(0, 80)
+      .map((p) => {
+        const hasDisc = Boolean(p.descuento_activo && p.descuento_porcentaje > 0);
+        const pctRound = Math.round(p.descuento_porcentaje || 0);
+        let condLabel = '';
+        if (hasDisc) {
+          if (p.descuento_tipo === 'tiempo' && p.descuento_expira_en) {
+            condLabel = `⏱ Expira en ${formatRemainingDiscountTime(p.descuento_expira_en)}`;
+          } else if (p.descuento_tipo === 'unidades' && p.descuento_unidades_limite) {
+            condLabel = `📦 ${p.descuento_unidades_vendidas || 0}/${p.descuento_unidades_limite} vendidas (quedan ${p.descuento_unidades_restantes})`;
+          } else {
+            condLabel = 'Manual';
+          }
+        }
+
+        const priceLineHtml = hasDisc
+          ? `<span class="inline-old-price">${formatCurrency(p.precio_base)}</span> <strong style="color:var(--brand-red);">${formatCurrency(p.precio)}</strong>`
+          : `<strong>${formatCurrency(p.precio)}</strong>`;
+
+        return `
+        <div class="admin-catalog-row ${hasDisc ? 'has-active-discount' : ''}">
           <div class="admin-catalog-row-left">
             <img src="${p.imagen_url}" alt="${p.nombre}" class="admin-catalog-thumb" loading="lazy" />
             <div>
-              <strong>${p.nombre}</strong>
-              <div style="font-size:0.78rem; color:var(--text-secondary);">
-                ${p.categoria_nombre || 'Danillanos'} • ${p.presentacion} • <strong>${formatCurrency(p.precio)}</strong>
+              <div class="admin-catalog-title-line">
+                <strong>${p.nombre}</strong>
+                ${hasDisc ? `<span class="admin-discount-pill">-${pctRound}% OFF</span>` : ''}
+                ${hasDisc && condLabel ? `<span class="admin-discount-cond-pill">${condLabel}</span>` : ''}
+              </div>
+              <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:2px;">
+                ${p.categoria_nombre || 'Danillanos'} • ${p.presentacion} • ${priceLineHtml}
               </div>
             </div>
           </div>
           <div class="admin-catalog-actions">
+            <button type="button" class="btn-admin-discount ${hasDisc ? 'is-active' : ''}" data-admin-discount-prod="${p.id}" title="Configurar porcentaje y duración de descuento">
+              <span class="material-symbols-rounded" style="font-size:1rem;">sell</span>
+              <span>${hasDisc ? `-${pctRound}% OFF` : 'Descuento'}</span>
+            </button>
             <button type="button" class="btn-secondary" data-admin-edit-prod="${p.id}" style="padding:0.45rem 0.85rem; font-size:0.78rem;">
               <span class="material-symbols-rounded" style="font-size:1rem;">edit</span>
               <span>Editar</span>
@@ -7385,8 +8334,8 @@
             </button>
           </div>
         </div>
-      `
-      )
+      `;
+      })
       .join('');
   }
 
@@ -8200,6 +9149,19 @@
     else if (CURRENT_PAGE === 'perfil') initPerfilPage();
     else if (CURRENT_PAGE === 'pagos') initPagosPage();
     else if (CURRENT_PAGE === 'panel') initPanelPage();
+
+    syncCatalogFromServer();
+
+    // Verificación periódica para reflejar y expirar automáticamente descuentos por tiempo o unidades
+    setInterval(() => {
+      const activeEl = document.activeElement;
+      if (activeEl && activeEl.classList && activeEl.classList.contains('bulk-qty-input')) {
+        return;
+      }
+      if (CURRENT_PAGE === 'store' || CURRENT_PAGE === 'pagos' || CURRENT_PAGE === 'panel') {
+        syncCatalogFromServer();
+      }
+    }, 25000);
   });
 })();
 

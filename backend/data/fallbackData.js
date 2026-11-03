@@ -70,18 +70,35 @@ const ticketsFallback = [];
 const storeFilePath = path.join(__dirname, 'fallback_store.json');
 
 /**
- * Persiste el estado actual de las colecciones en memoria hacia el archivo JSON.
+ *Persiste el estado actual de las colecciones en memoria hacia el archivo JSON.
  *
  * @function saveFallbackStore
  * @returns {void}
  */
 function saveFallbackStore() {
   try {
+    const productosDescuentos = {};
+    productosDanillanos.forEach((p) => {
+      if (
+        Number(p.descuento_porcentaje || 0) > 0 ||
+        p.precio_base !== undefined
+      ) {
+        productosDescuentos[p.id] = {
+          precio_base: Number(p.precio_base ?? p.precio ?? 0),
+          descuento_porcentaje: Number(p.descuento_porcentaje || 0),
+          descuento_tipo: p.descuento_tipo || 'manual',
+          descuento_expira_en: p.descuento_expira_en || null,
+          descuento_unidades_limite: p.descuento_unidades_limite ?? null,
+          descuento_unidades_vendidas: Number(p.descuento_unidades_vendidas || 0)
+        };
+      }
+    });
     const data = {
       usuarios: usuariosFallback,
       direcciones: direccionesFallback,
       pedidos: pedidosFallback,
-      tickets: ticketsFallback
+      tickets: ticketsFallback,
+      productosDescuentos
     };
     fs.writeFileSync(storeFilePath, JSON.stringify(data, null, 2), 'utf8');
   } catch (_) {
@@ -115,6 +132,19 @@ function loadFallbackStore() {
       if (Array.isArray(data.tickets) && data.tickets.length > 0) {
         ticketsFallback.length = 0;
         ticketsFallback.push(...data.tickets);
+      }
+      if (data.productosDescuentos && typeof data.productosDescuentos === 'object') {
+        productosDanillanos.forEach((p) => {
+          const saved = data.productosDescuentos[p.id];
+          if (saved) {
+            if (saved.precio_base !== undefined) p.precio = Number(saved.precio_base);
+            p.descuento_porcentaje = Number(saved.descuento_porcentaje || 0);
+            p.descuento_tipo = saved.descuento_tipo || 'manual';
+            p.descuento_expira_en = saved.descuento_expira_en || null;
+            p.descuento_unidades_limite = saved.descuento_unidades_limite ?? null;
+            p.descuento_unidades_vendidas = Number(saved.descuento_unidades_vendidas || 0);
+          }
+        });
       }
     }
   } catch (_) {

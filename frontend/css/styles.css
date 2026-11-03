@@ -8982,3 +8982,568 @@ body[data-page="perfil"] [data-profile-window].hidden,
 .tab-notification-dot.hidden {
   display: none !important;
 }
+
+
+/* ==========================================================================
+   SISTEMA DE DESCUENTOS PROMOCIONALES (TIENDA, CARRITO Y PANEL ADMIN)
+   ========================================================================== */
+
+/* Píldora "Ofertas" en catálogo de tienda */
+.category-pill-ofertas {
+  border-color: rgba(224, 26, 44, 0.35);
+}
+
+.ofertas-pill-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  background: rgba(224, 26, 44, 0.14);
+  color: var(--brand-red, #e01a2c);
+}
+
+.category-pill-ofertas.active .ofertas-pill-count {
+  background: rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+}
+
+/* Insignia de porcentaje en tarjetas de producto */
+.product-card.has-active-discount {
+  border-color: rgba(224, 26, 44, 0.32);
+}
+
+.product-discount-badge {
+  position: absolute;
+  top: 0.65rem;
+  left: 0.65rem;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.32rem 0.65rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #e01a2c 0%, #b91c1c 100%);
+  color: #ffffff;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(224, 26, 44, 0.35);
+}
+
+.product-promo-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  align-self: flex-start;
+  padding: 0.22rem 0.58rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.product-promo-meta-pill .material-symbols-rounded {
+  font-size: 0.88rem;
+}
+
+.product-promo-meta-pill.is-time {
+  background: rgba(245, 158, 11, 0.14);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+[data-theme="dark"] .product-promo-meta-pill.is-time {
+  color: #fbbf24;
+}
+
+.product-promo-meta-pill.is-units {
+  background: rgba(224, 26, 44, 0.12);
+  color: var(--brand-red, #e01a2c);
+  border: 1px solid rgba(224, 26, 44, 0.28);
+}
+
+.product-price-current.is-discounted-price {
+  color: var(--brand-red, #e01a2c);
+}
+
+/* Chips de descuento en buscador, carrito y pasarela */
+.inline-discount-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.42rem;
+  margin-left: 0.3rem;
+  border-radius: 999px;
+  background: rgba(224, 26, 44, 0.14);
+  color: var(--brand-red, #e01a2c);
+  font-size: 0.68rem;
+  font-weight: 800;
+  vertical-align: middle;
+}
+
+.inline-old-price {
+  text-decoration: line-through;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.85em;
+}
+
+/* Barra de filtro y filas en Gestión de Catálogo (panel.html) */
+.admin-catalog-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.admin-catalog-toolbar > .modal-input {
+  flex: 1 1 280px;
+}
+
+.admin-catalog-filter-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--bg-elevated);
+  padding: 0.28rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+}
+
+.admin-cat-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.42rem 0.85rem;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-cat-filter-btn.active {
+  background: var(--brand-red, #e01a2c);
+  color: #ffffff;
+}
+
+.admin-cat-filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  background: rgba(224, 26, 44, 0.14);
+  color: var(--brand-red, #e01a2c);
+}
+
+.admin-cat-filter-btn.active .admin-cat-filter-count {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.admin-catalog-row.has-active-discount {
+  border-color: rgba(224, 26, 44, 0.34);
+  background: linear-gradient(90deg, rgba(224, 26, 44, 0.04) 0%, transparent 60%);
+}
+
+.admin-catalog-title-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.42rem;
+}
+
+.admin-discount-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.14rem 0.5rem;
+  border-radius: 999px;
+  background: var(--brand-red, #e01a2c);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.admin-discount-cond-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.14rem 0.52rem;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.btn-admin-discount {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(224, 26, 44, 0.35);
+  background: rgba(224, 26, 44, 0.08);
+  color: var(--brand-red, #e01a2c);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.btn-admin-discount:hover {
+  background: rgba(224, 26, 44, 0.16);
+  transform: translateY(-1px);
+}
+
+.btn-admin-discount.is-active {
+  background: var(--brand-red, #e01a2c);
+  border-color: var(--brand-red, #e01a2c);
+  color: #ffffff;
+}
+
+/* Bloque de Descuento dentro del formulario Crear / Editar Producto */
+.admin-form-discount-section {
+  margin-top: 0.35rem;
+  margin-bottom: 0.5rem;
+  padding: 1rem 1.1rem;
+  border-radius: 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+}
+
+.admin-form-discount-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.admin-form-discount-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.admin-form-discount-title .material-symbols-rounded {
+  font-size: 1.1rem;
+  color: var(--brand-red, #e01a2c);
+}
+
+.admin-form-price-preview {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.68rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.admin-form-price-preview.is-active {
+  background: rgba(224, 26, 44, 0.12);
+  border-color: rgba(224, 26, 44, 0.32);
+  color: var(--brand-red, #e01a2c);
+}
+
+/* Modal Rápido de Descuento Promocional */
+.quick-discount-modal-card {
+  max-width: 540px;
+  width: 100%;
+  padding: 1.6rem 1.65rem;
+  border-radius: 22px;
+}
+
+.quick-discount-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.85rem;
+  margin-bottom: 1.1rem;
+}
+
+.quick-discount-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.quick-discount-icon-circle {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 14px;
+  background: rgba(224, 26, 44, 0.12);
+  color: var(--brand-red, #e01a2c);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quick-discount-header h3 {
+  font-size: 1.06rem;
+  font-weight: 800;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.quick-discount-header p {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin: 0.18rem 0 0;
+}
+
+.discount-preview-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 0.9rem;
+}
+
+.discount-preview-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.discount-preview-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.discount-preview-base {
+  font-size: 0.98rem;
+  color: var(--text-secondary);
+}
+
+.discount-preview-final {
+  font-size: 1.18rem;
+  color: var(--brand-red, #e01a2c);
+  font-weight: 800;
+}
+
+.discount-preview-arrow {
+  color: var(--text-muted);
+  font-size: 1.25rem;
+}
+
+.discount-preview-badge {
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.discount-preview-badge.is-active {
+  background: var(--brand-red, #e01a2c);
+  border-color: var(--brand-red, #e01a2c);
+  color: #ffffff;
+}
+
+.discount-pct-number-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.discount-pct-number {
+  width: 82px !important;
+  text-align: center;
+  font-weight: 800;
+  padding: 0.42rem 0.5rem !important;
+}
+
+.discount-pct-symbol {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.discount-range-slider {
+  width: 100%;
+  accent-color: var(--brand-red, #e01a2c);
+  margin: 0.55rem 0 0.45rem;
+  cursor: pointer;
+}
+
+.discount-preset-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.discount-preset-chip {
+  padding: 0.32rem 0.68rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.discount-preset-chip:hover {
+  border-color: rgba(224, 26, 44, 0.4);
+  color: var(--text-primary);
+}
+
+.discount-preset-chip.active {
+  background: var(--brand-red, #e01a2c);
+  border-color: var(--brand-red, #e01a2c);
+  color: #ffffff;
+}
+
+.discount-mode-section-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.discount-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.discount-mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 0.68rem 0.72rem;
+  border-radius: 14px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.discount-mode-card .material-symbols-rounded {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+}
+
+.discount-mode-card strong {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.discount-mode-card span:not(.material-symbols-rounded) {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  line-height: 1.25;
+}
+
+.discount-mode-card.active {
+  border-color: var(--brand-red, #e01a2c);
+  background: rgba(224, 26, 44, 0.08);
+}
+
+.discount-mode-card.active .material-symbols-rounded {
+  color: var(--brand-red, #e01a2c);
+}
+
+.discount-units-helper {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.quick-discount-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1.1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+@media (max-width: 768px) {
+  .product-discount-badge {
+    top: 0.45rem;
+    left: 0.45rem;
+    padding: 0.22rem 0.5rem;
+    font-size: 0.66rem;
+  }
+
+  .product-promo-meta-pill {
+    font-size: 0.65rem;
+    padding: 0.16rem 0.46rem;
+  }
+
+  .discount-mode-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .discount-mode-card {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  .quick-discount-modal-card {
+    padding: 1.2rem 1.05rem;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .discount-preview-box {
+    flex-wrap: wrap;
+    padding: 0.7rem 0.8rem;
+  }
+
+  .admin-catalog-actions {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .admin-catalog-actions button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
