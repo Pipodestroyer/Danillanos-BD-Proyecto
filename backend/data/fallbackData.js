@@ -88,6 +88,7 @@ function saveFallbackStore() {
           descuento_porcentaje: Number(p.descuento_porcentaje || 0),
           descuento_tipo: p.descuento_tipo || 'manual',
           descuento_expira_en: p.descuento_expira_en || null,
+          descuento_expira_ms: p.descuento_expira_ms ?? null,
           descuento_unidades_limite: p.descuento_unidades_limite ?? null,
           descuento_unidades_vendidas: Number(p.descuento_unidades_vendidas || 0)
         };
@@ -141,6 +142,7 @@ function loadFallbackStore() {
             p.descuento_porcentaje = Number(saved.descuento_porcentaje || 0);
             p.descuento_tipo = saved.descuento_tipo || 'manual';
             p.descuento_expira_en = saved.descuento_expira_en || null;
+            p.descuento_expira_ms = saved.descuento_expira_ms ?? null;
             p.descuento_unidades_limite = saved.descuento_unidades_limite ?? null;
             p.descuento_unidades_vendidas = Number(saved.descuento_unidades_vendidas || 0);
           }

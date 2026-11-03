@@ -219,7 +219,18 @@
     const tipo = ['manual', 'tiempo', 'unidades'].includes(rawProd.descuento_tipo)
       ? rawProd.descuento_tipo
       : 'manual';
-    const expiraEn = rawProd.descuento_expira_en || null;
+    const rawExpMs =
+      rawProd.descuento_expira_ms !== null &&
+      rawProd.descuento_expira_ms !== undefined &&
+      Number(rawProd.descuento_expira_ms) > 0
+        ? Number(rawProd.descuento_expira_ms)
+        : rawProd.descuento_expira_en
+        ? new Date(rawProd.descuento_expira_en).getTime()
+        : null;
+    const expiraEn =
+      rawExpMs && !isNaN(rawExpMs)
+        ? new Date(rawExpMs).toISOString()
+        : rawProd.descuento_expira_en || null;
     const unidadesLimite =
       rawProd.descuento_unidades_limite !== null && rawProd.descuento_unidades_limite !== undefined
         ? Number(rawProd.descuento_unidades_limite)
@@ -228,11 +239,8 @@
 
     let active = pct > 0;
     if (active && tipo === 'tiempo') {
-      if (!expiraEn) {
+      if (!rawExpMs || isNaN(rawExpMs) || rawExpMs <= Date.now()) {
         active = false;
-      } else {
-        const expMs = new Date(expiraEn).getTime();
-        if (isNaN(expMs) || expMs <= Date.now()) active = false;
       }
     }
     if (active && tipo === 'unidades') {
@@ -340,11 +348,11 @@
   async function syncCatalogFromServer() {
     try {
       const apiBase = (CONFIG && CONFIG.api && CONFIG.api.baseUrl) || '/api';
-      const res = await fetch(`${apiBase}/productos`);
+      const res = await fetch(`${apiBase}/productos`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         if (data.apiVersion >= 3) state.serverApiV3 = true;
-        if (data.ok && Array.isArray(data.data) && data.data.length > 0) {
+        if (Array.isArray(data.data) && data.data.length > 0) {
           state.products = data.data.map((p) => evaluateClientProductDiscount(p));
           try {
             localStorage.removeItem('danillanos_catalog_discounts_v1');
@@ -677,11 +685,12 @@
   /**
    * Normaliza sinónimos y variaciones de nombres de rol al identificador canónico del sistema.
    * @param {string} roleVal - Nombre del rol a evaluar.
-   * @returns {('cliente'|'empleado'|'entregador'|'soporte'|'admin')} Rol normalizado.
+   * @returns {('cliente'|'empleado'|'bodega'|'entregador'|'soporte'|'admin')} Rol normalizado.
    */
   function normalizeRole(roleVal) {
     const r = String(roleVal || '').trim().toLowerCase();
-    if (['empleado', 'empleado_general', 'bodega'].includes(r)) return 'empleado';
+    if (['empleado', 'empleado_general'].includes(r)) return 'empleado';
+    if (['bodega', 'alistamiento', 'empaque'].includes(r)) return 'bodega';
     if (['entregador', 'repartidor', 'domiciliario'].includes(r)) return 'entregador';
     if (['soporte', 'atencion', 'asistente'].includes(r)) return 'soporte';
     if (['admin', 'administrador'].includes(r)) return 'admin';
@@ -731,12 +740,12 @@
   /**
    * Comprueba si un usuario posee privilegios administrativos u operacionales (no es cliente raso).
    * @param {Object} [user=state.user] - Objeto de usuario a evaluar.
-   * @returns {boolean} True si el usuario tiene rol empleado, entregador, soporte o admin.
+   * @returns {boolean} True si el usuario tiene rol empleado, bodega, entregador, soporte o admin.
    */
   function isStaffUser(user = state.user) {
     if (!user) return false;
     const rol = normalizeRole(user.rol);
-    return ['empleado', 'entregador', 'soporte', 'admin'].includes(rol);
+    return ['empleado', 'bodega', 'entregador', 'soporte', 'admin'].includes(rol);
   }
 
   /**
@@ -1091,6 +1100,7 @@
       seenTicketsStaff: {},
       seenOrderStatuses: {},
       seenEmployeeOrders: [],
+      seenBodegaOrders: [],
       seenDriverOrders: []
     };
   }
@@ -1225,6 +1235,21 @@
   }
 
   /**
+   * Marca un pedido en alistamiento como visto por el personal de bodega.
+   * @param {number|string} orderId - Identificador del pedido.
+   */
+  function markBodegaOrderSeen(orderId) {
+    const seen = getSeenNotifications();
+    if (!Array.isArray(seen.seenBodegaOrders)) seen.seenBodegaOrders = [];
+    if (!seen.seenBodegaOrders.includes(Number(orderId))) {
+      seen.seenBodegaOrders.push(Number(orderId));
+      saveSeenNotifications(seen);
+      syncUserNotificationDots();
+      renderStaffNav();
+    }
+  }
+
+  /**
    * Marca una orden en reparto como vista por el conductor asignado.
    * @param {number|string} orderId - Identificador del pedido.
    */
@@ -1274,7 +1299,7 @@
   }
 
   /**
-   * Determina si un pedido pendiente representa una orden nueva sin procesar en bodega.
+   * Determina si un pedido pendiente representa una orden nueva sin revisar en recepción.
    * @param {Object} ord - Objeto del pedido.
    * @returns {boolean} True si el pedido está pendiente y no ha sido visualizado.
    */
@@ -1286,21 +1311,33 @@
   }
 
   /**
-   * Determina si un pedido en ruta asignado al repartidor activo aún no ha sido revisado.
+   * Determina si un pedido aceptado ('en_proceso') aún no ha sido revisado por Bodega.
    * @param {Object} ord - Objeto del pedido.
-   * @returns {boolean} True si la orden fue asignada y está pendiente de inspección por el conductor.
+   * @returns {boolean} True si el pedido está en alistamiento y no ha sido visualizado.
+   */
+  function hasBodegaOrderNovelty(ord) {
+    if (!ord) return false;
+    const seen = getSeenNotifications();
+    const seenBod = Array.isArray(seen.seenBodegaOrders) ? seen.seenBodegaOrders : [];
+    return ord.estado === 'en_proceso' && !seenBod.includes(Number(ord.id));
+  }
+
+  /**
+   * Determina si un pedido despachado ('en_camino') asignado al repartidor activo aún no ha sido revisado.
+   * @param {Object} ord - Objeto del pedido.
+   * @returns {boolean} True si la orden fue despachada a ruta y está pendiente de inspección por el conductor.
    */
   function hasDriverOrderNovelty(ord) {
-    if (!ord) return false;
+    if (!ord || ord.estado !== 'en_camino') return false;
     const seen = getSeenNotifications();
     const seenDrv = Array.isArray(seen.seenDriverOrders) ? seen.seenDriverOrders : [];
     const myId = state.user?.id ? Number(state.user.id) : null;
     const myName = (state.user?.nombre_completo || '').toLowerCase();
     const isAssigned =
+      normalizeRole(state.user?.rol) === 'admin' ||
       (myId && Number(ord.entregador_id) === myId) ||
       (myName && (ord.entregador_nombre || '').toLowerCase().includes(myName));
-    const isActiveRoute = ['en_camino', 'en_proceso'].includes(ord.estado);
-    return isAssigned && isActiveRoute && !seenDrv.includes(Number(ord.id));
+    return isAssigned && !seenDrv.includes(Number(ord.id));
   }
 
   /**
@@ -1320,7 +1357,7 @@
   }
 
   /**
-   * Verifica de manera global si la cola de bodega contiene nuevos pedidos pendientes por procesar.
+   * Verifica de manera global si la cola de recepción contiene nuevos pedidos pendientes por revisar.
    * @returns {boolean} True si existen órdenes pendientes no revisadas.
    */
   function hasUnreadEmployeeOrders() {
@@ -1331,7 +1368,18 @@
   }
 
   /**
-   * Comprueba si el repartidor activo tiene entregas asignadas sin revisar en su ruta.
+   * Verifica si existen pedidos confirmados ('en_proceso') pendientes de alistar en Bodega.
+   * @returns {boolean} True si existen órdenes en alistamiento no revisadas.
+   */
+  function hasUnreadBodegaOrders() {
+    const seen = getSeenNotifications();
+    const seenBod = Array.isArray(seen.seenBodegaOrders) ? seen.seenBodegaOrders : [];
+    const orders = state.staffOrders || [];
+    return orders.some((o) => o.estado === 'en_proceso' && !seenBod.includes(Number(o.id)));
+  }
+
+  /**
+   * Comprueba si el repartidor activo tiene entregas en ruta ('en_camino') sin revisar.
    * @returns {boolean} True si hay pedidos activos en ruta sin inspeccionar.
    */
   function hasUnreadDriverOrders() {
@@ -1342,11 +1390,12 @@
     const myName = (state.user?.nombre_completo || '').toLowerCase();
 
     return orders.some((o) => {
+      if (o.estado !== 'en_camino') return false;
       const isAssigned =
+        normalizeRole(state.user?.rol) === 'admin' ||
         (myId && Number(o.entregador_id) === myId) ||
         (myName && (o.entregador_nombre || '').toLowerCase().includes(myName));
-      const isActiveRoute = ['en_camino', 'en_proceso'].includes(o.estado);
-      return isAssigned && isActiveRoute && !seenDrv.includes(Number(o.id));
+      return isAssigned && !seenDrv.includes(Number(o.id));
     });
   }
 
@@ -1424,7 +1473,11 @@
     } else if (role === 'empleado') {
       const hasPendingNew = hasUnreadEmployeeOrders();
       hasNotification = hasPendingNew;
-      if (hasPendingNew) notifTitle = 'Novedad: Hay nuevos pedidos en bodega por confirmar';
+      if (hasPendingNew) notifTitle = 'Novedad: Hay pedidos nuevos pendientes de validar stock';
+    } else if (role === 'bodega') {
+      const hasBodegaNew = hasUnreadBodegaOrders();
+      hasNotification = hasBodegaNew;
+      if (hasBodegaNew) notifTitle = 'Novedad: Hay pedidos confirmados listos para alistar en bodega';
     } else if (role === 'entregador') {
       const hasAssigned = hasUnreadDriverOrders();
       hasNotification = hasAssigned;
@@ -1435,9 +1488,10 @@
       if (hasTickets) notifTitle = 'Novedad: Tienes nuevos mensajes de clientes en tickets de soporte';
     } else if (role === 'admin') {
       const hasPendingNew = hasUnreadEmployeeOrders();
+      const hasBodegaNew = hasUnreadBodegaOrders();
       const hasAssigned = hasUnreadDriverOrders();
       const hasTickets = hasUnreadStaffTickets();
-      hasNotification = hasPendingNew || hasAssigned || hasTickets;
+      hasNotification = hasPendingNew || hasBodegaNew || hasAssigned || hasTickets;
       if (hasNotification) notifTitle = 'Novedades operativas en el panel de control';
     }
 
@@ -4116,6 +4170,8 @@
         setSession(null, null, []);
         if (CURRENT_PAGE === 'perfil') {
           renderPerfilPageAuthState();
+        } else if (CURRENT_PAGE === 'panel' || CURRENT_PAGE === 'pagos') {
+          window.location.href = 'perfil.html#cuenta-section';
         }
       }
     } catch (_) {}
@@ -6695,6 +6751,7 @@
     const defaultTabByRole = {
       admin: 'admin',
       empleado: 'empleado',
+      bodega: 'bodega',
       entregador: 'entregador',
       soporte: 'soporte'
     };
@@ -6744,7 +6801,7 @@
       window.location.href = 'index.html';
     });
 
-    ['btnAdminRefresh', 'btnEmpleadoRefresh', 'btnEntregadorRefresh', 'btnSoporteRefresh'].forEach((id) => {
+    ['btnAdminRefresh', 'btnEmpleadoRefresh', 'btnBodegaRefresh', 'btnEntregadorRefresh', 'btnSoporteRefresh'].forEach((id) => {
       document.getElementById(id)?.addEventListener('click', loadStaffDataAndRender);
     });
 
@@ -6820,7 +6877,7 @@
         return;
       }
 
-      // Confirmación de orden en bodega y asignación de repartidor
+      // Lectura de novedad en tarjeta de recepción (Empleado General) o Bodega
       const clickedOrderCard = e.target.closest('[data-emp-order-id]');
       if (clickedOrderCard) {
         const orderIdToMark = Number(clickedOrderCard.getAttribute('data-emp-order-id'));
@@ -6834,50 +6891,104 @@
         }
       }
 
+      const clickedBodegaCard = e.target.closest('[data-bodega-order-id]');
+      if (clickedBodegaCard) {
+        const orderIdToMark = Number(clickedBodegaCard.getAttribute('data-bodega-order-id'));
+        if (orderIdToMark) {
+          const dot = clickedBodegaCard.querySelector('.ticket-unread-dot');
+          if (dot) {
+            dot.classList.add('is-read');
+            setTimeout(() => dot.remove(), 250);
+          }
+          markBodegaOrderSeen(orderIdToMark);
+        }
+      }
+
+      // Etapa 1 (Empleado General): Aceptar pedido tras validar stock -> pasa a Bodega ('en_proceso')
       const confirmBtn = e.target.closest('[data-emp-confirm]');
       if (confirmBtn) {
         const id = Number(confirmBtn.getAttribute('data-emp-confirm'));
         markEmployeeOrderSeen(id);
+        confirmBtn.disabled = true;
+        try {
+          const res = await fetch(`${CONFIG.api.baseUrl}/staff/pedidos/${id}/confirmar`, {
+            method: 'PATCH',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({})
+          });
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            if (res.status === 401 || res.status === 403 || res.status === 404) {
+              showAppDialog({
+                title: 'Sesión o Permiso No Válido',
+                message: errData.message || 'Por favor vuelve a iniciar sesión para confirmar pedidos.',
+                type: 'error',
+                confirmText: 'Entendido'
+              });
+              confirmBtn.disabled = false;
+              return;
+            }
+            if (errData.message) {
+              showAppDialog({
+                title: 'No se pudo aceptar el pedido',
+                message: errData.message,
+                type: 'error',
+                confirmText: 'Entendido'
+              });
+              await loadStaffDataAndRender();
+              return;
+            }
+          }
+        } catch (_) {}
+        saveOrderOverride(id, { estado: 'en_proceso' });
+        await loadStaffDataAndRender();
+        return;
+      }
+
+      // Etapa 2 (Bodega): Pedido alistado + asignación de Entregador -> pasa a Ruta ('en_camino')
+      const dispatchBtn = e.target.closest('[data-emp-dispatch]');
+      if (dispatchBtn) {
+        const id = Number(dispatchBtn.getAttribute('data-emp-dispatch'));
+        markBodegaOrderSeen(id);
         const driverSelect = document.getElementById(`assignDriverSelect_${id}`);
         const entregador_id = driverSelect && driverSelect.value ? Number(driverSelect.value) : null;
-        const driverText = driverSelect?.options[driverSelect.selectedIndex]?.text || 'Diego Alejandro Vargas';
-        saveOrderOverride(id, {
-          estado: 'en_proceso',
-          entregador_id,
-          entregador_nombre: driverText
-        });
+        if (!entregador_id) {
+          showAppDialog({
+            title: 'Selecciona un Entregador',
+            message: 'Debes elegir qué entregador llevará el pedido antes de despacharlo a ruta.',
+            type: 'error',
+            confirmText: 'Entendido'
+          });
+          return;
+        }
+        const driverText =
+          driverSelect?.options[driverSelect.selectedIndex]?.text || 'Entregador Danillanos';
+        dispatchBtn.disabled = true;
         try {
-          await fetch(`${CONFIG.api.baseUrl}/staff/pedidos/${id}/confirmar`, {
+          const res = await fetch(`${CONFIG.api.baseUrl}/staff/pedidos/${id}/en-reparto`, {
             method: 'PATCH',
             headers: getAuthHeaders(),
             body: JSON.stringify({ entregador_id })
           });
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            showAppDialog({
+              title: 'No se pudo despachar a ruta',
+              message: errData.message || 'Verifica que el entregador esté activo e inténtalo nuevamente.',
+              type: 'error',
+              confirmText: 'Entendido'
+            });
+            dispatchBtn.disabled = false;
+            await loadStaffDataAndRender();
+            return;
+          }
         } catch (_) {}
-        loadStaffDataAndRender();
-        return;
-      }
-
-      // Despacho a ruta de reparto y actualización de estado logístico
-      const dispatchBtn = e.target.closest('[data-emp-dispatch]');
-      if (dispatchBtn) {
-        const id = Number(dispatchBtn.getAttribute('data-emp-dispatch'));
-        markEmployeeOrderSeen(id);
-        const driverSelect = document.getElementById(`assignDriverSelect_${id}`);
-        const entregador_id = driverSelect && driverSelect.value ? Number(driverSelect.value) : null;
-        const driverText = driverSelect?.options[driverSelect.selectedIndex]?.text || 'Diego Alejandro Vargas';
         saveOrderOverride(id, {
           estado: 'en_camino',
           entregador_id,
           entregador_nombre: driverText
         });
-        try {
-          await fetch(`${CONFIG.api.baseUrl}/staff/pedidos/${id}/en-reparto`, {
-            method: 'PATCH',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ entregador_id })
-          });
-        } catch (_) {}
-        loadStaffDataAndRender();
+        await loadStaffDataAndRender();
         return;
       }
 
@@ -7211,6 +7322,17 @@
       renderEmpleadoPanel
     );
     bindFilters(
+      [
+        'bodegaActiveSearchInput',
+        'bodegaActiveZoneFilter',
+        'bodegaHistorySearchInput',
+        'bodegaHistoryStatusFilter',
+        'bodegaHistoryZoneFilter',
+        'bodegaHistoryPayFilter'
+      ],
+      renderBodegaPanel
+    );
+    bindFilters(
       ['driverHistorySearchInput', 'driverHistoryZoneFilter', 'driverHistoryPayFilter'],
       renderEntregadorHistorySection
     );
@@ -7234,36 +7356,41 @@
     if (!state.user) return;
     const roleNames = {
       empleado: 'EMPLEADO GENERAL',
+      bodega: 'BODEGA Y ALISTAMIENTO',
       entregador: 'ENTREGADOR',
       soporte: 'SOPORTE',
       admin: 'ADMINISTRADOR'
     };
 
+    const normalizedRole = normalizeRole(state.user.rol);
     document.getElementById('staffAvatarInitial').textContent = (
       state.user.nombre_completo || 'D'
     )
       .charAt(0)
       .toUpperCase();
     document.getElementById('staffRoleBadge').textContent =
-      roleNames[state.user.rol] || state.user.rol.toUpperCase();
+      roleNames[normalizedRole] || normalizedRole.toUpperCase();
     document.getElementById('staffFullName').textContent = state.user.nombre_completo;
     document.getElementById('staffEmailText').textContent = state.user.email;
 
     const options = [];
-    if (state.user.rol === 'admin') {
+    if (normalizedRole === 'admin') {
       options.push(
         { id: 'admin', icon: 'monitoring', label: 'Resumen e Historial' },
         { id: 'catalogo', icon: 'inventory_2', label: 'Gestionar Catálogo' },
         { id: 'usuarios', icon: 'manage_accounts', label: 'Empleados y Roles' },
-        { id: 'empleado', icon: 'fact_check', label: 'Bodega e Historial' },
+        { id: 'empleado', icon: 'fact_check', label: 'Recepción y Stock' },
+        { id: 'bodega', icon: 'warehouse', label: 'Bodega y Alistamiento' },
         { id: 'entregador', icon: 'route', label: 'Ruta e Historial Entregas' },
         { id: 'soporte', icon: 'support_agent', label: 'Soporte y Facturas' }
       );
-    } else if (state.user.rol === 'empleado') {
-      options.push({ id: 'empleado', icon: 'fact_check', label: 'Bodega e Historial' });
-    } else if (state.user.rol === 'entregador') {
+    } else if (normalizedRole === 'empleado') {
+      options.push({ id: 'empleado', icon: 'fact_check', label: 'Recepción e Historial' });
+    } else if (normalizedRole === 'bodega') {
+      options.push({ id: 'bodega', icon: 'warehouse', label: 'Bodega e Historial' });
+    } else if (normalizedRole === 'entregador') {
       options.push({ id: 'entregador', icon: 'route', label: 'Ruta e Historial Entregas' });
-    } else if (state.user.rol === 'soporte') {
+    } else if (normalizedRole === 'soporte') {
       options.push({ id: 'soporte', icon: 'support_agent', label: 'Tickets y Facturas' });
     }
 
@@ -7272,7 +7399,9 @@
         (opt) => {
           let dotHtml = '';
           if (opt.id === 'empleado' && hasUnreadEmployeeOrders()) {
-            dotHtml = '<span class="notification-red-dot" title="Nuevos pedidos en bodega por confirmar"></span>';
+            dotHtml = '<span class="notification-red-dot" title="Nuevos pedidos pendientes por validar stock"></span>';
+          } else if (opt.id === 'bodega' && hasUnreadBodegaOrders()) {
+            dotHtml = '<span class="notification-red-dot" title="Nuevos pedidos aceptados listos para alistar"></span>';
           } else if (opt.id === 'entregador' && hasUnreadDriverOrders()) {
             dotHtml = '<span class="notification-red-dot" title="Nuevos pedidos asignados a tu ruta"></span>';
           } else if (opt.id === 'soporte' && hasUnreadStaffTickets()) {
@@ -7309,7 +7438,9 @@
       });
 
       if (!res.ok) {
-        // Carga de datos operativos de respaldo ante contingencias de red
+        if (res.status === 401 || res.status === 403 || res.status === 404) {
+          refreshCurrentUserSession();
+        }
         state.staffOrders = getFallbackStaffOrders();
         state.staffTickets = getLocalTicketsStore();
         state.staffDrivers = activeLocalDrivers;
@@ -7320,10 +7451,10 @@
       const data = await res.json();
       if (data.apiVersion >= 3) state.serverApiV3 = true;
 
-      const serverOrders = Array.isArray(data.pedidos) && data.pedidos.length > 0
+      const serverOrders = Array.isArray(data.pedidos)
         ? data.pedidos
         : getFallbackStaffOrders();
-      state.staffOrders = applyOrderOverrides(serverOrders);
+      state.staffOrders = serverOrders;
       state.staffTickets = mergeTicketsWithLocal(data.tickets || []);
 
       state.staffDrivers =
@@ -7332,12 +7463,7 @@
           : activeLocalDrivers;
 
       if (Array.isArray(data.usuarios) && data.usuarios.length > 0) {
-        const localUsers = getLocalUsersStore();
-        const mergedUsers = data.usuarios.map((su) => {
-          const lu = localUsers.find((u) => Number(u.id) === Number(su.id));
-          return lu ? { ...su, rol: normalizeRole(lu.rol), activo: lu.activo } : su;
-        });
-        saveLocalUsersStore(mergedUsers);
+        saveLocalUsersStore(data.usuarios.map((su) => ({ ...su, rol: normalizeRole(su.rol) })));
       }
 
       renderActiveStaffTab();
@@ -7357,6 +7483,7 @@
     document.getElementById('panelViewCatalogo')?.classList.toggle('hidden', state.activeStaffTab !== 'catalogo');
     document.getElementById('panelViewUsuarios')?.classList.toggle('hidden', state.activeStaffTab !== 'usuarios');
     document.getElementById('panelViewEmpleado')?.classList.toggle('hidden', state.activeStaffTab !== 'empleado');
+    document.getElementById('panelViewBodega')?.classList.toggle('hidden', state.activeStaffTab !== 'bodega');
     document.getElementById('panelViewEntregador')?.classList.toggle('hidden', state.activeStaffTab !== 'entregador');
     document.getElementById('panelViewSoporte')?.classList.toggle('hidden', state.activeStaffTab !== 'soporte');
 
@@ -7364,6 +7491,7 @@
     else if (state.activeStaffTab === 'catalogo') renderAdminCatalogoPanel();
     else if (state.activeStaffTab === 'usuarios') loadAdminUsersAndRender();
     else if (state.activeStaffTab === 'empleado') renderEmpleadoPanel();
+    else if (state.activeStaffTab === 'bodega') renderBodegaPanel();
     else if (state.activeStaffTab === 'entregador') renderEntregadorPanel();
     else if (state.activeStaffTab === 'soporte') renderSoportePanel();
   }
@@ -7501,7 +7629,9 @@
                       <span>Ver Factura Gráfica</span>
                     </button>
                     ${
-                      ord.estado !== 'entregado' && ord.estado !== 'cancelado'
+                      ord.estado !== 'entregado' &&
+                      ord.estado !== 'cancelado' &&
+                      ['admin', 'soporte'].includes(normalizeRole(state.user?.rol))
                         ? `<button type="button" class="btn-cancel-order" data-emp-cancel="${ord.id}">
                              <span class="material-symbols-rounded">cancel</span>
                              <span>Cancelar Pedido</span>
@@ -7568,9 +7698,6 @@
         return;
       }
       openAdminProductForm(null);
-    });
-    document.getElementById('btnCloseCatalogForm')?.addEventListener('click', () => {
-      closeAdminCatalogForm();
     });
     document.getElementById('btnCancelCatalogForm')?.addEventListener('click', () => {
       closeAdminCatalogForm();
@@ -7692,6 +7819,20 @@
           const data = await res.json();
           if (data && data.product) {
             serverUpdatedProd = evaluateClientProductDiscount(data.product);
+            saveLocalProductDiscountOverride(serverUpdatedProd.id, null);
+          }
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          if (res.status === 401 || res.status === 403 || res.status === 404) {
+            showAppDialog({
+              title: 'No se pudo guardar en el servidor',
+              message:
+                errData?.message ||
+                'Tu sesión de Administrador expiró. Vuelve a iniciar sesión para guardar cambios en el catálogo.',
+              type: 'error',
+              confirmText: 'Entendido'
+            });
+            return;
           }
         }
       } catch (_) {}
@@ -8214,14 +8355,16 @@
             const data = await res.json();
             if (data && data.product) {
               serverProduct = evaluateClientProductDiscount(data.product);
+              saveLocalProductDiscountOverride(prodId, null);
             }
           } else {
             const errData = await res.json().catch(() => ({}));
-            if (errData && errData.message && res.status === 400) {
-              showQuickFeedback(errData.message);
-              if (saveBtn) saveBtn.disabled = false;
-              return false;
-            }
+            showQuickFeedback(
+              errData?.message ||
+                'No fue posible guardar el descuento en el servidor. Verifica tu sesión de Administrador.'
+            );
+            if (saveBtn) saveBtn.disabled = false;
+            return false;
           }
         } catch (_) {}
 
@@ -8505,7 +8648,8 @@
     }
 
     const rolesList = [
-      { value: 'empleado', label: 'Empleado General' },
+      { value: 'empleado', label: 'Empleado General (Stock)' },
+      { value: 'bodega', label: 'Bodega y Alistamiento' },
       { value: 'entregador', label: 'Entregador' },
       { value: 'soporte', label: 'Soporte' },
       { value: 'admin', label: 'Administrador' }
@@ -8698,7 +8842,9 @@
   }
 
   /**
-   * Renderiza el panel de bodega y empaque con la cola de pedidos pendientes por confirmar y despachar.
+   * Etapa 1 (Empleado General): Renderiza únicamente los pedidos 'pendiente' para validar stock,
+   * aceptarlos (pasándolos inmediatamente a Bodega) o cancelarlos. Una vez gestionados, salen de
+   * pantalla y pasan al historial de solo lectura.
    */
   function renderEmpleadoPanel() {
     const activeQuery = document.getElementById('empActiveSearchInput')?.value || '';
@@ -8706,28 +8852,15 @@
 
     const activeQueue = state.staffOrders.filter(
       (o) =>
-        (o.estado === 'pendiente' || o.estado === 'en_proceso') &&
+        o.estado === 'pendiente' &&
         matchesOrderFilters(o, { query: activeQuery, status: 'todos', zone: activeZone, pay: 'todos' })
     );
 
     const container = document.getElementById('empleadoOrdersContainer');
     if (container) {
       if (activeQueue.length === 0) {
-        container.innerHTML = `<div class="detail-box"><p>No hay pedidos pendientes en la cola de bodega con el filtro actual.</p></div>`;
+        container.innerHTML = `<div class="detail-box"><p>No hay pedidos nuevos pendientes de validar stock en este momento.</p></div>`;
       } else {
-        const statusBadgeText = {
-          pendiente: 'Por Confirmar',
-          en_proceso: 'Aceptado en Bodega'
-        };
-
-        const drivers =
-          state.staffDrivers.length > 0
-            ? state.staffDrivers
-            : [
-                { id: 3, nombre_completo: 'Diego Alejandro Vargas (Entregador)' },
-                { id: 6, nombre_completo: 'Andrés Felipe Castro (Ruta Norte)' }
-              ];
-
         container.innerHTML = activeQueue
           .map(
             (ord) => `
@@ -8737,26 +8870,138 @@
                   <span class="order-id-badge">Pedido #${ord.id} — ${formatCurrency(ord.total)}</span>
                   <span class="invoice-number-badge-inline">${getInvoiceCode(ord.id)}</span>
                   <span style="font-size:0.8rem; color:var(--text-secondary);">
-                    ${ord.metodo_pago.toUpperCase()} • ${ord.tiempo_entrega_estimado}
+                    ${(ord.metodo_pago || 'efectivo').toUpperCase()} • ${ord.tiempo_entrega_estimado || 'Envío programado'}
                   </span>
                 </div>
-                <span class="order-status-pill status-${ord.estado}">${ord.estado === 'pendiente' && hasEmployeeOrderNovelty(ord) ? '<span class="ticket-unread-dot" title="Nuevo pedido pendiente por confirmar"></span>' : ''}<span>${statusBadgeText[ord.estado] || ord.estado}</span></span>
+                <span class="order-status-pill status-pendiente">${hasEmployeeOrderNovelty(ord) ? '<span class="ticket-unread-dot" title="Nuevo pedido pendiente por validar stock"></span>' : ''}<span>Por Confirmar Stock</span></span>
               </div>
 
               <div class="staff-order-details-grid">
                 <div class="detail-box">
                   <span class="detail-box-label">Destinatario</span>
-                  <strong>${ord.nombre_recibe}</strong> • ${ord.telefono_cliente}
+                  <strong>${ord.nombre_recibe}</strong> • ${ord.telefono_cliente || 'Sin teléfono'}
                 </div>
                 <div class="detail-box">
                   <span class="detail-box-label">Dirección de Entrega</span>
-                  <strong>${ord.direccion_entrega}</strong> (${ord.municipio})
+                  <strong>${ord.direccion_entrega}</strong> (${ord.municipio || 'Villavicencio'})
                 </div>
                 ${
-                  ord.observaciones_cliente
+                  ord.observaciones_cliente || ord.notas_entrega || ord.instrucciones_entrega
                     ? `<div class="detail-box">
                          <span class="detail-box-label">Nota del Cliente</span>
-                         <span>${ord.observaciones_cliente}</span>
+                         <span>${ord.observaciones_cliente || ord.notas_entrega || ord.instrucciones_entrega}</span>
+                       </div>`
+                    : ''
+                }
+              </div>
+
+              <div class="order-items-chips">
+                ${(ord.items || [])
+                  .map((i) => `<span class="order-item-chip">${i.cantidad}x ${i.nombre_producto}</span>`)
+                  .join('')}
+              </div>
+
+              <div class="staff-order-actions">
+                <button type="button" class="btn-secondary" data-staff-view-invoice="${ord.id}">
+                  <span class="material-symbols-rounded">receipt_long</span>
+                  <span>Ver Factura</span>
+                </button>
+                <button type="button" class="btn-confirm-order" data-emp-confirm="${ord.id}">
+                  <span class="material-symbols-rounded">check_circle</span>
+                  <span>Aceptar Pedido (Pasar a Bodega)</span>
+                </button>
+                <button type="button" class="btn-cancel-order" data-emp-cancel="${ord.id}">
+                  <span class="material-symbols-rounded">cancel</span>
+                  <span>Cancelar</span>
+                </button>
+              </div>
+            </article>
+          `
+          )
+          .join('');
+      }
+    }
+
+    // Historial de solo lectura de pedidos ya aceptados o cancelados por Recepción
+    const empReviewedAll = state.staffOrders.filter((o) =>
+      ['en_proceso', 'en_camino', 'entregado', 'cancelado'].includes(o.estado)
+    );
+    const empHistQuery = document.getElementById('empHistorySearchInput')?.value || '';
+    const empHistStatus = document.getElementById('empHistoryStatusFilter')?.value || 'todos';
+    const empHistZone = document.getElementById('empHistoryZoneFilter')?.value || 'todas';
+    const empHistPay = document.getElementById('empHistoryPayFilter')?.value || 'todos';
+
+    const filteredEmpHist = empReviewedAll.filter((ord) =>
+      matchesOrderFilters(ord, {
+        query: empHistQuery,
+        status: empHistStatus,
+        zone: empHistZone,
+        pay: empHistPay
+      })
+    );
+
+    const empHistBadge = document.getElementById('empHistorySummaryBadge');
+    if (empHistBadge) {
+      empHistBadge.textContent = `Mostrando ${filteredEmpHist.length} de ${empReviewedAll.length} pedidos revisados`;
+    }
+
+    renderCollapsibleStaffOrdersList(
+      filteredEmpHist,
+      'empleadoHistoryOrdersContainer',
+      'Aún no hay pedidos revisados en el historial con los filtros seleccionados.'
+    );
+  }
+
+  /**
+   * Etapa 2 (Bodega y Alistamiento): Renderiza únicamente los pedidos 'en_proceso' confirmados por
+   * Recepción. Permite empacar, elegir el Entregador responsable y despachar a ruta ('en_camino'),
+   * retirando de inmediato el pedido hacia su historial de solo lectura.
+   */
+  function renderBodegaPanel() {
+    const activeQuery = document.getElementById('bodegaActiveSearchInput')?.value || '';
+    const activeZone = document.getElementById('bodegaActiveZoneFilter')?.value || 'todas';
+
+    const activeQueue = state.staffOrders.filter(
+      (o) =>
+        o.estado === 'en_proceso' &&
+        matchesOrderFilters(o, { query: activeQuery, status: 'todos', zone: activeZone, pay: 'todos' })
+    );
+
+    const container = document.getElementById('bodegaOrdersContainer');
+    if (container) {
+      if (activeQueue.length === 0) {
+        container.innerHTML = `<div class="detail-box"><p>No hay pedidos pendientes de alistar en Bodega en este momento.</p></div>`;
+      } else {
+        const drivers = state.staffDrivers || [];
+        container.innerHTML = activeQueue
+          .map(
+            (ord) => `
+            <article class="staff-order-card" data-bodega-order-id="${ord.id}">
+              <div class="staff-order-top">
+                <div style="display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap;">
+                  <span class="order-id-badge">Pedido #${ord.id} — ${formatCurrency(ord.total)}</span>
+                  <span class="invoice-number-badge-inline">${getInvoiceCode(ord.id)}</span>
+                  <span style="font-size:0.8rem; color:var(--text-secondary);">
+                    ${(ord.metodo_pago || 'efectivo').toUpperCase()} • ${ord.tiempo_entrega_estimado || 'Envío programado'}
+                  </span>
+                </div>
+                <span class="order-status-pill status-en_proceso">${hasBodegaOrderNovelty(ord) ? '<span class="ticket-unread-dot" title="Nuevo pedido por alistar en bodega"></span>' : ''}<span>En Alistamiento (Bodega)</span></span>
+              </div>
+
+              <div class="staff-order-details-grid">
+                <div class="detail-box">
+                  <span class="detail-box-label">Destinatario</span>
+                  <strong>${ord.nombre_recibe}</strong> • ${ord.telefono_cliente || 'Sin teléfono'}
+                </div>
+                <div class="detail-box">
+                  <span class="detail-box-label">Zona y Dirección de Despacho</span>
+                  <strong>${ord.direccion_entrega}</strong> (${ord.municipio || 'Villavicencio'})
+                </div>
+                ${
+                  ord.observaciones_cliente || ord.notas_entrega || ord.instrucciones_entrega
+                    ? `<div class="detail-box">
+                         <span class="detail-box-label">Instrucción de Empaque / Entrega</span>
+                         <span>${ord.observaciones_cliente || ord.notas_entrega || ord.instrucciones_entrega}</span>
                        </div>`
                     : ''
                 }
@@ -8770,19 +9015,18 @@
 
               <div class="driver-assign-bar">
                 <span class="material-symbols-rounded" style="color:var(--brand-red);">two_wheeler</span>
-                <label for="assignDriverSelect_${ord.id}" style="font-size:0.82rem; font-weight:700;">Asignar Enviador:</label>
-                <select id="assignDriverSelect_${ord.id}" class="driver-assign-select">
-                  ${drivers
-                    .map(
-                      (d) =>
-                        `<option value="${d.id}" ${Number(ord.entregador_id) === Number(d.id) ? 'selected' : ''}>${d.nombre_completo}</option>`
-                    )
-                    .join('')}
-                </select>
+                <label for="assignDriverSelect_${ord.id}" style="font-size:0.82rem; font-weight:700;">Entregador Responsable:</label>
                 ${
-                  ord.entregador_nombre
-                    ? `<span style="font-size:0.78rem; color:var(--text-secondary);">Asignado: <strong>${ord.entregador_nombre}</strong></span>`
-                    : ''
+                  drivers.length > 0
+                    ? `<select id="assignDriverSelect_${ord.id}" class="driver-assign-select">
+                        ${drivers
+                          .map(
+                            (d) =>
+                              `<option value="${d.id}" ${Number(ord.entregador_id) === Number(d.id) ? 'selected' : ''}>${d.nombre_completo}</option>`
+                          )
+                          .join('')}
+                      </select>`
+                    : `<span style="font-size:0.82rem; color:#ef4444; font-weight:600;">No hay entregadores activos vinculados. Pide al Administrador vincular un entregador.</span>`
                 }
               </div>
 
@@ -8791,22 +9035,10 @@
                   <span class="material-symbols-rounded">receipt_long</span>
                   <span>Ver Factura</span>
                 </button>
-                ${
-                  ord.estado === 'pendiente'
-                    ? `<button type="button" class="btn-confirm-order" data-emp-confirm="${ord.id}">
-                         <span class="material-symbols-rounded">check_circle</span>
-                         <span>Confirmar y Asignar Enviador</span>
-                       </button>`
-                    : ''
-                }
-                ${
-                  ord.estado === 'en_proceso'
-                    ? `<button type="button" class="btn-confirm-order" style="background:#16a34a;" data-emp-dispatch="${ord.id}">
-                         <span class="material-symbols-rounded">local_shipping</span>
-                         <span>Despachar a Ruta</span>
-                       </button>`
-                    : ''
-                }
+                <button type="button" class="btn-confirm-order" style="background:#16a34a;" data-emp-dispatch="${ord.id}" ${drivers.length === 0 ? 'disabled aria-disabled="true"' : ''}>
+                  <span class="material-symbols-rounded">local_shipping</span>
+                  <span>Pedido Listo y Enviar a Ruta</span>
+                </button>
                 <button type="button" class="btn-cancel-order" data-emp-cancel="${ord.id}">
                   <span class="material-symbols-rounded">cancel</span>
                   <span>Cancelar</span>
@@ -8816,49 +9048,55 @@
           `
           )
           .join('');
+        enhanceAllCustomSelects(container);
       }
     }
 
-    // Historial de pedidos confirmados y gestionados por el funcionario de bodega
-    const empAcceptedAll = state.staffOrders.filter((o) =>
-      ['en_proceso', 'en_camino', 'entregado', 'cancelado'].includes(o.estado)
+    // Historial de solo lectura de pedidos ya alistados y despachados por Bodega
+    const bodegaDispatchedAll = state.staffOrders.filter((o) =>
+      ['en_camino', 'entregado', 'cancelado'].includes(o.estado)
     );
-    const empHistQuery = document.getElementById('empHistorySearchInput')?.value || '';
-    const empHistStatus = document.getElementById('empHistoryStatusFilter')?.value || 'todos';
-    const empHistZone = document.getElementById('empHistoryZoneFilter')?.value || 'todas';
-    const empHistPay = document.getElementById('empHistoryPayFilter')?.value || 'todos';
+    const bodHistQuery = document.getElementById('bodegaHistorySearchInput')?.value || '';
+    const bodHistStatus = document.getElementById('bodegaHistoryStatusFilter')?.value || 'todos';
+    const bodHistZone = document.getElementById('bodegaHistoryZoneFilter')?.value || 'todas';
+    const bodHistPay = document.getElementById('bodegaHistoryPayFilter')?.value || 'todos';
 
-    const filteredEmpHist = empAcceptedAll.filter((ord) =>
+    const filteredBodHist = bodegaDispatchedAll.filter((ord) =>
       matchesOrderFilters(ord, {
-        query: empHistQuery,
-        status: empHistStatus,
-        zone: empHistZone,
-        pay: empHistPay
+        query: bodHistQuery,
+        status: bodHistStatus,
+        zone: bodHistZone,
+        pay: bodHistPay
       })
     );
 
-    const empHistBadge = document.getElementById('empHistorySummaryBadge');
-    if (empHistBadge) {
-      empHistBadge.textContent = `Mostrando ${filteredEmpHist.length} de ${empAcceptedAll.length} pedidos gestionados`;
+    const bodHistBadge = document.getElementById('bodegaHistorySummaryBadge');
+    if (bodHistBadge) {
+      bodHistBadge.textContent = `Mostrando ${filteredBodHist.length} de ${bodegaDispatchedAll.length} pedidos despachados`;
     }
 
     renderCollapsibleStaffOrdersList(
-      filteredEmpHist,
-      'empleadoHistoryOrdersContainer',
-      'No se encontraron pedidos aceptados con los filtros seleccionados.'
+      filteredBodHist,
+      'bodegaHistoryOrdersContainer',
+      'Aún no hay pedidos alistados y despachados en el historial.'
     );
   }
 
   /**
-   * Renderiza el panel operativo del conductor con progreso diario, mapa interactivo de paradas y hoja de ruta.
+   * Etapa 3 (Entregador): Renderiza únicamente los pedidos ya despachados por Bodega ('en_camino')
+   * asignados al conductor activo (o todos 'en_camino' cuando visualiza el Administrador).
    */
   function renderEntregadorPanel() {
-    const allDriverOrders = state.staffOrders.filter((o) => o.estado !== 'cancelado');
+    const isDriverOnly = normalizeRole(state.user?.rol) === 'entregador';
+    const myDriverId = state.user?.id ? Number(state.user.id) : null;
+    const scopedOrders = isDriverOnly
+      ? state.staffOrders.filter((o) => Number(o.entregador_id) === myDriverId)
+      : state.staffOrders;
+
+    const allDriverOrders = scopedOrders.filter((o) => o.estado !== 'cancelado');
     // Filtro temporal: cómputo exclusivo de las entregas formalizadas durante la jornada en curso
     const completedTodayCount = allDriverOrders.filter(isDeliveredToday).length;
-    const active = state.staffOrders.filter(
-      (o) => o.estado === 'en_camino' || o.estado === 'en_proceso' || o.estado === 'pendiente'
-    );
+    const active = scopedOrders.filter((o) => o.estado === 'en_camino');
     const totalDailyOrders = completedTodayCount + active.length;
     const progressPct = totalDailyOrders > 0 ? Math.round((completedTodayCount / totalDailyOrders) * 100) : 0;
 
@@ -9066,7 +9304,13 @@
    * Renderiza la sección de historial de pedidos entregados y facturación del repartidor con filtros avanzados.
    */
   function renderEntregadorHistorySection() {
-    const deliveredOrders = state.staffOrders.filter((o) => o.estado === 'entregado');
+    const isDriverOnly = normalizeRole(state.user?.rol) === 'entregador';
+    const myDriverId = state.user?.id ? Number(state.user.id) : null;
+    const deliveredOrders = state.staffOrders.filter(
+      (o) =>
+        o.estado === 'entregado' &&
+        (!isDriverOnly || Number(o.entregador_id) === myDriverId)
+    );
     const drvQuery = document.getElementById('driverHistorySearchInput')?.value || '';
     const drvZone = document.getElementById('driverHistoryZoneFilter')?.value || 'todas';
     const drvPay = document.getElementById('driverHistoryPayFilter')?.value || 'todos';

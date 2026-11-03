@@ -488,7 +488,8 @@ function getAuthUserFromRequest(req) {
  */
 function normalizeStaffRole(roleVal) {
   const r = String(roleVal || '').trim().toLowerCase();
-  if (['empleado', 'empleado_general', 'bodega'].includes(r)) return 'empleado';
+  if (['bodega', 'alistamiento', 'empaque'].includes(r)) return 'bodega';
+  if (['empleado', 'empleado_general'].includes(r)) return 'empleado';
   if (['entregador', 'repartidor', 'domiciliario'].includes(r)) return 'entregador';
   if (['soporte', 'atencion', 'asistente'].includes(r)) return 'soporte';
   if (['admin', 'administrador'].includes(r)) return 'admin';
@@ -496,33 +497,62 @@ function normalizeStaffRole(roleVal) {
 }
 
 /**
- * Middleware de control de acceso para rutas operativas del personal.
- * Deniega el acceso con código 404 ante solicitudes sin autorización suficiente
- * para preservar la privacidad de los paneles internos.
+ * Resuelve el registro vigente del usuario autenticado desde MySQL (o respaldo en contingencia)
+ * verificando que la cuenta exista y se encuentre activa.
+ *
+ * @async
+ * @function resolveLiveAuthenticatedUser
+ * @param {object|null} authUser - Payload verificado del token JWT.
+ * @returns {Promise<object|null>} Usuario validado con rol vigente o null si es inválido/inactivo.
+ */
+async function resolveLiveAuthenticatedUser(authUser) {
+  if (!authUser || !authUser.id) return null;
+
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, username, nombre_completo_enc, email_enc, rol, activo FROM usuarios WHERE id = ? LIMIT 1',
+      [Number(authUser.id)]
+    );
+    if (rows && rows[0]) {
+      const dbUser = rows[0];
+      if (Number(dbUser.activo) === 0) return null;
+      return {
+        ...authUser,
+        id: Number(dbUser.id),
+        username: dbUser.username || authUser.username,
+        nombre_completo: decryptData(dbUser.nombre_completo_enc) || dbUser.username || authUser.username,
+        email: decryptData(dbUser.email_enc) || authUser.email,
+        rol: normalizeStaffRole(dbUser.rol)
+      };
+    }
+    return null;
+  } catch (_) {
+    const fbRow = usuariosFallback.find((u) => Number(u.id) === Number(authUser.id));
+    if (!fbRow || Number(fbRow.activo) === 0) return null;
+    return {
+      ...authUser,
+      id: Number(fbRow.id),
+      username: fbRow.username || authUser.username,
+      nombre_completo: decryptData(fbRow.nombre_completo_enc) || fbRow.username || authUser.username,
+      email: decryptData(fbRow.email_enc) || authUser.email,
+      rol: normalizeStaffRole(fbRow.rol)
+    };
+  }
+}
+
+/**
+ * Middleware estricto de control de acceso para rutas operativas del personal de la empresa.
+ * Exige un token criptográfico JWT válido y verifica en tiempo real el rol y estado activo en la base de datos.
+ * Deniega con código 404 cualquier solicitud externa, sin sesión o sin privilegios suficientes.
  *
  * @function requireStaffRole
- * @param {string[]} [allowedRoles=['empleado', 'entregador', 'soporte', 'admin']] - Roles autorizados para el endpoint.
+ * @param {string[]} [allowedRoles=['empleado', 'bodega', 'entregador', 'soporte', 'admin']] - Roles autorizados.
  * @returns {import('express').RequestHandler} Middleware Express.
  */
-function requireStaffRole(allowedRoles = ['empleado', 'entregador', 'soporte', 'admin']) {
-  return (req, res, next) => {
+function requireStaffRole(allowedRoles = ['empleado', 'bodega', 'entregador', 'soporte', 'admin']) {
+  return async (req, res, next) => {
     const authUser = getAuthUserFromRequest(req);
-    const headerRole = normalizeStaffRole(req.headers['x-user-role']);
-    const fbRow = authUser
-      ? usuariosFallback.find((u) => Number(u.id) === Number(authUser.id))
-      : null;
-    const fbRole = fbRow ? normalizeStaffRole(fbRow.rol) : null;
-    const tokenRole = authUser ? normalizeStaffRole(authUser.rol) : null;
-
-    // Priorizar el rol actualizado en memoria / panel administrativo si el token tenía un rol anterior
-    let resolvedRole = tokenRole;
-    if (fbRole && fbRole !== 'cliente') {
-      resolvedRole = fbRole;
-    } else if (['empleado', 'entregador', 'soporte', 'admin'].includes(headerRole)) {
-      resolvedRole = headerRole;
-    }
-
-    if (!resolvedRole || resolvedRole === 'cliente' || !allowedRoles.includes(resolvedRole)) {
+    if (!authUser) {
       return res.status(404).json({
         ok: false,
         status: 404,
@@ -530,10 +560,19 @@ function requireStaffRole(allowedRoles = ['empleado', 'entregador', 'soporte', '
       });
     }
 
-    req.user = authUser
-      ? { ...authUser, rol: resolvedRole }
-      : { id: 2, rol: resolvedRole, username: 'Personal Danillanos' };
-    next();
+    const liveUser = await resolveLiveAuthenticatedUser(authUser);
+    const resolvedRole = liveUser ? liveUser.rol : null;
+
+    if (!liveUser || !resolvedRole || resolvedRole === 'cliente' || !allowedRoles.includes(resolvedRole)) {
+      return res.status(404).json({
+        ok: false,
+        status: 404,
+        message: '404 - La página o recurso solicitado no existe.'
+      });
+    }
+
+    req.user = liveUser;
+    return next();
   };
 }
 
@@ -618,8 +657,10 @@ async function ensureProductDiscountColumns() {
     'ALTER TABLE productos ADD COLUMN descuento_porcentaje DECIMAL(5, 2) NOT NULL DEFAULT 0',
     "ALTER TABLE productos ADD COLUMN descuento_tipo VARCHAR(20) NOT NULL DEFAULT 'manual'",
     'ALTER TABLE productos ADD COLUMN descuento_expira_en DATETIME DEFAULT NULL',
+    'ALTER TABLE productos ADD COLUMN descuento_expira_ms BIGINT DEFAULT NULL',
     'ALTER TABLE productos ADD COLUMN descuento_unidades_limite INT DEFAULT NULL',
-    'ALTER TABLE productos ADD COLUMN descuento_unidades_vendidas INT NOT NULL DEFAULT 0'
+    'ALTER TABLE productos ADD COLUMN descuento_unidades_vendidas INT NOT NULL DEFAULT 0',
+    "ALTER TABLE usuarios MODIFY COLUMN rol ENUM('cliente', 'empleado', 'bodega', 'entregador', 'soporte', 'admin') NOT NULL DEFAULT 'cliente'"
   ];
   try {
     for (const stmt of alterStatements) {
@@ -672,6 +713,7 @@ function parseDiscountPayload(body = {}, existing = null) {
       descuento_tipo: 'manual',
       descuento_expira_en: null,
       descuento_expira_mysql: null,
+      descuento_expira_ms: null,
       descuento_unidades_limite: null,
       descuento_unidades_vendidas: 0
     };
@@ -681,26 +723,40 @@ function parseDiscountPayload(body = {}, existing = null) {
   const tipo = ['manual', 'tiempo', 'unidades'].includes(rawTipo) ? rawTipo : 'manual';
 
   let expiraIso = null;
+  let expiraMs = null;
   let unidadesLimite = null;
   let unidadesVendidas = 0;
 
   if (tipo === 'tiempo') {
-    if (body.duracion_valor !== undefined && Number(body.duracion_valor) > 0) {
-      const val = Math.max(1, Number(body.duracion_valor));
-      const unit = String(body.duracion_unidad || 'horas').trim().toLowerCase();
+    const durValRaw = body.descuento_duracion_valor !== undefined ? body.descuento_duracion_valor : body.duracion_valor;
+    const durUnitRaw = body.descuento_duracion_unidad !== undefined ? body.descuento_duracion_unidad : body.duracion_unidad;
+    if (durValRaw !== undefined && durValRaw !== null && Number(durValRaw) > 0) {
+      const val = Math.max(1, Number(durValRaw));
+      const unit = String(durUnitRaw || 'horas').trim().toLowerCase();
       let multMs = 3600 * 1000;
       if (unit.startsWith('min')) multMs = 60 * 1000;
       else if (unit.startsWith('dia') || unit.startsWith('día')) multMs = 24 * 3600 * 1000;
-      expiraIso = new Date(Date.now() + val * multMs).toISOString();
+      expiraMs = Date.now() + Math.round(val * multMs);
+      expiraIso = new Date(expiraMs).toISOString();
     } else if (body.descuento_expira_en) {
       const parsed = new Date(body.descuento_expira_en);
-      if (!Number.isNaN(parsed.getTime())) expiraIso = parsed.toISOString();
+      if (!Number.isNaN(parsed.getTime())) {
+        expiraMs = parsed.getTime();
+        expiraIso = parsed.toISOString();
+      }
+    } else if (existing?.descuento_expira_ms && Number(existing.descuento_expira_ms) > 0) {
+      expiraMs = Number(existing.descuento_expira_ms);
+      expiraIso = new Date(expiraMs).toISOString();
     } else if (existing?.descuento_expira_en) {
       const parsed = new Date(existing.descuento_expira_en);
-      if (!Number.isNaN(parsed.getTime())) expiraIso = parsed.toISOString();
+      if (!Number.isNaN(parsed.getTime())) {
+        expiraMs = parsed.getTime();
+        expiraIso = parsed.toISOString();
+      }
     }
-    if (!expiraIso) {
-      expiraIso = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+    if (!expiraMs || !expiraIso) {
+      expiraMs = Date.now() + 24 * 3600 * 1000;
+      expiraIso = new Date(expiraMs).toISOString();
     }
   } else if (tipo === 'unidades') {
     const rawLimit = body.descuento_unidades_limite !== undefined
@@ -719,6 +775,7 @@ function parseDiscountPayload(body = {}, existing = null) {
     descuento_tipo: tipo,
     descuento_expira_en: expiraIso,
     descuento_expira_mysql: toMysqlDateTime(expiraIso),
+    descuento_expira_ms: expiraMs,
     descuento_unidades_limite: unidadesLimite,
     descuento_unidades_vendidas: unidadesVendidas
   };
@@ -737,13 +794,22 @@ function formatProductWithDiscount(row) {
   const rawPct = Number(row.descuento_porcentaje || 0);
   const pct = Number.isFinite(rawPct) ? Math.min(100, Math.max(0, rawPct)) : 0;
   const tipo = ['manual', 'tiempo', 'unidades'].includes(row.descuento_tipo) ? row.descuento_tipo : 'manual';
-  const expiraRaw = row.descuento_expira_en
-    ? (row.descuento_expira_en instanceof Date
-        ? row.descuento_expira_en.toISOString()
-        : (String(row.descuento_expira_en).includes('T')
-            ? String(row.descuento_expira_en)
-            : `${String(row.descuento_expira_en).replace(' ', 'T')}Z`))
-    : null;
+
+  let expMs = row.descuento_expira_ms !== null && row.descuento_expira_ms !== undefined && Number(row.descuento_expira_ms) > 0
+    ? Number(row.descuento_expira_ms)
+    : 0;
+  let expiraRaw = expMs > 0 ? new Date(expMs).toISOString() : null;
+
+  if (!expiraRaw && row.descuento_expira_en) {
+    expiraRaw = row.descuento_expira_en instanceof Date
+      ? row.descuento_expira_en.toISOString()
+      : (String(row.descuento_expira_en).includes('T')
+          ? String(row.descuento_expira_en)
+          : `${String(row.descuento_expira_en).replace(' ', 'T')}Z`);
+    const parsedMs = new Date(expiraRaw).getTime();
+    if (!Number.isNaN(parsedMs)) expMs = parsedMs;
+  }
+
   const limite = row.descuento_unidades_limite !== null && row.descuento_unidades_limite !== undefined
     ? Number(row.descuento_unidades_limite)
     : null;
@@ -753,7 +819,6 @@ function formatProductWithDiscount(row) {
   let justExpired = false;
 
   if (isActive && tipo === 'tiempo') {
-    const expMs = expiraRaw ? new Date(expiraRaw).getTime() : 0;
     if (!expMs || Number.isNaN(expMs) || expMs <= Date.now()) {
       isActive = false;
       justExpired = true;
@@ -778,6 +843,7 @@ function formatProductWithDiscount(row) {
         descuento_porcentaje: pct,
         descuento_tipo: tipo,
         descuento_expira_en: expiraRaw,
+        descuento_expira_ms: expMs || null,
         descuento_unidades_limite: limite,
         descuento_unidades_vendidas: vendidas,
         descuento_unidades_restantes: tipo === 'unidades' && limite ? Math.max(0, limite - vendidas) : null
@@ -796,6 +862,7 @@ function formatProductWithDiscount(row) {
       descuento_porcentaje: 0,
       descuento_tipo: 'manual',
       descuento_expira_en: null,
+      descuento_expira_ms: null,
       descuento_unidades_limite: null,
       descuento_unidades_vendidas: 0,
       descuento_unidades_restantes: null
@@ -828,6 +895,7 @@ router.get('/productos', async (req, res) => {
         p.descuento_porcentaje,
         p.descuento_tipo,
         p.descuento_expira_en,
+        p.descuento_expira_ms,
         p.descuento_unidades_limite,
         p.descuento_unidades_vendidas,
         p.imagen_url,
@@ -875,14 +943,14 @@ router.get('/productos', async (req, res) => {
         .query(
           `UPDATE productos
            SET descuento_porcentaje = 0, descuento_tipo = 'manual', descuento_expira_en = NULL,
-               descuento_unidades_limite = NULL, descuento_unidades_vendidas = 0
+               descuento_expira_ms = NULL, descuento_unidades_limite = NULL, descuento_unidades_vendidas = 0
            WHERE id IN (?)`,
           [expiredIds]
         )
         .catch(() => {});
     }
 
-    return res.json({ source: 'mysql', apiVersion: 3, total: formatted.length, data: formatted });
+    return res.json({ ok: true, source: 'mysql', apiVersion: 3, total: formatted.length, data: formatted });
   } catch (error) {
     let fallbackChanged = false;
     let filtered = productosFallback.map((p) => {
@@ -891,6 +959,7 @@ router.get('/productos', async (req, res) => {
         p.descuento_porcentaje = 0;
         p.descuento_tipo = 'manual';
         p.descuento_expira_en = null;
+        p.descuento_expira_ms = null;
         p.descuento_unidades_limite = null;
         p.descuento_unidades_vendidas = 0;
         fallbackChanged = true;
@@ -917,7 +986,7 @@ router.get('/productos', async (req, res) => {
       );
     }
 
-    return res.json({ source: 'fallback', apiVersion: 3, total: filtered.length, data: filtered });
+    return res.json({ ok: true, source: 'fallback', apiVersion: 3, total: filtered.length, data: filtered });
   }
 });
 
@@ -1164,56 +1233,107 @@ router.post('/auth/login', async (req, res) => {
  * @access Público
  */
 router.post('/auth/google', async (req, res) => {
-  let { email, nombre_completo, google_id, avatar_url, id_token, credential } = req.body;
+  const { id_token, credential, access_token } = req.body || {};
   const tokenToVerify = credential || id_token;
 
-  // 1. Si viene un ID Token (JWT) emitido por Google Identity Services, validarlo
+  let verifiedEmail = null;
+  let verifiedName = null;
+  let verifiedGoogleId = null;
+  let verifiedAvatar = null;
+
+  // 1. Verificación criptográfica estricta de ID Token (Google One Tap / Credential)
   if (tokenToVerify) {
+    if (!googleAuthClient || !GOOGLE_CLIENT_ID) {
+      return res.status(503).json({
+        ok: false,
+        message: 'La autenticación con Google no se encuentra habilitada en este servidor.'
+      });
+    }
     try {
-      if (googleAuthClient) {
-        const ticket = await googleAuthClient.verifyIdToken({
-          idToken: tokenToVerify,
-          audience: GOOGLE_CLIENT_ID
-        });
-        const payload = ticket.getPayload();
-        if (payload) {
-          email = payload.email || email;
-          nombre_completo = payload.name || nombre_completo || payload.given_name;
-          google_id = payload.sub || google_id;
-          avatar_url = payload.picture || avatar_url;
-        }
+      const ticket = await googleAuthClient.verifyIdToken({
+        idToken: String(tokenToVerify),
+        audience: GOOGLE_CLIENT_ID
+      });
+      const payload = ticket.getPayload();
+      if (payload && payload.email && payload.email_verified !== false) {
+        verifiedEmail = payload.email;
+        verifiedName = payload.name || payload.given_name || null;
+        verifiedGoogleId = payload.sub || null;
+        verifiedAvatar = payload.picture || null;
       }
     } catch (_) {
-      // Si la verificación por red falla (ej. timeout o reloj local), decodificar la carga útil base64
-      try {
-        const parts = String(tokenToVerify).split('.');
-        if (parts.length >= 2) {
-          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
-          if (payload && payload.email) {
-            email = payload.email || email;
-            nombre_completo = payload.name || nombre_completo;
-            google_id = payload.sub || google_id;
-            avatar_url = payload.picture || avatar_url;
-          }
-        }
-      } catch (__) {}
+      return res.status(401).json({
+        ok: false,
+        message: 'La credencial de Google no es válida o ha expirado.'
+      });
+    }
+  } else if (access_token && typeof access_token === 'string') {
+    // 2. Verificación directa en servidor contra la API oficial de Google OAuth2 (Token Client Popup)
+    if (!GOOGLE_CLIENT_ID) {
+      return res.status(503).json({
+        ok: false,
+        message: 'La autenticación con Google no se encuentra habilitada en este servidor.'
+      });
+    }
+    try {
+      const tokenInfoRes = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(access_token)}`
+      );
+      if (!tokenInfoRes.ok) {
+        return res.status(401).json({ ok: false, message: 'Token de acceso de Google inválido.' });
+      }
+      const tokenInfo = await tokenInfoRes.json();
+      const tokenAud = tokenInfo.aud || tokenInfo.azp || '';
+      if (GOOGLE_CLIENT_ID && tokenAud !== GOOGLE_CLIENT_ID) {
+        return res.status(401).json({ ok: false, message: 'El token de Google no corresponde a esta aplicación.' });
+      }
+
+      const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${access_token}` }
+      });
+      if (!userInfoRes.ok) {
+        return res.status(401).json({ ok: false, message: 'No fue posible verificar el perfil con Google.' });
+      }
+      const profile = await userInfoRes.json();
+      if (profile && profile.email && profile.email_verified !== false) {
+        verifiedEmail = profile.email;
+        verifiedName = profile.name || profile.given_name || null;
+        verifiedGoogleId = profile.sub || null;
+        verifiedAvatar = profile.picture || null;
+      }
+    } catch (_) {
+      return res.status(401).json({
+        ok: false,
+        message: 'No se pudo validar el inicio de sesión con los servidores de Google.'
+      });
     }
   }
 
-  if (!email) {
-    return res.status(400).json({ ok: false, message: 'No se recibió el correo verificado de Google.' });
+  if (!verifiedEmail) {
+    return res.status(401).json({
+      ok: false,
+      message: 'Se requiere una credencial verificada de Google para continuar.'
+    });
   }
 
-  const cleanEmail = String(email).trim().toLowerCase();
+  const cleanEmail = String(verifiedEmail).trim().toLowerCase();
   const emailHash = hashLookup(cleanEmail);
   const emailEnc = encryptData(cleanEmail);
-  const nombreEnc = encryptData(nombre_completo || cleanEmail.split('@')[0]);
-  const googleIdEnc = encryptData(google_id || `google_${Date.now()}`);
-  const username = (nombre_completo || cleanEmail.split('@')[0]).trim();
+  const nombreEnc = encryptData(verifiedName || cleanEmail.split('@')[0]);
+  const googleIdEnc = encryptData(verifiedGoogleId || `google_${Date.now()}`);
+  const username = (verifiedName || cleanEmail.split('@')[0]).trim();
+  const avatar_url = verifiedAvatar;
 
   try {
     const [existing] = await pool.query('SELECT * FROM usuarios WHERE email_hash = ? LIMIT 1', [emailHash]);
     let userRow = existing[0];
+
+    if (userRow && Number(userRow.activo) === 0) {
+      return res.status(403).json({
+        ok: false,
+        message: 'Esta cuenta se encuentra desactivada. Comunícate con el administrador.'
+      });
+    }
 
     // Si NO existe, se crea la cuenta inmediatamente (rol cliente, activo)
     if (!userRow) {
@@ -1254,6 +1374,12 @@ router.post('/auth/google', async (req, res) => {
     });
   } catch (error) {
     let userRow = usuariosFallback.find((u) => u.email_hash === emailHash);
+    if (userRow && Number(userRow.activo) === 0) {
+      return res.status(403).json({
+        ok: false,
+        message: 'Esta cuenta se encuentra desactivada. Comunícate con el administrador.'
+      });
+    }
     if (!userRow) {
       userRow = {
         id: usuariosFallback.length + 1,
@@ -1338,14 +1464,13 @@ router.get('/auth/me', async (req, res) => {
       dirRows = dirs.map(formatSafeAddress);
     }
   } catch (_) {
-    // Continuar a fallback
-  }
-
-  if (!userRow) {
-    userRow = usuariosFallback.find((u) =>
-      Number(u.id) === Number(authUser.id) ||
-      (authUser.email && u.email_enc && decryptData(u.email_enc) === authUser.email) ||
-      (authUser.username && u.username === authUser.username)
+    // Continuar a fallback únicamente cuando MySQL no esté disponible
+    userRow = usuariosFallback.find(
+      (u) =>
+        Number(u.activo) !== 0 &&
+        (Number(u.id) === Number(authUser.id) ||
+          (authUser.email && u.email_enc && decryptData(u.email_enc) === authUser.email) ||
+          (authUser.username && u.username === authUser.username))
     );
     if (userRow) {
       dirRows = direccionesFallback
@@ -1354,7 +1479,7 @@ router.get('/auth/me', async (req, res) => {
     }
   }
 
-  if (!userRow) {
+  if (!userRow || Number(userRow.activo) === 0) {
     return res.json({ authenticated: false, user: null, direcciones: [] });
   }
 
@@ -1891,7 +2016,7 @@ router.patch('/pedidos/:id/cancelar', async (req, res) => {
     );
     const row = rows[0];
     if (row) {
-      if (Number(row.usuario_id) !== Number(authUser.id) && authUser.rol === 'cliente') {
+      if (Number(row.usuario_id) !== Number(authUser.id)) {
         return res.status(403).json({ ok: false, message: 'No autorizado para cancelar este pedido.' });
       }
       if (!['pendiente', 'en_proceso'].includes(row.estado)) {
@@ -1905,8 +2030,8 @@ router.patch('/pedidos/:id/cancelar', async (req, res) => {
       await pool.query(
         `UPDATE pedidos
          SET estado = 'cancelado', razon_cancelacion = ?, reembolso_estado = ?
-         WHERE id = ?`,
-        [motivo, reembolsoEstado, pedidoId]
+         WHERE id = ? AND usuario_id = ?`,
+        [motivo, reembolsoEstado, pedidoId, authUser.id]
       );
       const memOrd = pedidosFallback.find((p) => Number(p.id) === pedidoId);
       if (memOrd) {
@@ -1920,11 +2045,15 @@ router.patch('/pedidos/:id/cancelar', async (req, res) => {
         message: `Pedido #${pedidoId} cancelado correctamente.`
       });
     }
+    return res.status(404).json({ ok: false, message: 'Pedido no encontrado.' });
   } catch (_) {}
 
   const ord = pedidosFallback.find((p) => Number(p.id) === pedidoId);
   if (!ord) {
     return res.status(404).json({ ok: false, message: 'Pedido no encontrado.' });
+  }
+  if (Number(ord.usuario_id) !== Number(authUser.id)) {
+    return res.status(403).json({ ok: false, message: 'No autorizado para cancelar este pedido.' });
   }
   if (!['pendiente', 'en_proceso'].includes(ord.estado)) {
     return res.status(400).json({
@@ -2000,8 +2129,8 @@ router.post('/pedidos', async (req, res) => {
     if (itemIds.length > 0) {
       const [prodRows] = await connection.query(
         `SELECT id, nombre, precio, descuento_porcentaje, descuento_tipo,
-                descuento_expira_en, descuento_unidades_limite, descuento_unidades_vendidas
-         FROM productos WHERE id IN (?) FOR UPDATE`,
+                descuento_expira_en, descuento_expira_ms, descuento_unidades_limite, descuento_unidades_vendidas
+         FROM productos WHERE id IN (?) AND activo = 1 FOR UPDATE`,
         [itemIds]
       );
       prodRows.forEach((r) => prodMap.set(Number(r.id), r));
@@ -2009,9 +2138,15 @@ router.post('/pedidos', async (req, res) => {
 
     const resolvedItems = [];
     for (const item of items) {
-      const qty = Math.max(1, Number(item.cantidad) || 1);
+      const qty = Math.max(1, Math.min(9999, Math.round(Number(item.cantidad) || 1)));
       const dbProd = prodMap.get(Number(item.id));
-      let unitPrice = Number(item.precio) || 0;
+      const fbRef = productosFallback.find((p) => Number(p.id) === Number(item.id));
+      if (!dbProd && !fbRef) {
+        await connection.rollback();
+        connection.release();
+        return res.status(400).json({ ok: false, message: 'Uno de los productos seleccionados ya no está disponible.' });
+      }
+      let unitPrice = fbRef ? Number(formatProductWithDiscount(fbRef).product.precio) : 0;
 
       if (dbProd) {
         const { product: liveProd, justExpired } = formatProductWithDiscount(dbProd);
@@ -2021,7 +2156,7 @@ router.post('/pedidos', async (req, res) => {
           await connection.query(
             `UPDATE productos
              SET descuento_porcentaje = 0, descuento_tipo = 'manual', descuento_expira_en = NULL,
-                 descuento_unidades_limite = NULL, descuento_unidades_vendidas = 0
+                 descuento_expira_ms = NULL, descuento_unidades_limite = NULL, descuento_unidades_vendidas = 0
              WHERE id = ?`,
             [dbProd.id]
           );
@@ -2032,7 +2167,7 @@ router.post('/pedidos', async (req, res) => {
             await connection.query(
               `UPDATE productos
                SET descuento_porcentaje = 0, descuento_tipo = 'manual', descuento_expira_en = NULL,
-                   descuento_unidades_limite = NULL, descuento_unidades_vendidas = 0
+                   descuento_expira_ms = NULL, descuento_unidades_limite = NULL, descuento_unidades_vendidas = 0
                WHERE id = ?`,
               [dbProd.id]
             );
@@ -2160,7 +2295,7 @@ router.post('/pedidos', async (req, res) => {
     const fallbackId = pedidosFallback.length + 1;
     pedidosFallback.unshift({
       id: fallbackId,
-      usuario_id: authUser ? authUser.id : 1,
+      usuario_id: authUser.id,
       nombre_recibe_enc: nombreEnc,
       telefono_cliente_enc: telEnc,
       direccion_entrega_enc: dirEnc,
@@ -2198,60 +2333,140 @@ router.post('/pedidos', async (req, res) => {
 // ============================================================================
 
 /**
+ * Filtra y minimiza los datos operativos devueltos por /api/staff/pedidos según el rol exacto del empleado,
+ * garantizando que cada rol acceda únicamente a la información que le compete y sin exponer PII innecesaria.
+ *
+ * @function scopeStaffPayloadByRole
+ * @param {object} user - Usuario de personal autenticado (`req.user`).
+ * @param {Array<object>} allOrders - Lista formateada de pedidos.
+ * @param {Array<object>} allTickets - Lista formateada de tickets.
+ * @param {Array<object>} activeDrivers - Lista de entregadores activos.
+ * @param {Array<object>} staffUsers - Lista de cuentas de personal.
+ * @returns {object} Carga filtrada según privilegios del rol.
+ */
+function scopeStaffPayloadByRole(user, allOrders, allTickets, activeDrivers, staffUsers) {
+  const role = user.rol;
+  const driverSummaries = activeDrivers.map((d) => ({
+    id: d.id,
+    nombre_completo: d.nombre_completo,
+    rol: 'entregador',
+    activo: true
+  }));
+
+  if (role === 'admin') {
+    return {
+      pedidos: allOrders,
+      tickets: allTickets,
+      entregadores: driverSummaries,
+      usuarios: staffUsers
+    };
+  }
+  if (role === 'empleado') {
+    return {
+      pedidos: allOrders,
+      tickets: [],
+      entregadores: [],
+      usuarios: []
+    };
+  }
+  if (role === 'bodega') {
+    return {
+      pedidos: allOrders.filter((o) => o.estado !== 'pendiente'),
+      tickets: [],
+      entregadores: driverSummaries,
+      usuarios: []
+    };
+  }
+  if (role === 'entregador') {
+    const myOrders = allOrders.filter(
+      (o) =>
+        ['en_camino', 'entregado', 'cancelado'].includes(o.estado) &&
+        (!o.entregador_id || Number(o.entregador_id) === Number(user.id))
+    );
+    return {
+      pedidos: myOrders,
+      tickets: [],
+      entregadores: [],
+      usuarios: []
+    };
+  }
+  if (role === 'soporte') {
+    return {
+      pedidos: allOrders,
+      tickets: allTickets,
+      entregadores: [],
+      usuarios: []
+    };
+  }
+  return { pedidos: [], tickets: [], entregadores: [], usuarios: [] };
+}
+
+/**
  * @route GET /api/staff/pedidos
- * @desc Retorna la totalidad de órdenes para visualización operativa en el panel del personal.
- * @access Personal (empleado, entregador, soporte, admin)
+ * @desc Retorna las órdenes e información operativa estrictamente delimitada al rol del funcionario autenticado.
+ * @access Personal (empleado, bodega, entregador, soporte, admin)
  */
 router.get('/staff/pedidos', requireStaffRole(), async (req, res) => {
   try {
+    await ensureProductDiscountColumns();
     const [orders] = await pool.query('SELECT * FROM pedidos ORDER BY creado_en DESC');
     const [items] = await pool.query('SELECT * FROM pedido_items');
-    const [tickets] = await pool.query('SELECT * FROM tickets_soporte ORDER BY creado_en DESC');
-    const [userRows] = await pool.query("SELECT * FROM usuarios WHERE rol = 'entregador' AND activo = 1");
+    const [userRows] = await pool.query("SELECT * FROM usuarios WHERE rol != 'cliente' ORDER BY id ASC");
 
-    const formatted = orders.map((ord) =>
-      formatSafeOrder(
+    let formattedTickets = [];
+    if (['admin', 'soporte'].includes(req.user.rol)) {
+      const [tickets] = await pool.query('SELECT * FROM tickets_soporte ORDER BY creado_en DESC');
+      formattedTickets = tickets.map((r) => {
+        const mem = ticketsFallback.find((t) => Number(t.id) === Number(r.id));
+        return formatSafeTicket(mem || r);
+      });
+    }
+
+    const staffUsers = userRows.map(formatSafeUser);
+    const driverMap = new Map(staffUsers.map((u) => [Number(u.id), u.nombre_completo]));
+
+    const formatted = orders.map((ord) => {
+      const safe = formatSafeOrder(
         ord,
         items.filter((i) => i.pedido_id === ord.id)
-      )
-    );
+      );
+      if (safe.entregador_id && driverMap.has(Number(safe.entregador_id))) {
+        safe.entregador_nombre = driverMap.get(Number(safe.entregador_id));
+      }
+      return safe;
+    });
 
-    const entregadores =
-      userRows.length > 0
-        ? userRows.map(formatSafeUser)
-        : usuariosFallback.filter((u) => u.rol === 'entregador' && u.activo !== 0).map(formatSafeUser);
+    const entregadores = staffUsers.filter((u) => u.rol === 'entregador' && u.activo !== false);
+    const scoped = scopeStaffPayloadByRole(req.user, formatted, formattedTickets, entregadores, staffUsers);
 
     return res.json({
       ok: true,
       apiVersion: 3,
       sede: DANILLANOS_HQ,
-      pedidos: formatted,
-      tickets: tickets.map(formatSafeTicket),
-      entregadores,
-      usuarios: usuariosFallback.map(formatSafeUser)
+      ...scoped
     });
   } catch (error) {
     const formatted = pedidosFallback.map((ord) => formatSafeOrder(ord, ord.items || []));
-    const entregadores = usuariosFallback
-      .filter((u) => u.rol === 'entregador' && u.activo !== 0)
-      .map(formatSafeUser);
+    const staffUsers = usuariosFallback.filter((u) => u.rol !== 'cliente').map(formatSafeUser);
+    const entregadores = staffUsers.filter((u) => u.rol === 'entregador' && u.activo !== false);
+    const formattedTickets = ['admin', 'soporte'].includes(req.user.rol)
+      ? ticketsFallback.map(formatSafeTicket)
+      : [];
+    const scoped = scopeStaffPayloadByRole(req.user, formatted, formattedTickets, entregadores, staffUsers);
 
     return res.json({
       ok: true,
       apiVersion: 3,
       source: 'fallback',
       sede: DANILLANOS_HQ,
-      pedidos: formatted,
-      tickets: ticketsFallback.map(formatSafeTicket),
-      entregadores,
-      usuarios: usuariosFallback.map(formatSafeUser)
+      ...scoped
     });
   }
 });
 
 /**
  * @route PATCH /api/staff/pedidos/:id/confirmar
- * @desc Confirma la orden en bodega y permite asignar preventivamente al repartidor encargado.
+ * @desc Etapa 1 (Empleado General): Acepta únicamente un pedido 'pendiente' validando stock y lo transfiere a Bodega ('en_proceso').
  * @access Personal (empleado, admin)
  */
 router.patch(
@@ -2259,36 +2474,52 @@ router.patch(
   requireStaffRole(['empleado', 'admin']),
   async (req, res) => {
     const pedidoId = Number(req.params.id);
-    const entregadorId = req.body.entregador_id ? Number(req.body.entregador_id) : null;
 
     try {
+      const [rows] = await pool.query('SELECT id, estado FROM pedidos WHERE id = ? LIMIT 1', [pedidoId]);
+      if (!rows[0]) {
+        return res.status(404).json({ ok: false, message: 'Pedido no encontrado.' });
+      }
+      if (rows[0].estado !== 'pendiente') {
+        return res.status(400).json({
+          ok: false,
+          message: `El pedido #${pedidoId} ya fue procesado (${rows[0].estado}) y pasó al siguiente equipo.`
+        });
+      }
+
       await pool.query(
         `UPDATE pedidos
          SET estado = 'en_proceso',
-             entregador_id = COALESCE(?, entregador_id),
              fecha_confirmacion = NOW()
-         WHERE id = ?`,
-        [entregadorId, pedidoId]
+         WHERE id = ? AND estado = 'pendiente'`,
+        [pedidoId]
       );
-      const ord = pedidosFallback.find((p) => p.id === pedidoId);
+      const ord = pedidosFallback.find((p) => Number(p.id) === pedidoId);
       if (ord) {
         ord.estado = 'en_proceso';
-        if (entregadorId) ord.entregador_id = entregadorId;
-      }
-      return res.json({
-        ok: true,
-        message: `Pedido #${pedidoId} confirmado en bodega.`
-      });
-    } catch (error) {
-      const ord = pedidosFallback.find((p) => p.id === pedidoId);
-      if (ord) {
-        ord.estado = 'en_proceso';
-        if (entregadorId) ord.entregador_id = entregadorId;
         ord.fecha_confirmacion = new Date().toISOString();
       }
       return res.json({
         ok: true,
-        message: `Pedido #${pedidoId} confirmado en bodega.`
+        message: `Pedido #${pedidoId} aceptado y enviado a Bodega para alistamiento.`
+      });
+    } catch (error) {
+      const ord = pedidosFallback.find((p) => Number(p.id) === pedidoId);
+      if (!ord) {
+        return res.status(404).json({ ok: false, message: 'Pedido no encontrado.' });
+      }
+      if (ord.estado !== 'pendiente') {
+        return res.status(400).json({
+          ok: false,
+          message: `El pedido #${pedidoId} ya fue procesado.`
+        });
+      }
+      ord.estado = 'en_proceso';
+      ord.fecha_confirmacion = new Date().toISOString();
+      saveFallbackStore();
+      return res.json({
+        ok: true,
+        message: `Pedido #${pedidoId} aceptado y enviado a Bodega para alistamiento.`
       });
     }
   }
@@ -2296,41 +2527,78 @@ router.patch(
 
 /**
  * @route PATCH /api/staff/pedidos/:id/en-reparto
- * @desc Actualiza el estado del pedido a 'en_camino' e inicia la ruta de despacho con geolocalización.
- * @access Personal (empleado, entregador, admin)
+ * @desc Etapa 2 (Bodega): Marca un pedido 'en_proceso' como alistado, asigna el entregador responsable y lo pasa a 'en_camino'.
+ * @access Personal (bodega, admin)
  */
 router.patch(
   '/staff/pedidos/:id/en-reparto',
-  requireStaffRole(['empleado', 'entregador', 'admin']),
+  requireStaffRole(['bodega', 'admin']),
   async (req, res) => {
     const pedidoId = Number(req.params.id);
-    const chosenDriverId = req.body.entregador_id ? Number(req.body.entregador_id) : req.user.id;
+    const chosenDriverId = req.body.entregador_id ? Number(req.body.entregador_id) : null;
+
+    if (!chosenDriverId || !Number.isFinite(chosenDriverId)) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Selecciona qué entregador llevará el pedido antes de despacharlo a ruta.'
+      });
+    }
 
     try {
+      const [rows] = await pool.query('SELECT id, estado FROM pedidos WHERE id = ? LIMIT 1', [pedidoId]);
+      if (!rows[0]) {
+        return res.status(404).json({ ok: false, message: 'Pedido no encontrado.' });
+      }
+      if (rows[0].estado !== 'en_proceso') {
+        return res.status(400).json({
+          ok: false,
+          message: `El pedido #${pedidoId} no se encuentra pendiente de alistamiento en bodega (estado actual: ${rows[0].estado}).`
+        });
+      }
+
+      const [drvRows] = await pool.query(
+        "SELECT id FROM usuarios WHERE id = ? AND rol = 'entregador' AND activo = 1 LIMIT 1",
+        [chosenDriverId]
+      );
+      if (!drvRows[0]) {
+        return res.status(400).json({
+          ok: false,
+          message: 'El entregador seleccionado no es válido o no se encuentra activo.'
+        });
+      }
+
       await pool.query(
         `UPDATE pedidos
          SET estado = 'en_camino', entregador_id = ?
-         WHERE id = ?`,
+         WHERE id = ? AND estado = 'en_proceso'`,
         [chosenDriverId, pedidoId]
       );
-      const ord = pedidosFallback.find((p) => p.id === pedidoId);
+      const ord = pedidosFallback.find((p) => Number(p.id) === pedidoId);
       if (ord) {
         ord.estado = 'en_camino';
         ord.entregador_id = chosenDriverId;
       }
       return res.json({
         ok: true,
-        message: `Pedido #${pedidoId} despachado a reparto.`
+        message: `Pedido #${pedidoId} alistado y asignado al entregador para reparto.`
       });
     } catch (error) {
-      const ord = pedidosFallback.find((p) => p.id === pedidoId);
-      if (ord) {
-        ord.estado = 'en_camino';
-        ord.entregador_id = chosenDriverId;
+      const ord = pedidosFallback.find((p) => Number(p.id) === pedidoId);
+      if (!ord) {
+        return res.status(404).json({ ok: false, message: 'Pedido no encontrado.' });
       }
+      if (ord.estado !== 'en_proceso') {
+        return res.status(400).json({
+          ok: false,
+          message: `El pedido #${pedidoId} ya fue despachado o no está en bodega.`
+        });
+      }
+      ord.estado = 'en_camino';
+      ord.entregador_id = chosenDriverId;
+      saveFallbackStore();
       return res.json({
         ok: true,
-        message: `Pedido #${pedidoId} despachado a reparto.`
+        message: `Pedido #${pedidoId} alistado y asignado al entregador para reparto.`
       });
     }
   }
@@ -2338,12 +2606,12 @@ router.patch(
 
 /**
  * @route PATCH /api/staff/pedidos/:id/cancelar
- * @desc Anula una orden por motivos logísticos o solicitud del cliente gestionando el estado de reembolso.
- * @access Personal (empleado, soporte, admin)
+ * @desc Anula una orden respetando la etapa asignada a cada rol operativo y gestionando el reembolso.
+ * @access Personal (empleado, bodega, entregador, soporte, admin)
  */
 router.patch(
   '/staff/pedidos/:id/cancelar',
-  requireStaffRole(['empleado', 'entregador', 'soporte', 'admin']),
+  requireStaffRole(['empleado', 'bodega', 'entregador', 'soporte', 'admin']),
   async (req, res) => {
     const pedidoId = Number(req.params.id);
     const { razon_cancelacion } = req.body;
@@ -2355,9 +2623,33 @@ router.patch(
       });
     }
 
+    const canRoleCancelOrder = (ord) => {
+      if (!ord || ord.estado === 'entregado' || ord.estado === 'cancelado') return false;
+      if (req.user.rol === 'admin' || req.user.rol === 'soporte') return true;
+      if (req.user.rol === 'empleado') return ord.estado === 'pendiente';
+      if (req.user.rol === 'bodega') return ord.estado === 'en_proceso';
+      if (req.user.rol === 'entregador') {
+        return ord.estado === 'en_camino' && (!ord.entregador_id || Number(ord.entregador_id) === Number(req.user.id));
+      }
+      return false;
+    };
+
     try {
-      const [rows] = await pool.query('SELECT metodo_pago, total FROM pedidos WHERE id = ?', [pedidoId]);
-      const metodo = rows[0]?.metodo_pago || 'efectivo';
+      const [rows] = await pool.query(
+        'SELECT id, estado, metodo_pago, total, entregador_id FROM pedidos WHERE id = ? LIMIT 1',
+        [pedidoId]
+      );
+      if (!rows[0]) {
+        return res.status(404).json({ ok: false, message: 'Pedido no encontrado.' });
+      }
+      if (!canRoleCancelOrder(rows[0])) {
+        return res.status(403).json({
+          ok: false,
+          message: 'Este pedido ya no pertenece a tu etapa operativa o ya fue finalizado.'
+        });
+      }
+
+      const metodo = rows[0].metodo_pago || 'efectivo';
       const requiresRefund = ['tarjeta', 'pse', 'nequi', 'bancolombia'].includes(metodo);
       const reembolsoEstado = requiresRefund ? 'reembolsado' : 'no_aplica';
 
@@ -2370,7 +2662,7 @@ router.patch(
         [razon_cancelacion.trim(), reembolsoEstado, pedidoId]
       );
 
-      const ord = pedidosFallback.find((p) => p.id === pedidoId);
+      const ord = pedidosFallback.find((p) => Number(p.id) === pedidoId);
       if (ord) {
         ord.estado = 'cancelado';
         ord.razon_cancelacion = razon_cancelacion.trim();
@@ -2383,16 +2675,21 @@ router.patch(
         message: `Pedido #${pedidoId} cancelado.`
       });
     } catch (error) {
-      const ord = pedidosFallback.find((p) => p.id === pedidoId);
-      const requiresRefund = ord && ['tarjeta', 'pse', 'nequi', 'bancolombia'].includes(ord.metodo_pago);
-      if (ord) {
-        ord.estado = 'cancelado';
-        ord.razon_cancelacion = razon_cancelacion.trim();
-        ord.reembolso_estado = requiresRefund ? 'reembolsado' : 'no_aplica';
+      const ord = pedidosFallback.find((p) => Number(p.id) === pedidoId);
+      if (!ord || !canRoleCancelOrder(ord)) {
+        return res.status(403).json({
+          ok: false,
+          message: 'No es posible cancelar este pedido desde tu rol actual.'
+        });
       }
+      const requiresRefund = ['tarjeta', 'pse', 'nequi', 'bancolombia'].includes(ord.metodo_pago);
+      ord.estado = 'cancelado';
+      ord.razon_cancelacion = razon_cancelacion.trim();
+      ord.reembolso_estado = requiresRefund ? 'reembolsado' : 'no_aplica';
+      saveFallbackStore();
       return res.json({
         ok: true,
-        reembolso_estado: requiresRefund ? 'reembolsado' : 'no_aplica',
+        reembolso_estado: ord.reembolso_estado,
         message: `Pedido #${pedidoId} cancelado.`
       });
     }
@@ -2401,7 +2698,7 @@ router.patch(
 
 /**
  * @route PATCH /api/staff/pedidos/:id/entregar
- * @desc Marca el pedido como entregado registrando la evidencia fotográfica y timestamp de entrega.
+ * @desc Etapa 3 (Entregador): Marca un pedido 'en_camino' como entregado adjuntando fotografía obligatoria.
  * @access Personal (entregador, admin)
  */
 router.patch(
@@ -2419,6 +2716,30 @@ router.patch(
     }
 
     try {
+      const [rows] = await pool.query(
+        'SELECT id, estado, entregador_id FROM pedidos WHERE id = ? LIMIT 1',
+        [pedidoId]
+      );
+      if (!rows[0]) {
+        return res.status(404).json({ ok: false, message: 'Pedido no encontrado.' });
+      }
+      if (rows[0].estado !== 'en_camino') {
+        return res.status(400).json({
+          ok: false,
+          message: `El pedido #${pedidoId} aún no ha sido despachado por Bodega o ya fue cerrado.`
+        });
+      }
+      if (
+        req.user.rol === 'entregador' &&
+        rows[0].entregador_id &&
+        Number(rows[0].entregador_id) !== Number(req.user.id)
+      ) {
+        return res.status(403).json({
+          ok: false,
+          message: 'Este pedido está asignado a otro entregador.'
+        });
+      }
+
       await pool.query(
         `UPDATE pedidos
          SET estado = 'entregado',
@@ -2426,11 +2747,11 @@ router.patch(
              foto_entrega_url = ?,
              observaciones_entregador = ?,
              fecha_entrega = NOW()
-         WHERE id = ?`,
+         WHERE id = ? AND estado = 'en_camino'`,
         [req.user.id, foto_entrega_url, observaciones_entregador || 'Entrega completada.', pedidoId]
       );
 
-      const ord = pedidosFallback.find((p) => p.id === pedidoId);
+      const ord = pedidosFallback.find((p) => Number(p.id) === pedidoId);
       if (ord) {
         ord.estado = 'entregado';
         ord.foto_entrega_url = foto_entrega_url;
@@ -2443,14 +2764,16 @@ router.patch(
         message: `Pedido #${pedidoId} entregado.`
       });
     } catch (error) {
-      const ord = pedidosFallback.find((p) => p.id === pedidoId);
-      if (ord) {
-        ord.estado = 'entregado';
-        ord.entregador_id = ord.entregador_id || req.user.id;
-        ord.foto_entrega_url = foto_entrega_url;
-        ord.observaciones_entregador = observaciones_entregador || 'Entrega verificada.';
-        ord.fecha_entrega = new Date().toISOString();
+      const ord = pedidosFallback.find((p) => Number(p.id) === pedidoId);
+      if (!ord || ord.estado !== 'en_camino') {
+        return res.status(400).json({ ok: false, message: 'El pedido no se encuentra en ruta de entrega.' });
       }
+      ord.estado = 'entregado';
+      ord.entregador_id = ord.entregador_id || req.user.id;
+      ord.foto_entrega_url = foto_entrega_url;
+      ord.observaciones_entregador = observaciones_entregador || 'Entrega verificada.';
+      ord.fecha_entrega = new Date().toISOString();
+      saveFallbackStore();
       return res.json({
         ok: true,
         message: `Pedido #${pedidoId} entregado.`
@@ -2528,17 +2851,46 @@ router.get('/mis-tickets', async (req, res) => {
  */
 router.post('/soporte/crear', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
+  if (!authUser) {
+    return res.status(401).json({
+      ok: false,
+      message: 'Debes iniciar sesión para radicar un ticket de soporte.'
+    });
+  }
+
   const { pedido_id, tipo, asunto, descripcion, imagen_cliente_url } = req.body;
 
   if (!asunto || !descripcion) {
     return res.status(400).json({ ok: false, message: 'Completa el asunto y descripción.' });
   }
 
+  const cleanAsunto = String(asunto).trim().slice(0, 200);
+  const cleanDescripcion = String(descripcion).trim().slice(0, 2500);
+  const cleanTipo = ['producto', 'entrega', 'facturacion', 'otro'].includes(tipo) ? tipo : 'producto';
+  let safePedidoId = pedido_id ? Number(pedido_id) : null;
+
+  if (safePedidoId) {
+    try {
+      const [ordRows] = await pool.query(
+        'SELECT usuario_id FROM pedidos WHERE id = ? LIMIT 1',
+        [safePedidoId]
+      );
+      if (!ordRows[0] || Number(ordRows[0].usuario_id) !== Number(authUser.id)) {
+        safePedidoId = null;
+      }
+    } catch (_) {
+      const ordMem = pedidosFallback.find((p) => Number(p.id) === safePedidoId);
+      if (!ordMem || Number(ordMem.usuario_id) !== Number(authUser.id)) {
+        safePedidoId = null;
+      }
+    }
+  }
+
   const initialMsg = {
     id: Date.now(),
-    autor: authUser ? authUser.username : 'Cliente',
+    autor: authUser.nombre_completo || authUser.username || 'Cliente',
     rol: 'cliente',
-    texto: descripcion,
+    texto: cleanDescripcion,
     fecha: new Date().toISOString()
   };
 
@@ -2547,22 +2899,22 @@ router.post('/soporte/crear', async (req, res) => {
       `INSERT INTO tickets_soporte (pedido_id, usuario_id, tipo, asunto, descripcion, imagen_cliente_url, estado)
        VALUES (?, ?, ?, ?, ?, ?, 'abierto')`,
       [
-        pedido_id || null,
-        authUser ? authUser.id : 1,
-        tipo || 'producto',
-        asunto,
-        descripcion,
+        safePedidoId,
+        authUser.id,
+        cleanTipo,
+        cleanAsunto,
+        cleanDescripcion,
         imagen_cliente_url || null
       ]
     );
 
     const createdTicket = {
       id: result.insertId,
-      pedido_id: pedido_id || null,
-      usuario_id: authUser ? authUser.id : 1,
-      tipo: tipo || 'producto',
-      asunto,
-      descripcion,
+      pedido_id: safePedidoId,
+      usuario_id: authUser.id,
+      tipo: cleanTipo,
+      asunto: cleanAsunto,
+      descripcion: cleanDescripcion,
       imagen_cliente_url: imagen_cliente_url || null,
       estado: 'abierto',
       respuesta_soporte: null,
@@ -2570,6 +2922,7 @@ router.post('/soporte/crear', async (req, res) => {
       creado_en: new Date().toISOString()
     };
     ticketsFallback.unshift(createdTicket);
+    saveFallbackStore();
 
     return res.status(201).json({
       ok: true,
@@ -2578,14 +2931,14 @@ router.post('/soporte/crear', async (req, res) => {
       message: 'Solicitud creada.'
     });
   } catch (error) {
-    const newId = ticketsFallback.length + 1;
+    const newId = ticketsFallback.reduce((max, t) => Math.max(max, Number(t.id) || 0), 0) + 1;
     const createdTicket = {
       id: newId,
-      pedido_id: pedido_id || null,
-      usuario_id: authUser ? authUser.id : 1,
-      tipo: tipo || 'producto',
-      asunto,
-      descripcion,
+      pedido_id: safePedidoId,
+      usuario_id: authUser.id,
+      tipo: cleanTipo,
+      asunto: cleanAsunto,
+      descripcion: cleanDescripcion,
       imagen_cliente_url: imagen_cliente_url || null,
       estado: 'abierto',
       respuesta_soporte: null,
@@ -2593,6 +2946,7 @@ router.post('/soporte/crear', async (req, res) => {
       creado_en: new Date().toISOString()
     };
     ticketsFallback.unshift(createdTicket);
+    saveFallbackStore();
     return res.status(201).json({
       ok: true,
       ticket_id: newId,
@@ -2605,12 +2959,17 @@ router.post('/soporte/crear', async (req, res) => {
 /**
  * @route POST /api/soporte/:id/mensaje
  * @desc Agrega una réplica o respuesta en el hilo interactivo del ticket de soporte.
- * @access Autenticado / Personal
+ * @access Autenticado (propietario del ticket) / Personal (soporte, admin)
  */
 router.post('/soporte/:id/mensaje', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
   if (!authUser) {
     return res.status(401).json({ ok: false, message: 'Inicia sesión para enviar mensajes.' });
+  }
+
+  const liveUser = await resolveLiveAuthenticatedUser(authUser);
+  if (!liveUser) {
+    return res.status(401).json({ ok: false, message: 'Tu sesión no es válida o la cuenta fue desactivada.' });
   }
 
   const ticketId = Number(req.params.id);
@@ -2619,54 +2978,77 @@ router.post('/soporte/:id/mensaje', async (req, res) => {
     return res.status(400).json({ ok: false, message: 'Escribe un mensaje o adjunta una fotografía.' });
   }
 
-  const isStaff = ['soporte', 'admin', 'empleado'].includes(authUser.rol);
-  const newMsg = {
-    id: Date.now(),
-    autor: isStaff ? `${authUser.username} (Soporte)` : (authUser.nombre_completo || authUser.username),
-    rol: isStaff ? 'soporte' : 'cliente',
-    texto: texto ? String(texto).trim() : '',
-    imagen_url: imagen_url || null,
-    fecha: new Date().toISOString()
-  };
+  const isStaff = ['soporte', 'admin'].includes(liveUser.rol);
+  const cleanTexto = texto ? String(texto).trim().slice(0, 2500) : '';
 
+  let dbTicket = null;
   try {
-    const [dbRows] = await pool.query('SELECT estado FROM tickets_soporte WHERE id = ?', [ticketId]);
-    if (dbRows && dbRows[0] && (dbRows[0].estado === 'resuelto' || dbRows[0].estado === 'cerrado')) {
-      return res.status(400).json({ ok: false, message: 'Este ticket ya fue resuelto y cerrado. El chat está bloqueado.' });
+    const [dbRows] = await pool.query(
+      'SELECT id, usuario_id, asunto, descripcion, estado FROM tickets_soporte WHERE id = ? LIMIT 1',
+      [ticketId]
+    );
+    if (dbRows && dbRows[0]) {
+      dbTicket = dbRows[0];
+      if (!isStaff && Number(dbTicket.usuario_id) !== Number(liveUser.id)) {
+        return res.status(403).json({ ok: false, message: 'No tienes permiso para acceder a este ticket.' });
+      }
+      if (dbTicket.estado === 'resuelto' || dbTicket.estado === 'cerrado') {
+        return res.status(400).json({ ok: false, message: 'Este ticket ya fue resuelto y cerrado. El chat está bloqueado.' });
+      }
     }
   } catch (_) {}
 
   let tk = ticketsFallback.find((t) => Number(t.id) === ticketId);
+  if (tk && !isStaff && Number(tk.usuario_id) !== Number(liveUser.id)) {
+    return res.status(403).json({ ok: false, message: 'No tienes permiso para acceder a este ticket.' });
+  }
+  if (!dbTicket && !tk) {
+    return res.status(404).json({ ok: false, message: 'Ticket de soporte no encontrado.' });
+  }
   if (tk && (tk.estado === 'resuelto' || tk.estado === 'cerrado')) {
     return res.status(400).json({ ok: false, message: 'Este ticket ya fue resuelto y cerrado. El chat está bloqueado.' });
   }
+
+  const newMsg = {
+    id: Date.now(),
+    autor: isStaff ? `${liveUser.username} (Soporte)` : (authUser.nombre_completo || liveUser.username),
+    rol: isStaff ? 'soporte' : 'cliente',
+    texto: cleanTexto,
+    imagen_url: imagen_url || null,
+    fecha: new Date().toISOString()
+  };
+
+  const validStaffStates = ['abierto', 'en_revision', 'resuelto', 'cerrado'];
+  const requestedStaffState = isStaff && validStaffStates.includes(estado) ? estado : null;
+
   if (!tk) {
     tk = {
       id: ticketId,
-      usuario_id: authUser.id,
-      asunto: `Ticket #${ticketId}`,
-      descripcion: '',
-      estado: estado || (isStaff ? 'en_revision' : 'abierto'),
-      mensajes: []
+      usuario_id: dbTicket ? dbTicket.usuario_id : liveUser.id,
+      asunto: dbTicket ? dbTicket.asunto : `Ticket #${ticketId}`,
+      descripcion: dbTicket ? dbTicket.descripcion : '',
+      estado: requestedStaffState || (dbTicket ? dbTicket.estado : 'abierto'),
+      mensajes: dbTicket ? formatSafeTicket(dbTicket).mensajes : []
     };
     ticketsFallback.push(tk);
   }
 
   if (!Array.isArray(tk.mensajes)) tk.mensajes = formatSafeTicket(tk).mensajes;
   tk.mensajes.push(newMsg);
-  if (isStaff) {
+  if (isStaff && newMsg.texto) {
     tk.respuesta_soporte = newMsg.texto;
   }
-  if (estado) {
-    tk.estado = estado;
+  if (requestedStaffState) {
+    tk.estado = requestedStaffState;
   } else if (isStaff && tk.estado === 'abierto') {
     tk.estado = 'en_revision';
   }
+  saveFallbackStore();
 
   try {
     await pool.query(
       'UPDATE tickets_soporte SET respuesta_soporte = COALESCE(?, respuesta_soporte), estado = ? WHERE id = ?',
-      [isStaff ? newMsg.texto : null, tk.estado, ticketId]
+      [isStaff && newMsg.texto ? newMsg.texto : null, tk.estado, ticketId]
     );
   } catch (_) {
     // Sincronizado en memoria
@@ -2680,7 +3062,7 @@ router.post('/soporte/:id/mensaje', async (req, res) => {
 
 /**
  * @route PATCH /api/mis-tickets/:id/cerrar
- * @desc Permite al cliente dar por resuelta una solicitud de soporte.
+ * @desc Permite al cliente propietario dar por resuelta una solicitud de soporte.
  * @access Autenticado
  */
 router.patch('/mis-tickets/:id/cerrar', async (req, res) => {
@@ -2690,8 +3072,26 @@ router.patch('/mis-tickets/:id/cerrar', async (req, res) => {
   }
 
   const ticketId = Number(req.params.id);
+
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, usuario_id FROM tickets_soporte WHERE id = ? LIMIT 1',
+      [ticketId]
+    );
+    if (rows[0] && Number(rows[0].usuario_id) !== Number(authUser.id)) {
+      return res.status(403).json({ ok: false, message: 'No tienes permiso para cerrar este ticket.' });
+    }
+    await pool.query(
+      'UPDATE tickets_soporte SET estado = "resuelto" WHERE id = ? AND usuario_id = ?',
+      [ticketId, authUser.id]
+    );
+  } catch (_) {}
+
   let tk = ticketsFallback.find((t) => Number(t.id) === ticketId);
   if (tk) {
+    if (Number(tk.usuario_id) !== Number(authUser.id)) {
+      return res.status(403).json({ ok: false, message: 'No tienes permiso para cerrar este ticket.' });
+    }
     tk.estado = 'resuelto';
     if (!Array.isArray(tk.mensajes)) tk.mensajes = formatSafeTicket(tk).mensajes;
     tk.mensajes.push({
@@ -2701,14 +3101,8 @@ router.patch('/mis-tickets/:id/cerrar', async (req, res) => {
       texto: 'El cliente ha marcado este ticket como cerrado y resuelto.',
       fecha: new Date().toISOString()
     });
+    saveFallbackStore();
   }
-
-  try {
-    await pool.query(
-      'UPDATE tickets_soporte SET estado = "resuelto" WHERE id = ?',
-      [ticketId]
-    );
-  } catch (_) {}
 
   return res.json({
     ok: true,
@@ -2742,6 +3136,7 @@ router.patch(
         tk.respuesta_soporte = String(respuesta_soporte).trim();
       }
       if (estado) tk.estado = estado;
+      saveFallbackStore();
     }
 
     try {
@@ -2799,10 +3194,10 @@ router.post('/staff/catalogo', requireStaffRole(['admin']), async (req, res) => 
     const [result] = await pool.query(
       `INSERT INTO productos (
         categoria_id, codigo_sku, nombre, descripcion, presentacion, precio,
-        descuento_porcentaje, descuento_tipo, descuento_expira_en,
+        descuento_porcentaje, descuento_tipo, descuento_expira_en, descuento_expira_ms,
         descuento_unidades_limite, descuento_unidades_vendidas,
         imagen_url, stock, es_mas_vendido, etiqueta, temperatura_conservacion, activo
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 150, ?, ?, ?, 1)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 150, ?, ?, ?, 1)`,
       [
         catObj.id,
         sku,
@@ -2813,6 +3208,7 @@ router.post('/staff/catalogo', requireStaffRole(['admin']), async (req, res) => 
         disc.descuento_porcentaje,
         disc.descuento_tipo,
         disc.descuento_expira_mysql,
+        disc.descuento_expira_ms,
         disc.descuento_unidades_limite,
         disc.descuento_unidades_vendidas,
         defaultImg,
@@ -2836,6 +3232,7 @@ router.post('/staff/catalogo', requireStaffRole(['admin']), async (req, res) => 
       descuento_porcentaje: disc.descuento_porcentaje,
       descuento_tipo: disc.descuento_tipo,
       descuento_expira_en: disc.descuento_expira_en,
+      descuento_expira_ms: disc.descuento_expira_ms,
       descuento_unidades_limite: disc.descuento_unidades_limite,
       descuento_unidades_vendidas: disc.descuento_unidades_vendidas,
       imagen_url: defaultImg,
@@ -2864,6 +3261,7 @@ router.post('/staff/catalogo', requireStaffRole(['admin']), async (req, res) => 
       descuento_porcentaje: disc.descuento_porcentaje,
       descuento_tipo: disc.descuento_tipo,
       descuento_expira_en: disc.descuento_expira_en,
+      descuento_expira_ms: disc.descuento_expira_ms,
       descuento_unidades_limite: disc.descuento_unidades_limite,
       descuento_unidades_vendidas: disc.descuento_unidades_vendidas,
       imagen_url: defaultImg,
@@ -2927,6 +3325,7 @@ router.put('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) 
     existing.descuento_porcentaje = disc.descuento_porcentaje;
     existing.descuento_tipo = disc.descuento_tipo;
     existing.descuento_expira_en = disc.descuento_expira_en;
+    existing.descuento_expira_ms = disc.descuento_expira_ms;
     existing.descuento_unidades_limite = disc.descuento_unidades_limite;
     existing.descuento_unidades_vendidas = disc.descuento_unidades_vendidas;
     if (temperatura_conservacion !== undefined) existing.temperatura_conservacion = temperatura_conservacion;
@@ -2941,7 +3340,7 @@ router.put('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) 
     await pool.query(
       `UPDATE productos
        SET categoria_id = ?, nombre = ?, presentacion = ?, descripcion = ?, precio = ?,
-           descuento_porcentaje = ?, descuento_tipo = ?, descuento_expira_en = ?,
+           descuento_porcentaje = ?, descuento_tipo = ?, descuento_expira_en = ?, descuento_expira_ms = ?,
            descuento_unidades_limite = ?, descuento_unidades_vendidas = ?,
            temperatura_conservacion = ?, etiqueta = ?, imagen_url = COALESCE(NULLIF(?, ''), imagen_url),
            es_mas_vendido = ?
@@ -2955,6 +3354,7 @@ router.put('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) 
         disc.descuento_porcentaje,
         disc.descuento_tipo,
         disc.descuento_expira_mysql,
+        disc.descuento_expira_ms,
         disc.descuento_unidades_limite,
         disc.descuento_unidades_vendidas,
         temperatura_conservacion || existing?.temperatura_conservacion || 'Congelado -18°C',
@@ -2974,7 +3374,9 @@ router.put('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) 
     if (dbRows && dbRows[0]) {
       return res.json({ ok: true, product: formatProductWithDiscount(dbRows[0]).product });
     }
-  } catch (_) {}
+  } catch (err) {
+    console.error('[PUT /staff/catalogo/:id] Error MySQL:', err.message);
+  }
 
   return res.json({ ok: true, product: existing ? formatProductWithDiscount(existing).product : null });
 });
@@ -2997,6 +3399,7 @@ router.patch('/staff/catalogo/:id/descuento', requireStaffRole(['admin']), async
     existing.descuento_porcentaje = disc.descuento_porcentaje;
     existing.descuento_tipo = disc.descuento_tipo;
     existing.descuento_expira_en = disc.descuento_expira_en;
+    existing.descuento_expira_ms = disc.descuento_expira_ms;
     existing.descuento_unidades_limite = disc.descuento_unidades_limite;
     existing.descuento_unidades_vendidas = disc.descuento_unidades_vendidas;
     saveFallbackStore();
@@ -3009,6 +3412,7 @@ router.patch('/staff/catalogo/:id/descuento', requireStaffRole(['admin']), async
        SET descuento_porcentaje = ?,
            descuento_tipo = ?,
            descuento_expira_en = ?,
+           descuento_expira_ms = ?,
            descuento_unidades_limite = ?,
            descuento_unidades_vendidas = ?
        WHERE id = ?`,
@@ -3016,6 +3420,7 @@ router.patch('/staff/catalogo/:id/descuento', requireStaffRole(['admin']), async
         disc.descuento_porcentaje,
         disc.descuento_tipo,
         disc.descuento_expira_mysql,
+        disc.descuento_expira_ms,
         disc.descuento_unidades_limite,
         disc.descuento_unidades_vendidas,
         prodId
@@ -3032,14 +3437,17 @@ router.patch('/staff/catalogo/:id/descuento', requireStaffRole(['admin']), async
     if (dbRows && dbRows[0]) {
       return res.json({
         ok: true,
+        source: 'mysql',
         product: formatProductWithDiscount(dbRows[0]).product,
         message:
           disc.descuento_porcentaje > 0
-            ? `Descuento del ${disc.descuento_porcentaje}% aplicado exitosamente.`
+            ? `Descuento del ${disc.descuento_porcentaje}% guardado en el servidor.`
             : 'Descuento retirado; el producto volvió a su precio regular.'
       });
     }
-  } catch (_) {}
+  } catch (err) {
+    console.error('[PATCH /staff/catalogo/:id/descuento] Error MySQL:', err.message);
+  }
 
   if (!existing) {
     return res.status(404).json({ ok: false, message: 'Producto no encontrado en el catálogo.' });
@@ -3064,7 +3472,10 @@ router.patch('/staff/catalogo/:id/descuento', requireStaffRole(['admin']), async
 router.delete('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) => {
   const prodId = Number(req.params.id);
   const idx = productosFallback.findIndex((p) => Number(p.id) === prodId);
-  if (idx !== -1) productosFallback.splice(idx, 1);
+  if (idx !== -1) {
+    productosFallback.splice(idx, 1);
+    saveFallbackStore();
+  }
 
   try {
     await pool.query('UPDATE productos SET activo = 0 WHERE id = ?', [prodId]);
@@ -3098,19 +3509,20 @@ router.get('/staff/usuarios', requireStaffRole(['admin']), async (req, res) => {
  * @access Administrador
  */
 router.post('/staff/usuarios', requireStaffRole(['admin']), async (req, res) => {
-  const { email, nombre_completo, rol } = req.body;
+  const { email, rol } = req.body;
   if (!email || !String(email).includes('@')) {
     return res.status(400).json({ ok: false, message: 'Ingrese un correo electrónico válido.' });
   }
 
   const cleanEmail = String(email).trim().toLowerCase();
-  const validRoles = ['empleado', 'entregador', 'soporte', 'admin'];
-  const userRole = validRoles.includes(rol) ? rol : 'empleado';
-  const cleanName = (nombre_completo || cleanEmail.split('@')[0]).trim();
+  const validRoles = ['empleado', 'bodega', 'entregador', 'soporte', 'admin'];
+  const normalizedRequested = normalizeStaffRole(rol);
+  const userRole = validRoles.includes(normalizedRequested) ? normalizedRequested : 'empleado';
 
   const emailHash = hashLookup(cleanEmail);
 
   try {
+    await ensureProductDiscountColumns();
     const [existing] = await pool.query('SELECT * FROM usuarios WHERE email_hash = ? LIMIT 1', [emailHash]);
     if (existing.length === 0) {
       return res.status(404).json({
@@ -3120,6 +3532,13 @@ router.post('/staff/usuarios', requireStaffRole(['admin']), async (req, res) => 
     }
 
     const u = existing[0];
+    if (Number(u.id) === 1 || Number(u.id) === Number(req.user.id)) {
+      return res.status(403).json({
+        ok: false,
+        message: 'No puedes modificar el rol de tu propia cuenta de Administrador principal.'
+      });
+    }
+
     await pool.query('UPDATE usuarios SET rol = ?, activo = 1 WHERE id = ?', [userRole, u.id]);
     const [updated] = await pool.query('SELECT * FROM usuarios WHERE id = ?', [u.id]);
     const safe = formatSafeUser(updated[0]);
@@ -3130,7 +3549,9 @@ router.post('/staff/usuarios', requireStaffRole(['admin']), async (req, res) => 
       message: `Usuario ${cleanEmail} asignado exitosamente al rol de ${userRole.toUpperCase()}.`
     });
   } catch (err) {
-    let memUser = usuariosFallback.find((u) => u.email && u.email.toLowerCase() === cleanEmail);
+    let memUser = usuariosFallback.find(
+      (u) => u.email_hash === emailHash || (u.email && u.email.toLowerCase() === cleanEmail)
+    );
     if (!memUser) {
       return res.status(404).json({
         ok: false,
@@ -3139,6 +3560,7 @@ router.post('/staff/usuarios', requireStaffRole(['admin']), async (req, res) => 
     }
     memUser.rol = userRole;
     memUser.activo = 1;
+    saveFallbackStore();
     return res.json({
       ok: true,
       user: formatSafeUser(memUser),
@@ -3166,20 +3588,30 @@ router.patch('/staff/usuarios/:id', requireStaffRole(['admin']), async (req, res
   }
 
   const { rol, activo } = req.body;
-  const validRoles = ['cliente', 'empleado', 'entregador', 'soporte', 'admin'];
+  const validRoles = ['cliente', 'empleado', 'bodega', 'entregador', 'soporte', 'admin'];
+  const normalizedRole = rol ? normalizeStaffRole(rol) : null;
 
   const memUser = usuariosFallback.find((u) => Number(u.id) === userId);
   if (memUser) {
-    if (rol && validRoles.includes(rol)) memUser.rol = rol;
+    if (normalizedRole && validRoles.includes(normalizedRole)) memUser.rol = normalizedRole;
     if (activo !== undefined) memUser.activo = activo ? 1 : 0;
+    saveFallbackStore();
   }
 
   try {
-    if (rol && validRoles.includes(rol)) {
-      await pool.query('UPDATE usuarios SET rol = ? WHERE id = ?', [rol, userId]);
+    await ensureProductDiscountColumns();
+    if (normalizedRole && validRoles.includes(normalizedRole)) {
+      await pool.query('UPDATE usuarios SET rol = ? WHERE id = ?', [normalizedRole, userId]);
     }
     if (activo !== undefined) {
       await pool.query('UPDATE usuarios SET activo = ? WHERE id = ?', [activo ? 1 : 0, userId]);
+    }
+    const [updatedRows] = await pool.query('SELECT * FROM usuarios WHERE id = ? LIMIT 1', [userId]);
+    if (updatedRows && updatedRows[0]) {
+      return res.json({
+        ok: true,
+        user: formatSafeUser(updatedRows[0])
+      });
     }
   } catch (_) {}
 

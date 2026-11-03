@@ -52,6 +52,7 @@ CREATE TABLE productos (
   descuento_porcentaje DECIMAL(5, 2) NOT NULL DEFAULT 0,
   descuento_tipo VARCHAR(20) NOT NULL DEFAULT 'manual',
   descuento_expira_en DATETIME DEFAULT NULL,
+  descuento_expira_ms BIGINT DEFAULT NULL,
   descuento_unidades_limite INT DEFAULT NULL,
   descuento_unidades_vendidas INT NOT NULL DEFAULT 0,
   imagen_url VARCHAR(500) DEFAULT NULL,
@@ -104,7 +105,7 @@ CREATE TABLE usuarios (
   google_id_enc TEXT DEFAULT NULL COMMENT 'ID OAuth Google Cifrado',
   telefono_enc TEXT DEFAULT NULL COMMENT 'Celular Cifrado AES-256-GCM',
   avatar_url VARCHAR(500) DEFAULT NULL,
-  rol ENUM('cliente', 'empleado', 'entregador', 'soporte', 'admin') NOT NULL DEFAULT 'cliente',
+  rol ENUM('cliente', 'empleado', 'bodega', 'entregador', 'soporte', 'admin') NOT NULL DEFAULT 'cliente',
   activo TINYINT(1) DEFAULT 1,
   creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

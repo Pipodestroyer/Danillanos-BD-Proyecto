@@ -1,9 +1,23 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="dark">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>404 - Página No Encontrada | Danillanos</title>
+  <base href="/" />
+  <title>404 - Recurso No Disponible | Danillanos</title>
+
+  <!-- Sincronización inmediata del tema activo (claro por defecto) antes del primer renderizado -->
+  <script>
+    (function () {
+      try {
+        var savedTheme = localStorage.getItem('danillanos_theme');
+        var activeTheme = savedTheme === 'dark' || savedTheme === 'light' ? savedTheme : 'light';
+        document.documentElement.setAttribute('data-theme', activeTheme);
+      } catch (_) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
 
   <!-- Tipografías corporativas e iconografía Material Symbols -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -14,16 +28,27 @@
   <!-- Hoja de estilos compartida -->
   <link rel="stylesheet" href="css/styles.css" />
 </head>
-<body>
-  <!-- Encabezado simplificado con navegación de retorno a la tienda -->
-  <header class="site-header">
+<body data-page="notfound">
+  <!-- Encabezado sincronizado con la identidad y selector de tema de la plataforma -->
+  <header class="site-header" id="siteHeader">
     <div class="header-container">
-      <div class="header-nav-left">
+      <div class="header-mobile-left">
+        <a href="index.html" class="action-icon-btn" aria-label="Volver a la tienda">
+          <span class="material-symbols-rounded">storefront</span>
+        </a>
+      </div>
+
+      <nav class="header-nav-left" aria-label="Navegación de retorno">
         <a href="index.html" class="nav-btn" aria-label="Volver a la tienda">
           <span class="nav-btn-text">Tienda</span>
           <span class="material-symbols-rounded nav-btn-icon">storefront</span>
         </a>
-      </div>
+        <a href="perfil.html" class="nav-btn" aria-label="Ir a mi cuenta">
+          <span class="nav-btn-text">Mi Cuenta</span>
+          <span class="material-symbols-rounded nav-btn-icon">account_circle</span>
+        </a>
+      </nav>
+
       <div class="header-brand-center">
         <a href="index.html" class="brand-link" aria-label="Inicio Danillanos">
           <div class="brand-text-wrapper">
@@ -32,24 +57,62 @@
           </div>
         </a>
       </div>
-      <div class="header-actions-right"></div>
+
+      <div class="header-actions-right">
+        <button
+          type="button"
+          class="action-icon-btn theme-toggle-btn monochrome-theme-btn"
+          id="themeToggleBtn"
+          aria-label="Cambiar tema de color"
+          title="Cambiar tema"
+        >
+          <span class="theme-icon-stage">
+            <span class="material-symbols-rounded theme-icon-dark">dark_mode</span>
+            <span class="material-symbols-rounded theme-icon-light">light_mode</span>
+          </span>
+        </button>
+
+        <a
+          href="perfil.html"
+          class="user-avatar-btn is-guest"
+          id="userAvatarBtn"
+          aria-label="Ir a mi perfil"
+          title="Mi Cuenta"
+        >
+          <img src="" alt="Foto de perfil" class="user-avatar-img hidden" id="userAvatarImg" />
+          <span class="material-symbols-rounded guest-avatar-icon" id="guestAvatarIcon">person</span>
+          <span class="user-avatar-initial hidden" id="userAvatarInitial"></span>
+          <span class="user-status-dot hidden" id="userStatusDot" aria-hidden="true"></span>
+        </a>
+      </div>
     </div>
   </header>
 
-  <!-- Contenedor central de notificación de recurso no encontrado -->
-  <main class="error-404-view">
-    <div class="error-404-card">
-      <div class="error-404-badge">ERROR 404</div>
-      <span class="material-symbols-rounded error-404-icon" aria-hidden="true">explore_off</span>
-      <h1>404 - Página No Encontrada</h1>
-      <p>
-        La página solicitada no existe o no cuenta con los privilegios requeridos para su visualización.
+  <!-- Alerta nativa central integrada con el sistema de diálogos de Danillanos -->
+  <main class="error-404-view" role="main">
+    <section class="error-404-card native-alert-404" role="alertdialog" aria-labelledby="error404Title" aria-describedby="error404Desc">
+      <div class="native-alert-404-icon" aria-hidden="true">
+        <span class="material-symbols-rounded">error</span>
+      </div>
+      <span class="error-404-badge">ERROR 404</span>
+      <h1 id="error404Title">Página no encontrada</h1>
+      <p id="error404Desc">
+        La ruta solicitada no existe, fue movida o no cuentas con los permisos necesarios para acceder a ella.
       </p>
-      <a href="index.html" class="btn-primary btn-return-home">
-        <span class="material-symbols-rounded" aria-hidden="true">home</span>
-        <span>Volver a la tienda principal</span>
-      </a>
-    </div>
+      <div class="native-alert-404-actions">
+        <a href="index.html" class="btn-primary btn-full native-alert-404-primary">
+          <span class="material-symbols-rounded" aria-hidden="true">storefront</span>
+          <span>Volver a la Tienda</span>
+        </a>
+        <a href="perfil.html" class="btn-secondary btn-full native-alert-404-secondary">
+          <span class="material-symbols-rounded" aria-hidden="true">person</span>
+          <span>Ir a Mi Cuenta</span>
+        </a>
+      </div>
+    </section>
   </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>

@@ -224,9 +224,6 @@
           <div class="surface-card admin-catalog-form-card hidden" id="adminCatalogFormCard">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
               <h3 id="adminCatalogFormTitle">Crear Nuevo Producto</h3>
-              <button type="button" class="icon-close-btn" id="btnCloseCatalogForm">
-                <span class="material-symbols-rounded">close</span>
-              </button>
             </div>
             <form id="adminProductForm" class="modal-form">
               <input type="hidden" id="admProdId" value="" />
@@ -414,7 +411,8 @@
                   Rol Asignado *
                 </label>
                 <select id="adminNewEmpRole" class="modal-input" style="height:46px; cursor:pointer;">
-                  <option value="empleado">Empleado General (Bodega / Despacho)</option>
+                  <option value="empleado">Empleado General (Recepción y Stock)</option>
+                  <option value="bodega">Bodega y Alistamiento (Empaque y Despacho)</option>
                   <option value="entregador">Entregador (Conductor de Reparto)</option>
                   <option value="soporte">Agente de Soporte al Cliente</option>
                   <option value="admin">Administrador General</option>
@@ -436,11 +434,14 @@
           <div class="staff-orders-list" id="adminUsersListContainer"></div>
         </div>
 
-        <!-- Módulo 4 (Empleado General): Cola de preparación en bodega y asignación de despachadores -->
+        <!-- Módulo 4 (Empleado General): Recepción de pedidos en computador y validación de stock -->
         <div class="staff-view-section hidden" id="panelViewEmpleado">
           <div class="staff-panel-header">
             <div>
-              <h2>Pedidos por Confirmar y Asignación de Entregador</h2>
+              <h2>Recepción de Pedidos y Validación de Stock</h2>
+              <p style="font-size:0.84rem; color:var(--text-secondary); margin-top:0.2rem;">
+                Verifica disponibilidad de inventario para aceptar o cancelar pedidos nuevos. Al confirmar, pasan inmediatamente a Bodega.
+              </p>
             </div>
             <button type="button" class="btn-refresh-staff" id="btnEmpleadoRefresh">
               <span class="material-symbols-rounded">refresh</span>
@@ -448,7 +449,7 @@
             </button>
           </div>
 
-          <!-- Filtros de búsqueda rápida para órdenes pendientes de preparación -->
+          <!-- Filtros de búsqueda rápida para órdenes pendientes de recepción -->
           <div class="orders-filter-toolbar compact-filter-toolbar" style="margin-bottom: 1.15rem;">
             <div class="filter-search-box">
               <span class="material-symbols-rounded">search</span>
@@ -456,7 +457,7 @@
                 type="search"
                 id="empActiveSearchInput"
                 class="modal-input"
-                placeholder="Buscar en cola activa por #Pedido, cliente, teléfono, dirección o producto..."
+                placeholder="Buscar pedido nuevo por #Pedido, cliente, teléfono, dirección o producto..."
               />
             </div>
             <select id="empActiveZoneFilter" class="driver-assign-select" aria-label="Filtrar cola activa por zona">
@@ -468,11 +469,11 @@
 
           <div class="staff-orders-list" id="empleadoOrdersContainer"></div>
 
-          <!-- Historial de órdenes procesadas y facturas gestionadas en bodega -->
+          <!-- Historial de solo lectura de órdenes revisadas por recepción -->
           <div class="role-history-block" id="empleadoHistorySection">
             <div class="role-history-header">
               <div>
-                <h3>Historial de Pedidos Aceptados y Facturas</h3>
+                <h3>Historial de Pedidos Revisados</h3>
               </div>
               <div class="filter-results-meta" id="empHistorySummaryBadge"></div>
             </div>
@@ -484,13 +485,13 @@
                   type="search"
                   id="empHistorySearchInput"
                   class="modal-input"
-                  placeholder="Buscar pedido aceptado o factura FAC-DN por #ID, cliente, entregador, dirección o producto..."
+                  placeholder="Buscar pedido revisado o factura FAC-DN por #ID, cliente, dirección o producto..."
                 />
               </div>
               <div class="filter-selects-row">
-                <select id="empHistoryStatusFilter" class="driver-assign-select" aria-label="Estado del pedido aceptado">
-                  <option value="todos">Todos los pedidos aceptados / gestionados</option>
-                  <option value="en_proceso">Aceptados en Bodega</option>
+                <select id="empHistoryStatusFilter" class="driver-assign-select" aria-label="Estado del pedido revisado">
+                  <option value="todos">Todos los pedidos revisados</option>
+                  <option value="en_proceso">En Alistamiento (Bodega)</option>
                   <option value="en_camino">Despachados a Ruta</option>
                   <option value="entregado">Entregados Finalizados</option>
                   <option value="cancelado">Cancelados</option>
@@ -512,6 +513,87 @@
             </div>
 
             <div class="customer-orders-accordion-list" id="empleadoHistoryOrdersContainer"></div>
+          </div>
+        </div>
+
+        <!-- Módulo 4B (Bodega y Alistamiento): Empaque físico y asignación de entregador -->
+        <div class="staff-view-section hidden" id="panelViewBodega">
+          <div class="staff-panel-header">
+            <div>
+              <h2>Bodega, Alistamiento y Asignación de Entregador</h2>
+              <p style="font-size:0.84rem; color:var(--text-secondary); margin-top:0.2rem;">
+                Alista los productos confirmados por recepción, asigna el entregador responsable y despacha el pedido a ruta.
+              </p>
+            </div>
+            <button type="button" class="btn-refresh-staff" id="btnBodegaRefresh">
+              <span class="material-symbols-rounded">refresh</span>
+              <span>Actualizar</span>
+            </button>
+          </div>
+
+          <!-- Filtros de búsqueda rápida para órdenes en alistamiento -->
+          <div class="orders-filter-toolbar compact-filter-toolbar" style="margin-bottom: 1.15rem;">
+            <div class="filter-search-box">
+              <span class="material-symbols-rounded">search</span>
+              <input
+                type="search"
+                id="bodegaActiveSearchInput"
+                class="modal-input"
+                placeholder="Buscar pedido por alistar por #Pedido, cliente, dirección o producto..."
+              />
+            </div>
+            <select id="bodegaActiveZoneFilter" class="driver-assign-select" aria-label="Filtrar bodega activa por zona">
+              <option value="todas">Todas las zonas</option>
+              <option value="villavicencio">Villavicencio</option>
+              <option value="meta">Municipios del Meta</option>
+            </select>
+          </div>
+
+          <div class="staff-orders-list" id="bodegaOrdersContainer"></div>
+
+          <!-- Historial de órdenes alistadas y despachadas por bodega -->
+          <div class="role-history-block" id="bodegaHistorySection">
+            <div class="role-history-header">
+              <div>
+                <h3>Historial de Pedidos Alistados y Despachados</h3>
+              </div>
+              <div class="filter-results-meta" id="bodegaHistorySummaryBadge"></div>
+            </div>
+
+            <div class="orders-filter-toolbar">
+              <div class="filter-search-box">
+                <span class="material-symbols-rounded">search</span>
+                <input
+                  type="search"
+                  id="bodegaHistorySearchInput"
+                  class="modal-input"
+                  placeholder="Buscar pedido despachado o factura FAC-DN por #ID, cliente, entregador o producto..."
+                />
+              </div>
+              <div class="filter-selects-row">
+                <select id="bodegaHistoryStatusFilter" class="driver-assign-select" aria-label="Estado del pedido despachado">
+                  <option value="todos">Todos los despachados / cerrados</option>
+                  <option value="en_camino">En Ruta con Entregador</option>
+                  <option value="entregado">Entregados Finalizados</option>
+                  <option value="cancelado">Cancelados</option>
+                </select>
+                <select id="bodegaHistoryZoneFilter" class="driver-assign-select" aria-label="Zona de entrega">
+                  <option value="todas">Todas las ciudades</option>
+                  <option value="villavicencio">Villavicencio</option>
+                  <option value="meta">Municipios del Meta</option>
+                </select>
+                <select id="bodegaHistoryPayFilter" class="driver-assign-select" aria-label="Medio de pago">
+                  <option value="todos">Todos los medios de pago</option>
+                  <option value="pse">PSE</option>
+                  <option value="nequi">Nequi</option>
+                  <option value="bancolombia">Bancolombia</option>
+                  <option value="tarjeta">Tarjeta</option>
+                  <option value="efectivo">Efectivo</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="customer-orders-accordion-list" id="bodegaHistoryOrdersContainer"></div>
           </div>
         </div>
 

@@ -9,6 +9,7 @@
  */
 
 const crypto = require('crypto');
+const fs = require('fs');
 const path = require('path');
 
 // Carga de variables de entorno para resolver la clave maestra de seguridad
@@ -17,16 +18,37 @@ require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 require('dotenv').config();
 
 /**
- * Resuelve las claves de cifrado y firma exclusivamente desde las variables de entorno.
- * Si no se configuran en desarrollo, se genera una clave efímera segura para evitar secretos estáticos en código.
+ * Obtiene o persiste localmente una semilla aleatoria restringida al servidor cuando no existe ENCRYPTION_KEY,
+ * evitando secretos estáticos en código fuente y previniendo cierre involuntario de sesiones al reiniciar.
+ *
+ * @function loadOrCreateLocalSecret
+ * @returns {Buffer} Semilla binaria de 32 bytes.
+ */
+function loadOrCreateLocalSecret() {
+  const secretFilePath = path.resolve(__dirname, '..', '.runtime_secret.key');
+  try {
+    if (fs.existsSync(secretFilePath)) {
+      const hex = fs.readFileSync(secretFilePath, 'utf8').trim();
+      if (/^[0-9a-f]{64}$/i.test(hex)) {
+        return Buffer.from(hex, 'hex');
+      }
+    }
+    const generated = crypto.randomBytes(32);
+    fs.writeFileSync(secretFilePath, generated.toString('hex'), { encoding: 'utf8', mode: 0o600 });
+    return generated;
+  } catch (_) {
+    return crypto.randomBytes(32);
+  }
+}
+
+/**
+ * Resuelve las claves de cifrado y firma desde las variables de entorno o archivo local protegido.
  */
 const rawEncryptionKey = process.env.ENCRYPTION_KEY || process.env.SECURITY_SECRET;
 const rawJwtSecret = process.env.JWT_SECRET || rawEncryptionKey;
 
-if (!rawEncryptionKey) {
-  if (process.env.NODE_ENV === 'production') {
-    console.warn('⚠️ ADVERTENCIA DE SEGURIDAD: La variable ENCRYPTION_KEY no está configurada en el entorno de producción.');
-  }
+if (!rawEncryptionKey && process.env.NODE_ENV === 'production') {
+  console.warn('⚠️ ADVERTENCIA DE SEGURIDAD: Configure ENCRYPTION_KEY y JWT_SECRET en las variables de entorno de producción.');
 }
 
 /**
@@ -35,7 +57,7 @@ if (!rawEncryptionKey) {
  */
 const AES_KEY = rawEncryptionKey
   ? crypto.createHash('sha256').update(rawEncryptionKey).digest()
-  : crypto.randomBytes(32);
+  : loadOrCreateLocalSecret();
 
 /**
  * Clave simétrica para firma y verificación de tokens de sesión JWT (HMAC-SHA256).
@@ -168,20 +190,29 @@ function signToken(payload, expiresInSeconds = 86400 * 7) {
  * @returns {object|null} Objeto decodificado del payload si es válido; de lo contrario `null`.
  */
 function verifyToken(token) {
-  if (!token || typeof token !== 'string') return null;
+  if (!token || typeof token !== 'string' || token.length > 4096) return null;
   const parts = token.split('.');
   if (parts.length !== 3) return null;
 
   try {
     const [header, body, signature] = parts;
+    const headerObj = JSON.parse(Buffer.from(header, 'base64url').toString('utf8'));
+    if (!headerObj || headerObj.alg !== 'HS256') return null;
+
     const expectedSig = crypto
       .createHmac('sha256', JWT_KEY)
       .update(`${header}.${body}`)
       .digest('base64url');
 
-    if (signature !== expectedSig) return null;
+    const sigBuf = Buffer.from(signature, 'utf8');
+    const expBuf = Buffer.from(expectedSig, 'utf8');
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+      return null;
+    }
+
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
-    if (payload.exp && Math.floor(Date.now() / 1000) > payload.exp) return null;
+    if (!payload || typeof payload !== 'object') return null;
+    if (!payload.exp || Math.floor(Date.now() / 1000) > Number(payload.exp)) return null;
     return payload;
   } catch (err) {
     return null;

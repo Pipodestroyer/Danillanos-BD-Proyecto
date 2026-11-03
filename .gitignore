@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+backend/.runtime_secret.key
+backend/data/fallback_store.json
 
 # Logs
 *.log

@@ -3309,40 +3309,87 @@ textarea.modal-input.is-locked-field:focus {
    VISTA ERROR 404 Y DRAWER CARRITO
    ========================================================================== */
 .error-404-view {
-  min-height: calc(100vh - 180px);
+  min-height: calc(100vh - 110px);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
+  padding: 1.5rem 1rem 2.5rem;
 }
 
 .error-404-card {
-  max-width: 520px;
+  max-width: 440px;
   width: 100%;
   text-align: center;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-xl);
-  padding: 3rem 2.25rem;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl, 22px);
+  padding: 2.1rem 1.7rem 1.85rem;
   box-shadow: var(--shadow-lg);
+  animation: adminInlineEditReveal 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.native-alert-404-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.95rem;
+  background-color: rgba(224, 26, 44, 0.12);
+  color: var(--brand-red, #e01a2c);
+}
+
+.native-alert-404-icon .material-symbols-rounded {
+  font-size: 2.25rem;
 }
 
 .error-404-badge {
   display: inline-block;
-  padding: 0.35rem 1rem;
+  padding: 0.24rem 0.78rem;
   border-radius: var(--radius-pill);
-  background-color: var(--bg-elevated);
-  color: var(--brand-red);
+  background-color: rgba(224, 26, 44, 0.1);
+  border: 1px solid rgba(224, 26, 44, 0.22);
+  color: var(--brand-red, #e01a2c);
   font-weight: 800;
-  font-size: 0.8rem;
-  letter-spacing: 0.12em;
-  margin-bottom: 1rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.65rem;
+}
+
+.error-404-card h1 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.32rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 0.55rem;
+}
+
+.error-404-card p {
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  line-height: 1.52;
+  margin: 0 0 1.45rem;
+}
+
+.native-alert-404-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.native-alert-404-primary,
+.native-alert-404-secondary {
+  width: 100%;
+  justify-content: center;
+  font-weight: 700;
+  padding: 0.82rem 1.2rem;
 }
 
 .error-404-icon {
-  font-size: 4rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.75rem;
+  font-size: 3rem;
+  color: var(--brand-red, #e01a2c);
+  margin-bottom: 0.65rem;
 }
 
 .cart-backdrop {
@@ -9583,6 +9630,11 @@ body[data-page="perfil"] [data-profile-window].hidden,
   border-color: rgba(224, 26, 44, 0.42) !important;
   background-color: var(--bg-card);
   padding: 1.35rem 1.4rem;
+}
+
+/* Al editar en línea debajo de un producto, el único botón de cierre es '^ Cerrar' en la fila superior */
+.admin-catalog-form-card.is-inline-drawer #btnCancelCatalogForm {
+  display: none !important;
 }
 
 .admin-catalog-form-card.is-expanding-inline {
