@@ -1,8 +1,8 @@
 /**
  * @fileoverview Ejecutor e inicializador del esquema de base de datos MySQL para Danillanos.
- * Lee las credenciales de conexión del archivo .env, carga el script `database/schema.sql`,
- * adapta el identificador de la base de datos de ser necesario y aplica todas las definiciones
- * DDL (tablas, vistas, procedimientos almacenados y disparadores) y DML (catálogo inicial).
+ * Lee las credenciales de conexión del archivo .env (soporta DATABASE_URL, MYSQL_URL o variables individuales),
+ * carga el script `database/schema.sql`, adapta el identificador de la base de datos de ser necesario
+ * y aplica todas las definiciones DDL (tablas, vistas, procedimientos almacenados y disparadores) y DML.
  *
  * @module run-schema
  */
@@ -10,7 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
-require('dotenv').config();
+const { resolveDbConfig } = require('./backend/config/db');
 
 /**
  * Ejecuta el script de esquema SQL en el motor de base de datos MySQL configurado.
@@ -24,30 +24,17 @@ async function runSchema() {
   console.log('🥩 DANILLANOS - INICIALIZADOR DE BASE DE DATOS MYSQL');
   console.log('============================================================\n');
 
-  // Lectura y normalización de variables de entorno de conexión
-  const host = process.env.DB_HOST || 'localhost';
-  const port = Number(process.env.DB_PORT) || 3306;
-  const user = process.env.DB_USER || 'root';
-  const password = process.env.DB_PASSWORD || '';
-  const database = process.env.DB_NAME || 'danillanos_db';
+  // Resolución unificada de configuración (Railway, Render, Aiven o Local)
+  const config = resolveDbConfig(process.env);
+  const { host, port, user, password, database, ssl } = config;
 
-  console.log('📋 Configuración detectada desde .env:');
+  console.log('📋 Configuración detectada:');
   console.log(`   - Host:     ${host}`);
   console.log(`   - Puerto:   ${port}`);
   console.log(`   - Usuario:  ${user}`);
   console.log(`   - Base DB:  ${database}`);
   console.log(`   - Password: ${password ? '******** (definida)' : '(vacía)'}`);
-
-  // Detección de requerimiento de transporte TLS/SSL (requerido para plataformas en la nube como Aiven)
-  const isCloudOrSsl =
-    process.env.DB_SSL === 'true' ||
-    host.includes('aivencloud.com') ||
-    (port !== 3306 && host !== 'localhost' && host !== '127.0.0.1');
-
-  const sslOption = isCloudOrSsl ? { rejectUnauthorized: false } : undefined;
-  if (isCloudOrSsl) {
-    console.log('   - SSL/TLS:  Activado (requerido para servicios Cloud/Aiven)');
-  }
+  console.log(`   - SSL/TLS:  ${ssl ? 'Activado' : 'Desactivado (Red privada Railway / Local)'}`);
 
   // Carga del archivo SQL con las sentencias DDL y DML
   const schemaPath = path.join(__dirname, 'database', 'schema.sql');
@@ -76,7 +63,7 @@ async function runSchema() {
       user,
       password,
       multipleStatements: true,
-      ssl: sslOption
+      ssl
     });
     console.log('✅ Conexión establecida correctamente con MySQL.');
 
@@ -109,21 +96,21 @@ async function runSchema() {
     console.log('✨ Todo listo. Ahora puedes iniciar el servidor con:');
     console.log('   npm start');
     console.log('============================================================\n');
-
   } catch (error) {
-    console.error('\n❌ Ocurrió un error al ejecutar el schema en MySQL:');
-    console.error(`   Código: ${error.code || 'DESCONOCIDO'}`);
+    console.error('\n❌ Error al ejecutar el esquema SQL:');
     console.error(`   Mensaje: ${error.message}`);
-    if (error.sqlMessage) {
-      console.error(`   Detalle SQL: ${error.sqlMessage}`);
-    }
-    process.exitCode = 1;
+    console.error(`   Código:  ${error.code || 'N/A'}`);
+    if (error.sqlMessage) console.error(`   SQL:     ${error.sqlMessage}`);
+    process.exit(1);
   } finally {
     if (connection) {
       await connection.end();
-      console.log('🔒 Conexión con MySQL cerrada ordenadamente.');
     }
   }
 }
 
-runSchema();
+if (require.main === module) {
+  runSchema();
+}
+
+module.exports = { runSchema };

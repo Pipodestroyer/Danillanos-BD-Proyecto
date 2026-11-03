@@ -193,24 +193,32 @@ npm install
 ```
 
 ### 2. Configurar Variables de Entorno (`.env`)
-Crear un archivo `.env` en la raíz del proyecto basado en las siguientes variables:
+Crear un archivo `.env` en la raíz del proyecto (o configurarlo en Railway / Render).
+
+#### Despliegue en Railway (Recomendado - Variables Esenciales):
+En Railway, la base de datos MySQL proporciona `MYSQL_URL` automáticamente y Railway inyecta la variable `PORT`. En el Raw Editor de tu servicio en Railway solo necesitas:
+```env
+DATABASE_URL=${{MySQL.MYSQL_URL}}
+ENCRYPTION_KEY=tu_clave_secreta_de_cifrado_aes256_de_al_menos_32_caracteres_aqui
+JWT_SECRET=tu_clave_secreta_jwt_para_firmar_tokens_de_sesion_aqui
+GOOGLE_CLIENT_ID=tu_cliente_id_de_google_oauth.apps.googleusercontent.com
+NODE_ENV=production
+```
+*(Nota: Si no usas la variable de referencia `${{MySQL.MYSQL_URL}}`, puedes usar la URL completa con el formato `DATABASE_URL=mysql://usuario:password@host:puerto/basedatos`).*
+
+#### Entorno Local o Tradicional:
 ```env
 PORT=3000
 NODE_ENV=development
 
-# Conexión a Base de Datos MySQL
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=tu_password
-DB_NAME=danillanos_db
-DB_SSL=false
+# Conexión MySQL (Unificada o por campos separados)
+DATABASE_URL=mysql://root:tu_password@localhost:3306/danillanos_db
 
 # Claves Criptográficas
 JWT_SECRET=tu_clave_secreta_jwt_de_al_menos_32_caracteres
 ENCRYPTION_KEY=tu_clave_secreta_de_cifrado_de_32_caracteres_exactos
 
-# Google OAuth 2.0 (Opcional para Login con Google)
+# Google OAuth 2.0 (GIS)
 GOOGLE_CLIENT_ID=tu_cliente_id_de_google_oauth.apps.googleusercontent.com
 ```
 

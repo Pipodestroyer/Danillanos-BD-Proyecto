@@ -19,7 +19,7 @@ const { hashPassword, encryptData, hashLookup } = require('../utils/security');
  * Hash inicial de contraseña para la cuenta administrativa predeterminada.
  * @type {string}
  */
-const defaultPassHash = hashPassword('Danillanos2026*');
+const defaultPassHash = hashPassword(process.env.ADMIN_DEFAULT_PASSWORD || 'Admin123456*');
 
 /**
  * Registro en memoria de usuarios para el modo de contingencia.
