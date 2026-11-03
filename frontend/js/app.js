@@ -101,6 +101,7 @@
     staffUsers: [],
     adminCatalogQuery: '',
     adminCatalogFilter: 'todos',
+    editingAdminProdId: null,
     pendingDeleteProductId: null,
     quickDiscountBasePrice: 0,
     serverApiV3: false,
@@ -7049,10 +7050,19 @@
         return;
       }
 
-      // Administración: Edición de producto en catálogo comercial
+      // Administración: Edición desplegable en línea directamente bajo la fila del producto
       const editProdBtn = e.target.closest('[data-admin-edit-prod]');
       if (editProdBtn) {
         const prodId = Number(editProdBtn.getAttribute('data-admin-edit-prod'));
+        const formCard = document.getElementById('adminCatalogFormCard');
+        if (
+          state.editingAdminProdId === prodId &&
+          formCard &&
+          !formCard.classList.contains('hidden')
+        ) {
+          closeAdminCatalogForm();
+          return;
+        }
         const prod = state.products.find((p) => Number(p.id) === prodId);
         if (prod) openAdminProductForm(prod);
         return;
@@ -7552,13 +7562,18 @@
     document.getElementById('btnCancelEmployeeForm')?.addEventListener('click', closeAdminEmployeeForm);
 
     document.getElementById('btnOpenNewProductForm')?.addEventListener('click', () => {
+      const card = document.getElementById('adminCatalogFormCard');
+      if (state.editingAdminProdId === null && card && !card.classList.contains('hidden')) {
+        closeAdminCatalogForm();
+        return;
+      }
       openAdminProductForm(null);
     });
     document.getElementById('btnCloseCatalogForm')?.addEventListener('click', () => {
-      document.getElementById('adminCatalogFormCard')?.classList.add('hidden');
+      closeAdminCatalogForm();
     });
     document.getElementById('btnCancelCatalogForm')?.addEventListener('click', () => {
-      document.getElementById('adminCatalogFormCard')?.classList.add('hidden');
+      closeAdminCatalogForm();
     });
 
     document.getElementById('adminCatalogSearchInput')?.addEventListener('input', (e) => {
@@ -7722,7 +7737,7 @@
         }
       }
 
-      document.getElementById('adminCatalogFormCard')?.classList.add('hidden');
+      closeAdminCatalogForm();
       refreshAllCatalogViewsAndPills();
     });
 
@@ -7813,16 +7828,59 @@
   }
 
   /**
-   * Abre el formulario modal para crear un nuevo producto o editar las propiedades de uno existente.
+   * Sincroniza el estado visual de las filas del catálogo según qué producto se encuentre desplegado en edición.
+   */
+  function syncCatalogEditingRowIndicators() {
+    const activeId = state.editingAdminProdId !== null ? Number(state.editingAdminProdId) : null;
+    const formCard = document.getElementById('adminCatalogFormCard');
+    const isFormVisible = Boolean(formCard && !formCard.classList.contains('hidden'));
+
+    document.querySelectorAll('.admin-catalog-item-wrap[data-admin-prod-item]').forEach((wrap) => {
+      const rowId = Number(wrap.getAttribute('data-admin-prod-item'));
+      const isEditingThis = isFormVisible && activeId !== null && rowId === activeId;
+      wrap.classList.toggle('is-editing', isEditingThis);
+
+      const editBtn = wrap.querySelector('[data-admin-edit-prod]');
+      if (editBtn) {
+        editBtn.classList.toggle('is-editing-active', isEditingThis);
+        const iconSpan = editBtn.querySelector('.material-symbols-rounded');
+        const labelSpans = editBtn.querySelectorAll('span');
+        const textSpan = labelSpans.length > 1 ? labelSpans[1] : null;
+        if (iconSpan) iconSpan.textContent = isEditingThis ? 'expand_less' : 'edit';
+        if (textSpan) textSpan.textContent = isEditingThis ? 'Cerrar' : 'Editar';
+      }
+    });
+  }
+
+  /**
+   * Cierra el formulario desplegable de creación o edición de producto conservando la posición de lectura actual.
+   */
+  function closeAdminCatalogForm() {
+    state.editingAdminProdId = null;
+    const card = document.getElementById('adminCatalogFormCard');
+    const topSlot = document.getElementById('adminCatalogTopFormSlot');
+    if (card) {
+      card.classList.add('hidden');
+      card.classList.remove('is-inline-drawer', 'is-expanding-inline');
+      if (topSlot && card.parentNode !== topSlot) {
+        topSlot.appendChild(card);
+      }
+    }
+    syncCatalogEditingRowIndicators();
+  }
+
+  /**
+   * Abre el formulario para crear un nuevo producto (arriba) o lo despliega directamente
+   * debajo del producto seleccionado en la lista sin obligar a subir al inicio.
    * @param {Object|null} [prod=null] - Objeto del producto a editar o null para registrar uno nuevo.
    */
   function openAdminProductForm(prod = null) {
     const card = document.getElementById('adminCatalogFormCard');
     const title = document.getElementById('adminCatalogFormTitle');
     const submitText = document.getElementById('admProdSubmitText');
+    const topSlot = document.getElementById('adminCatalogTopFormSlot');
     if (!card) return;
 
-    card.classList.remove('hidden');
     const descPctEl = document.getElementById('admProdDescPct');
     const descTipoEl = document.getElementById('admProdDescTipo');
     const durValEl = document.getElementById('admProdDuracionValor');
@@ -7831,7 +7889,17 @@
 
     if (prod) {
       const evaluated = evaluateClientProductDiscount(prod);
-      title.textContent = `Editar Producto #${evaluated.id}`;
+      state.editingAdminProdId = Number(evaluated.id);
+      const inlineSlot = document.getElementById(`adminCatalogInlineSlot_${evaluated.id}`);
+      if (inlineSlot) {
+        inlineSlot.appendChild(card);
+        card.classList.add('is-inline-drawer');
+      } else if (topSlot) {
+        topSlot.appendChild(card);
+        card.classList.remove('is-inline-drawer');
+      }
+
+      title.textContent = `Editar Producto #${evaluated.id} — ${evaluated.nombre}`;
       submitText.textContent = 'Guardar Cambios';
       document.getElementById('admProdId').value = evaluated.id;
       document.getElementById('admProdNombre').value = evaluated.nombre || '';
@@ -7869,6 +7937,11 @@
             : 20;
       }
     } else {
+      state.editingAdminProdId = null;
+      if (topSlot && card.parentNode !== topSlot) {
+        topSlot.appendChild(card);
+      }
+      card.classList.remove('is-inline-drawer');
       title.textContent = 'Crear Nuevo Producto';
       submitText.textContent = 'Crear Producto';
       document.getElementById('adminProductForm')?.reset();
@@ -7880,11 +7953,27 @@
       if (uniLimEl) uniLimEl.value = 20;
     }
 
+    card.classList.remove('hidden', 'is-expanding-inline');
+    void card.offsetWidth;
+    card.classList.add('is-expanding-inline');
+    syncCatalogEditingRowIndicators();
+
     enhanceAllCustomSelects(card);
     descTipoEl?.dispatchEvent(new Event('change', { bubbles: true }));
     durUnitEl?.dispatchEvent(new Event('change', { bubbles: true }));
     document.getElementById('admProdPrecio')?.dispatchEvent(new Event('input', { bubbles: true }));
-    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    if (prod) {
+      const itemWrap = document.getElementById(`adminCatalogItem_${prod.id}`);
+      if (itemWrap) {
+        const rect = itemWrap.getBoundingClientRect();
+        if (rect.top < 70 || rect.bottom > window.innerHeight) {
+          itemWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }
+    } else {
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   }
 
   /**
@@ -8229,6 +8318,9 @@
           closeDelModal();
           return;
         }
+        if (state.editingAdminProdId === prodId) {
+          closeAdminCatalogForm();
+        }
         state.products = state.products.filter((p) => Number(p.id) !== prodId);
         saveLocalProductDiscountOverride(prodId, null);
         try {
@@ -8244,12 +8336,15 @@
   }
 
   /**
-   * Renderiza la tabla de gestión de inventario y catálogo para el Administrador con opciones CRUD y Descuentos.
+   * Renderiza la tabla de gestión de inventario y catálogo para el Administrador con opciones CRUD,
+   * Descuentos y edición desplegable directamente desde cada producto.
    */
   function renderAdminCatalogoPanel() {
     const listEl = document.getElementById('adminCatalogListContainer');
     const badge = document.getElementById('adminCatalogTotalBadge');
     const discCountEl = document.getElementById('adminDiscountActiveCount');
+    const formCard = document.getElementById('adminCatalogFormCard');
+    const topSlot = document.getElementById('adminCatalogTopFormSlot');
 
     state.products = (state.products || []).map((p) => evaluateClientProductDiscount(p));
 
@@ -8258,6 +8353,17 @@
       discCountEl.textContent = String(state.products.filter((p) => p.descuento_activo).length);
     }
     if (!listEl) return;
+
+    // Resguardar el formulario antes de reconstruir el HTML de la lista para no perder listeners ni estado
+    const wasInlineOpen = Boolean(
+      formCard &&
+        !formCard.classList.contains('hidden') &&
+        state.editingAdminProdId !== null &&
+        listEl.contains(formCard)
+    );
+    if (formCard && listEl.contains(formCard) && topSlot) {
+      topSlot.appendChild(formCard);
+    }
 
     const q = (state.adminCatalogQuery || '').trim().toLowerCase();
     const onlyDiscounts = state.adminCatalogFilter === 'descuentos';
@@ -8273,6 +8379,10 @@
     });
 
     if (filtered.length === 0) {
+      if (wasInlineOpen && formCard) {
+        formCard.classList.add('hidden');
+        formCard.classList.remove('is-inline-drawer');
+      }
       listEl.innerHTML = `
         <div class="detail-box" style="text-align:center; padding:2rem 1rem;">
           <span class="material-symbols-rounded" style="font-size:2.4rem; color:var(--text-muted); display:block; margin-bottom:0.4rem;">sell</span>
@@ -8285,10 +8395,14 @@
     }
 
     listEl.innerHTML = filtered
-      .slice(0, 80)
       .map((p) => {
         const hasDisc = Boolean(p.descuento_activo && p.descuento_porcentaje > 0);
         const pctRound = Math.round(p.descuento_porcentaje || 0);
+        const isEditingThis =
+          Boolean(formCard && !formCard.classList.contains('hidden')) &&
+          state.editingAdminProdId !== null &&
+          Number(state.editingAdminProdId) === Number(p.id);
+
         let condLabel = '';
         if (hasDisc) {
           if (p.descuento_tipo === 'tiempo' && p.descuento_expira_en) {
@@ -8305,38 +8419,53 @@
           : `<strong>${formatCurrency(p.precio)}</strong>`;
 
         return `
-        <div class="admin-catalog-row ${hasDisc ? 'has-active-discount' : ''}">
-          <div class="admin-catalog-row-left">
-            <img src="${p.imagen_url}" alt="${p.nombre}" class="admin-catalog-thumb" loading="lazy" />
-            <div>
-              <div class="admin-catalog-title-line">
-                <strong>${p.nombre}</strong>
-                ${hasDisc ? `<span class="admin-discount-pill">-${pctRound}% OFF</span>` : ''}
-                ${hasDisc && condLabel ? `<span class="admin-discount-cond-pill">${condLabel}</span>` : ''}
-              </div>
-              <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:2px;">
-                ${p.categoria_nombre || 'Danillanos'} • ${p.presentacion} • ${priceLineHtml}
+        <div class="admin-catalog-item-wrap ${isEditingThis ? 'is-editing' : ''}" id="adminCatalogItem_${p.id}" data-admin-prod-item="${p.id}">
+          <div class="admin-catalog-row ${hasDisc ? 'has-active-discount' : ''}">
+            <div class="admin-catalog-row-left">
+              <img src="${p.imagen_url}" alt="${p.nombre}" class="admin-catalog-thumb" loading="lazy" />
+              <div>
+                <div class="admin-catalog-title-line">
+                  <strong>${p.nombre}</strong>
+                  ${hasDisc ? `<span class="admin-discount-pill">-${pctRound}% OFF</span>` : ''}
+                  ${hasDisc && condLabel ? `<span class="admin-discount-cond-pill">${condLabel}</span>` : ''}
+                </div>
+                <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:2px;">
+                  ${p.categoria_nombre || 'Danillanos'} • ${p.presentacion} • ${priceLineHtml}
+                </div>
               </div>
             </div>
+            <div class="admin-catalog-actions">
+              <button type="button" class="btn-admin-discount ${hasDisc ? 'is-active' : ''}" data-admin-discount-prod="${p.id}" title="Configurar porcentaje y duración de descuento">
+                <span class="material-symbols-rounded" style="font-size:1rem;">sell</span>
+                <span>${hasDisc ? `-${pctRound}% OFF` : 'Descuento'}</span>
+              </button>
+              <button type="button" class="btn-secondary ${isEditingThis ? 'is-editing-active' : ''}" data-admin-edit-prod="${p.id}" style="padding:0.45rem 0.85rem; font-size:0.78rem;">
+                <span class="material-symbols-rounded" style="font-size:1rem;">${isEditingThis ? 'expand_less' : 'edit'}</span>
+                <span>${isEditingThis ? 'Cerrar' : 'Editar'}</span>
+              </button>
+              <button type="button" class="btn-cancel-order" data-admin-del-prod="${p.id}" style="padding:0.45rem 0.85rem; font-size:0.78rem;">
+                <span class="material-symbols-rounded" style="font-size:1rem;">delete</span>
+                <span>Eliminar</span>
+              </button>
+            </div>
           </div>
-          <div class="admin-catalog-actions">
-            <button type="button" class="btn-admin-discount ${hasDisc ? 'is-active' : ''}" data-admin-discount-prod="${p.id}" title="Configurar porcentaje y duración de descuento">
-              <span class="material-symbols-rounded" style="font-size:1rem;">sell</span>
-              <span>${hasDisc ? `-${pctRound}% OFF` : 'Descuento'}</span>
-            </button>
-            <button type="button" class="btn-secondary" data-admin-edit-prod="${p.id}" style="padding:0.45rem 0.85rem; font-size:0.78rem;">
-              <span class="material-symbols-rounded" style="font-size:1rem;">edit</span>
-              <span>Editar</span>
-            </button>
-            <button type="button" class="btn-cancel-order" data-admin-del-prod="${p.id}" style="padding:0.45rem 0.85rem; font-size:0.78rem;">
-              <span class="material-symbols-rounded" style="font-size:1rem;">delete</span>
-              <span>Eliminar</span>
-            </button>
-          </div>
+          <div class="admin-catalog-inline-slot" id="adminCatalogInlineSlot_${p.id}"></div>
         </div>
       `;
       })
       .join('');
+
+    if (formCard && !formCard.classList.contains('hidden') && state.editingAdminProdId !== null) {
+      const targetSlot = document.getElementById(`adminCatalogInlineSlot_${state.editingAdminProdId}`);
+      if (targetSlot) {
+        targetSlot.appendChild(formCard);
+        formCard.classList.add('is-inline-drawer');
+      } else {
+        formCard.classList.add('hidden');
+        formCard.classList.remove('is-inline-drawer');
+      }
+    }
+    syncCatalogEditingRowIndicators();
   }
 
   /**
@@ -9156,6 +9285,11 @@
     setInterval(() => {
       const activeEl = document.activeElement;
       if (activeEl && activeEl.classList && activeEl.classList.contains('bulk-qty-input')) {
+        return;
+      }
+      const catalogFormOpen = !document.getElementById('adminCatalogFormCard')?.classList.contains('hidden');
+      const discountModalOpen = !document.getElementById('adminQuickDiscountBackdrop')?.classList.contains('hidden');
+      if (CURRENT_PAGE === 'panel' && (catalogFormOpen || discountModalOpen)) {
         return;
       }
       if (CURRENT_PAGE === 'store' || CURRENT_PAGE === 'pagos' || CURRENT_PAGE === 'panel') {

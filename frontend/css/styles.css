@@ -9547,3 +9547,68 @@ body[data-page="perfil"] [data-profile-window].hidden,
     justify-content: center;
   }
 }
+
+
+/* Despliegue en línea del formulario Editar directamente debajo de cada fila del catálogo */
+#adminCatalogTopFormSlot > .admin-catalog-form-card:not(.hidden) {
+  margin-bottom: 1.35rem;
+}
+
+.admin-catalog-item-wrap {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-md);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.admin-catalog-item-wrap.is-editing {
+  border-radius: var(--radius-lg, 18px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+}
+
+.admin-catalog-item-wrap.is-editing > .admin-catalog-row {
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-color: rgba(224, 26, 44, 0.42);
+  border-bottom-color: var(--border-subtle);
+}
+
+.admin-catalog-form-card.is-inline-drawer {
+  margin: 0 !important;
+  border-top: none !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-left-radius: var(--radius-lg, 18px) !important;
+  border-bottom-right-radius: var(--radius-lg, 18px) !important;
+  border-color: rgba(224, 26, 44, 0.42) !important;
+  background-color: var(--bg-card);
+  padding: 1.35rem 1.4rem;
+}
+
+.admin-catalog-form-card.is-expanding-inline {
+  animation: adminInlineEditReveal 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: top center;
+}
+
+@keyframes adminInlineEditReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.btn-secondary.is-editing-active {
+  background: rgba(224, 26, 44, 0.12) !important;
+  border-color: rgba(224, 26, 44, 0.38) !important;
+  color: var(--brand-red, #e01a2c) !important;
+}
+
+@media (max-width: 768px) {
+  .admin-catalog-form-card.is-inline-drawer {
+    padding: 1rem 0.95rem;
+  }
+}

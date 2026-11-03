@@ -219,8 +219,9 @@
             </button>
           </div>
 
-          <!-- Formulario modal para creación o edición de ítems del catálogo -->
-          <div class="surface-card admin-catalog-form-card hidden" id="adminCatalogFormCard" style="margin-bottom: 1.5rem;">
+          <!-- Ancla superior para creación de nuevo producto; al editar se despliega directamente bajo la fila del producto -->
+          <div id="adminCatalogTopFormSlot">
+          <div class="surface-card admin-catalog-form-card hidden" id="adminCatalogFormCard">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
               <h3 id="adminCatalogFormTitle">Crear Nuevo Producto</h3>
               <button type="button" class="icon-close-btn" id="btnCloseCatalogForm">
@@ -328,6 +329,7 @@
                 </button>
               </div>
             </form>
+          </div>
           </div>
 
           <div class="admin-catalog-toolbar">
