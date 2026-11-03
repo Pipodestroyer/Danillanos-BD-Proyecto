@@ -1,8 +1,9 @@
 /**
  * @fileoverview Ejecutor e inicializador del esquema de base de datos MySQL para Danillanos.
  * Lee las credenciales de conexión del archivo .env (soporta DATABASE_URL, MYSQL_URL o variables individuales),
- * carga el script `database/schema.sql`, adapta el identificador de la base de datos de ser necesario
- * y aplica todas las definiciones DDL (tablas, vistas, procedimientos almacenados y disparadores) y DML.
+ * carga el script `database/schema.sql`, adapta el identificador de la base de datos de ser necesario,
+ * extrae rutinas con delimitadores complejos y aplica todas las definiciones DDL (tablas, vistas,
+ * procedimientos y disparadores) y DML (datos semilla de 235 productos y promociones).
  *
  * @module run-schema
  */
@@ -39,19 +40,34 @@ async function runSchema() {
   // Carga del archivo SQL con las sentencias DDL y DML
   const schemaPath = path.join(__dirname, 'database', 'schema.sql');
   if (!fs.existsSync(schemaPath)) {
-    console.error(`\n❌ Error: No se encontró el archivo SQL en: ${schemaPath}`);
-    process.exit(1);
+    const notFoundErr = new Error(`No se encontró el archivo SQL en: ${schemaPath}`);
+    console.error(`\n❌ Error: ${notFoundErr.message}`);
+    if (require.main === module) process.exit(1);
+    throw notFoundErr;
   }
 
   let sqlContent = fs.readFileSync(schemaPath, 'utf8');
   console.log(`\n📄 Archivo SQL cargado con éxito: database/schema.sql (${(sqlContent.length / 1024).toFixed(1)} KB)`);
 
+  // Extraer bloques con DELIMITER // para ejecutarlos como sentencias individuales compatibles con mysql2
+  let mainSql = sqlContent;
+  let routines = [];
+  const delimiterRegex = /DELIMITER\s+\/\/\s*([\s\S]*?)\s*DELIMITER\s*;/i;
+  const delimiterMatch = sqlContent.match(delimiterRegex);
+  if (delimiterMatch) {
+    routines = delimiterMatch[1]
+      .split(/\/\/\s*/)
+      .map((r) => r.trim())
+      .filter(Boolean);
+    mainSql = sqlContent.replace(delimiterRegex, '-- [Procedimientos y triggers ejecutados de forma individual]');
+  }
+
   // Ajuste dinámico del nombre de la base de datos si difiere del valor por defecto
   if (database && database !== 'danillanos_db') {
     console.log(`🔄 Adaptando script SQL para usar la base de datos: "${database}"`);
-    sqlContent = sqlContent
-      .replace(/CREATE DATABASE IF NOT EXISTS\s+danillanos_db/gi, `CREATE DATABASE IF NOT EXISTS \`${database}\``)
-      .replace(/USE\s+danillanos_db;/gi, `USE \`${database}\`;`);
+    mainSql = mainSql
+      .replace(/CREATE DATABASE IF NOT EXISTS\s+[^\n;]+;/gi, `-- Base de datos gestionada por el entorno: ${database}`)
+      .replace(/USE\s+[^\n;]+;/gi, `USE \`${database}\`;`);
   }
 
   let connection;
@@ -62,21 +78,33 @@ async function runSchema() {
       port,
       user,
       password,
+      database: database || undefined,
       multipleStatements: true,
       ssl
     });
     console.log('✅ Conexión establecida correctamente con MySQL.');
 
-    console.log(`🚀 Ejecutando schema.sql y cargando datos semilla en "${database}"...`);
+    console.log(`🚀 Ejecutando DDL, DML y datos semilla en "${database}"...`);
     const startTime = Date.now();
 
-    await connection.query(sqlContent);
+    await connection.query(mainSql);
+
+    // Ejecutar procedimientos almacenados y disparadores de forma individual
+    for (const routine of routines) {
+      try {
+        await connection.query(routine);
+      } catch (routErr) {
+        console.warn(`   ⚠️ Advertencia en rutina/trigger: ${routErr.message}`);
+      }
+    }
 
     const elapsedMs = Date.now() - startTime;
     console.log(`\n🎉 ¡Base de datos inicializada con éxito en ${elapsedMs} ms!`);
 
     // Inspección y validación de las tablas creadas
-    await connection.query(`USE \`${database}\``);
+    if (database) {
+      await connection.query(`USE \`${database}\``);
+    }
     const [tables] = await connection.query('SHOW TABLES');
     console.log('\n📊 Tablas creadas/verificadas en la base de datos:');
     tables.forEach((row) => {
@@ -93,15 +121,17 @@ async function runSchema() {
     console.log(`🎠 Total de promociones en carrusel: ${carousel[0].total}`);
 
     console.log('\n============================================================');
-    console.log('✨ Todo listo. Ahora puedes iniciar el servidor con:');
-    console.log('   npm start');
+    console.log('✨ Base de datos lista.');
     console.log('============================================================\n');
   } catch (error) {
     console.error('\n❌ Error al ejecutar el esquema SQL:');
     console.error(`   Mensaje: ${error.message}`);
     console.error(`   Código:  ${error.code || 'N/A'}`);
     if (error.sqlMessage) console.error(`   SQL:     ${error.sqlMessage}`);
-    process.exit(1);
+    if (require.main === module) {
+      process.exit(1);
+    }
+    throw error;
   } finally {
     if (connection) {
       await connection.end();

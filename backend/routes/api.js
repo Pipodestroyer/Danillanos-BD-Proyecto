@@ -21,17 +21,41 @@ const {
   signToken,
   verifyToken
 } = require('../utils/security');
-const {
-  categoriasFallback,
-  productosFallback,
-  carruselFallback,
-  usuariosFallback,
-  direccionesFallback,
-  pedidosFallback,
-  ticketsFallback,
-  saveFallbackStore,
-  loadFallbackStore
-} = require('../data/fallbackData');
+/**
+ * Envía una respuesta de error de base de datos directa y transparente al cliente,
+ * con diagnóstico técnico explícito para el desarrollador.
+ *
+ * @param {import('express').Response} res - Objeto de respuesta HTTP.
+ * @param {Error} error - Excepción o error capturado.
+ * @param {string} actionDescription - Descripción de la operación ejecutada.
+ * @returns {import('express').Response}
+ */
+function sendDatabaseError(res, error, actionDescription) {
+  console.error(`🚨 [DATABASE ERROR] Fallo en "${actionDescription}":`, error.message);
+  const isConnError = error.code === 'ECONNREFUSED' || error.code === 'PROTOCOL_CONNECTION_LOST' || error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT';
+  const isMissingTable = error.code === 'ER_NO_SUCH_TABLE';
+
+  let devHint = 'Verifica que la base de datos MySQL esté encendida y que DATABASE_URL o MYSQL_URL en Railway sea correcta.';
+  if (isMissingTable) {
+    devHint = 'Las tablas no existen en la base de datos MySQL. Se requiere reiniciar el servidor para que autoInitializeDatabaseIfEmpty las cree o ejecutar: npm run db:setup';
+  } else if (isConnError) {
+    devHint = 'No hay conectividad con el host MySQL. Revisa el host y puerto en Railway.';
+  }
+
+  return res.status(503).json({
+    ok: false,
+    success: false,
+    error: 'Error de conexión o fallo en la base de datos del servidor.',
+    devDetails: {
+      action: actionDescription,
+      code: error.code || 'DB_ERROR',
+      message: error.message,
+      sqlMessage: error.sqlMessage || null,
+      sqlState: error.sqlState || null,
+      hint: devHint
+    }
+  });
+}
 
 /**
  * Instancia del cliente OAuth2 de Google para validación de tokens de identidad (GIS).
@@ -378,9 +402,7 @@ function formatSafeAddress(row) {
  */
 function resolveDriverName(entregadorId) {
   if (!entregadorId) return null;
-  const driverRow = usuariosFallback.find((u) => Number(u.id) === Number(entregadorId));
-  if (!driverRow) return `Entregador #${entregadorId}`;
-  return decryptData(driverRow.nombre_completo_enc) || driverRow.username;
+  return `Entregador #${entregadorId}`;
 }
 
 /**
@@ -526,17 +548,9 @@ async function resolveLiveAuthenticatedUser(authUser) {
       };
     }
     return null;
-  } catch (_) {
-    const fbRow = usuariosFallback.find((u) => Number(u.id) === Number(authUser.id));
-    if (!fbRow || Number(fbRow.activo) === 0) return null;
-    return {
-      ...authUser,
-      id: Number(fbRow.id),
-      username: fbRow.username || authUser.username,
-      nombre_completo: decryptData(fbRow.nombre_completo_enc) || fbRow.username || authUser.username,
-      email: decryptData(fbRow.email_enc) || authUser.email,
-      rol: normalizeStaffRole(fbRow.rol)
-    };
+  } catch (err) {
+    console.error('[resolveLiveAuthenticatedUser] Error al verificar usuario en BD:', err.message);
+    return null;
   }
 }
 
@@ -615,7 +629,7 @@ router.get('/carrusel', async (req, res) => {
     `);
     return res.json({ source: 'mysql', data: rows });
   } catch (error) {
-    return res.json({ source: 'fallback', data: carruselFallback });
+    return sendDatabaseError(res, error, 'Carga de promociones del carrusel');
   }
 });
 
@@ -634,7 +648,7 @@ router.get('/categorias', async (req, res) => {
     `);
     return res.json({ source: 'mysql', data: rows });
   } catch (error) {
-    return res.json({ source: 'fallback', data: categoriasFallback });
+    return sendDatabaseError(res, error, 'Carga de categorías');
   }
 });
 
@@ -952,41 +966,7 @@ router.get('/productos', async (req, res) => {
 
     return res.json({ ok: true, source: 'mysql', apiVersion: 3, total: formatted.length, data: formatted });
   } catch (error) {
-    let fallbackChanged = false;
-    let filtered = productosFallback.map((p) => {
-      const { product, justExpired } = formatProductWithDiscount(p);
-      if (justExpired) {
-        p.descuento_porcentaje = 0;
-        p.descuento_tipo = 'manual';
-        p.descuento_expira_en = null;
-        p.descuento_expira_ms = null;
-        p.descuento_unidades_limite = null;
-        p.descuento_unidades_vendidas = 0;
-        fallbackChanged = true;
-      }
-      return product;
-    });
-    if (fallbackChanged) saveFallbackStore();
-
-    if (categoria === 'ofertas') {
-      filtered = filtered.filter((p) => p.descuento_activo);
-    } else if (categoria && categoria !== 'todos') {
-      filtered = filtered.filter((p) => p.categoria_slug === categoria);
-    }
-    if (mas_vendidos === '1' || mas_vendidos === 'true') {
-      filtered = filtered.filter((p) => Boolean(p.es_mas_vendido));
-    }
-    if (q && q.trim() !== '') {
-      const term = q.trim().toLowerCase();
-      filtered = filtered.filter(
-        (p) =>
-          p.nombre.toLowerCase().includes(term) ||
-          p.descripcion.toLowerCase().includes(term) ||
-          p.categoria_nombre.toLowerCase().includes(term)
-      );
-    }
-
-    return res.json({ ok: true, source: 'fallback', apiVersion: 3, total: filtered.length, data: filtered });
+    return sendDatabaseError(res, error, 'Carga del catálogo de productos');
   }
 });
 
@@ -1100,42 +1080,7 @@ router.post('/auth/register', async (req, res) => {
       direcciones: []
     });
   } catch (error) {
-    const fallbackId = usuariosFallback.length + 1;
-    const newRow = {
-      id: fallbackId,
-      username: displayUsername,
-      nombre_completo_enc: nombreEnc,
-      nombres_enc: nombresEnc,
-      apellidos_enc: apellidosEnc,
-      empresa_enc: empresaEnc,
-      tipo_documento: cleanTipoDoc,
-      numero_documento_enc: numDocEnc,
-      email_hash: emailHash,
-      email_enc: emailEnc,
-      password_hash: passHash,
-      telefono_enc: telefonoEnc,
-      avatar_url: null,
-      rol: 'cliente'
-    };
-    usuariosFallback.push(newRow);
-    const safeUser = formatSafeUser(newRow);
-    const token = signToken({
-      id: safeUser.id,
-      rol: safeUser.rol,
-      username: safeUser.username,
-      email: safeUser.email,
-      avatar_url: safeUser.avatar_url,
-      is_google: Boolean(safeUser.is_google_account)
-    });
-
-    return res.status(201).json({
-      ok: true,
-      source: 'fallback',
-      message: 'Cuenta creada y encriptada con éxito.',
-      token,
-      user: safeUser,
-      direcciones: []
-    });
+    return sendDatabaseError(res, error, 'Registro de nuevo usuario');
   }
 });
 
@@ -1192,38 +1137,7 @@ router.post('/auth/login', async (req, res) => {
       direcciones: dirRows.map(formatSafeAddress)
     });
   } catch (error) {
-    const userRow = usuariosFallback.find((u) => u.email_hash === emailHash);
-    if (userRow && userRow.activo === 0) {
-      return res.status(403).json({ ok: false, message: 'Esta cuenta se encuentra desactivada por el administrador.' });
-    }
-    if (!userRow || !verifyPassword(password, userRow.password_hash)) {
-      return res.status(401).json({
-        ok: false,
-        message: 'Credenciales incorrectas.'
-      });
-    }
-
-    const safeUser = formatSafeUser(userRow);
-    const dirs = direccionesFallback
-      .filter((d) => d.usuario_id === safeUser.id)
-      .map(formatSafeAddress);
-    const token = signToken({
-      id: safeUser.id,
-      rol: safeUser.rol,
-      username: safeUser.username,
-      email: safeUser.email,
-      avatar_url: safeUser.avatar_url,
-      is_google: Boolean(safeUser.is_google_account)
-    });
-
-    return res.json({
-      ok: true,
-      source: 'fallback',
-      message: `Bienvenido(a), ${safeUser.nombre_completo}`,
-      token,
-      user: safeUser,
-      direcciones: dirs
-    });
+    return sendDatabaseError(res, error, 'Inicio de sesión / Autenticación');
   }
 });
 
@@ -1373,52 +1287,7 @@ router.post('/auth/google', async (req, res) => {
       direcciones: dirRows.map(formatSafeAddress)
     });
   } catch (error) {
-    let userRow = usuariosFallback.find((u) => u.email_hash === emailHash);
-    if (userRow && Number(userRow.activo) === 0) {
-      return res.status(403).json({
-        ok: false,
-        message: 'Esta cuenta se encuentra desactivada. Comunícate con el administrador.'
-      });
-    }
-    if (!userRow) {
-      userRow = {
-        id: usuariosFallback.length + 1,
-        username,
-        nombre_completo_enc: nombreEnc,
-        email_hash: emailHash,
-        email_enc: emailEnc,
-        google_id_enc: googleIdEnc,
-        avatar_url: (avatar_url && !avatar_url.includes('test-avatar-photo')) ? avatar_url : null,
-        rol: 'cliente',
-        activo: 1
-      };
-      usuariosFallback.push(userRow);
-    } else {
-      if (avatar_url && !avatar_url.includes('test-avatar-photo')) {
-        userRow.avatar_url = avatar_url;
-      }
-      if (!userRow.google_id_enc) {
-        userRow.google_id_enc = googleIdEnc;
-      }
-    }
-
-    saveFallbackStore();
-    const safeUser = formatSafeUser(userRow);
-    const token = signToken({
-      id: safeUser.id,
-      rol: safeUser.rol,
-      username: safeUser.username,
-      email: safeUser.email,
-      avatar_url: safeUser.avatar_url,
-      is_google: Boolean(safeUser.is_google_account)
-    });
-    return res.json({
-      ok: true,
-      source: 'fallback',
-      token,
-      user: safeUser,
-      direcciones: direccionesFallback.filter((d) => d.usuario_id === safeUser.id).map(formatSafeAddress)
-    });
+    return sendDatabaseError(res, error, 'Autenticación con Google');
   }
 });
 
@@ -1431,10 +1300,6 @@ router.get('/auth/me', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
   if (!authUser) {
     return res.json({ authenticated: false, user: null, direcciones: [] });
-  }
-
-  if (typeof loadFallbackStore === 'function') {
-    loadFallbackStore();
   }
 
   let userRow = null;
@@ -1463,20 +1328,8 @@ router.get('/auth/me', async (req, res) => {
       );
       dirRows = dirs.map(formatSafeAddress);
     }
-  } catch (_) {
-    // Continuar a fallback únicamente cuando MySQL no esté disponible
-    userRow = usuariosFallback.find(
-      (u) =>
-        Number(u.activo) !== 0 &&
-        (Number(u.id) === Number(authUser.id) ||
-          (authUser.email && u.email_enc && decryptData(u.email_enc) === authUser.email) ||
-          (authUser.username && u.username === authUser.username))
-    );
-    if (userRow) {
-      dirRows = direccionesFallback
-        .filter((d) => Number(d.usuario_id) === Number(userRow.id))
-        .map(formatSafeAddress);
-    }
+  } catch (error) {
+    return sendDatabaseError(res, error, 'Consulta de datos de usuario autenticado');
   }
 
   if (!userRow || Number(userRow.activo) === 0) {
@@ -1484,17 +1337,6 @@ router.get('/auth/me', async (req, res) => {
   }
 
   const safeUser = formatSafeUser(userRow);
-  const memUser = usuariosFallback.find((u) =>
-    Number(u.id) === Number(authUser.id) ||
-    (authUser.email && u.email_enc && decryptData(u.email_enc) === authUser.email)
-  );
-  if (memUser) {
-    const memSafe = formatSafeUser(memUser);
-    if (!safeUser.telefono && memSafe.telefono) safeUser.telefono = memSafe.telefono;
-    if (!safeUser.avatar_url && memSafe.avatar_url) safeUser.avatar_url = memSafe.avatar_url;
-    if (!safeUser.has_password && memSafe.has_password) safeUser.has_password = true;
-  }
-
   return res.json({
     authenticated: true,
     user: safeUser,
@@ -1510,91 +1352,30 @@ router.get('/auth/me', async (req, res) => {
 router.patch('/auth/perfil', async (req, res) => {
   const authUser = getAuthUserFromRequest(req);
   if (!authUser) {
-    return res.status(401).json({ ok: false, error: 'No autorizado. Inicie sesión para actualizar su perfil.' });
+    return res.status(401).json({ ok: false, error: 'Sesión no válida o expirada. Inicie sesión nuevamente.' });
   }
 
-  const { nombre_completo, empresa, tipo_documento, numero_documento, telefono, email, avatar_url } = req.body || {};
+  const {
+    nombre_completo,
+    empresa,
+    tipo_documento,
+    numero_documento,
+    telefono,
+    avatar_url,
+    email
+  } = req.body;
 
-  if (!nombre_completo || !nombre_completo.trim()) {
-    return res.status(400).json({ ok: false, error: 'El nombre completo es obligatorio.' });
-  }
+  const cleanNombre = (nombre_completo || authUser.nombre_completo || authUser.username || '').trim();
+  const cleanEmpresa = (empresa || '').trim();
+  const cleanTipoDoc = (tipo_documento || 'CC').trim();
+  const cleanNumDoc = (numero_documento || '').trim();
+  const cleanTel = (telefono || '').trim();
 
-  const cleanNombre = nombre_completo.trim();
-  const cleanEmpresa = empresa ? empresa.trim() : null;
-  const cleanTipoDoc = ['CC', 'NIT', 'CE', 'PP'].includes(tipo_documento) ? tipo_documento : 'CC';
-  const cleanNumDoc = numero_documento ? numero_documento.trim() : null;
-  const cleanTel = telefono ? telefono.trim() : null;
-
-  const nombreEnc = encryptData(cleanNombre);
+  const nombreEnc = cleanNombre ? encryptData(cleanNombre) : null;
   const empresaEnc = cleanEmpresa ? encryptData(cleanEmpresa) : null;
   const numDocEnc = cleanNumDoc ? encryptData(cleanNumDoc) : null;
   const telEnc = cleanTel ? encryptData(cleanTel) : null;
 
-  if (typeof loadFallbackStore === 'function') {
-    loadFallbackStore();
-  }
-
-  // 1. Siempre actualizar en memoria y persistir en disco
-  let memUser = usuariosFallback.find((u) =>
-    Number(u.id) === Number(authUser.id) ||
-    (authUser.email && u.email_enc && decryptData(u.email_enc) === authUser.email) ||
-    (email && u.email_enc && decryptData(u.email_enc) === email) ||
-    (authUser.username && u.username === authUser.username)
-  );
-
-  if (!memUser) {
-    const finalEmail = (email && !email.endsWith('@danillanos.com'))
-      ? email
-      : (authUser.email && !authUser.email.endsWith('@danillanos.com'))
-        ? authUser.email
-        : `${authUser.username || "usuario"}@danillanos.com`;
-    const finalAvatar = (avatar_url && !avatar_url.includes('test-avatar-photo'))
-      ? avatar_url
-      : (authUser.avatar_url && !authUser.avatar_url.includes('test-avatar-photo'))
-        ? authUser.avatar_url
-        : null;
-    memUser = {
-      id: authUser.id || Date.now(),
-      username: authUser.username || cleanNombre,
-      nombre_completo_enc: nombreEnc,
-      nombres_enc: encryptData(cleanNombre.split(" ")[0] || cleanNombre),
-      apellidos_enc: encryptData(cleanNombre.split(" ").slice(1).join(" ") || ""),
-      empresa_enc: empresaEnc,
-      tipo_documento: cleanTipoDoc,
-      numero_documento_enc: numDocEnc,
-      email_hash: hashLookup(finalEmail),
-      email_enc: encryptData(finalEmail),
-      telefono_enc: telEnc,
-      avatar_url: finalAvatar,
-      google_id_enc: (authUser.is_google || (finalAvatar && finalAvatar.includes('googleusercontent.com')))
-        ? encryptData(`google_${authUser.id || Date.now()}`)
-        : null,
-      rol: authUser.rol || "cliente",
-      activo: 1
-    };
-    usuariosFallback.push(memUser);
-  } else {
-    memUser.nombre_completo_enc = nombreEnc;
-    memUser.empresa_enc = empresaEnc;
-    memUser.tipo_documento = cleanTipoDoc;
-    memUser.numero_documento_enc = numDocEnc;
-    memUser.telefono_enc = telEnc;
-    if (avatar_url && !avatar_url.includes('test-avatar-photo')) {
-      memUser.avatar_url = avatar_url;
-    } else if (!memUser.avatar_url && authUser.avatar_url && !authUser.avatar_url.includes('test-avatar-photo')) {
-      memUser.avatar_url = authUser.avatar_url;
-    }
-    if (email && (!memUser.email_enc || decryptData(memUser.email_enc).endsWith('@danillanos.com'))) {
-      memUser.email_enc = encryptData(email);
-      memUser.email_hash = hashLookup(email);
-    }
-  }
-
-  saveFallbackStore();
-
-  let safeUser = formatSafeUser(memUser);
-
-  // 2. Intentar actualizar en MySQL si la base de datos está disponible
   try {
     const emailHash = authUser.email ? hashLookup(authUser.email) : null;
     let targetRow = null;
@@ -1607,31 +1388,28 @@ router.patch('/auth/perfil', async (req, res) => {
       if (fRows && fRows[0]) targetRow = fRows[0];
     }
 
-    if (targetRow) {
-      await pool.query(
-        `UPDATE usuarios 
-         SET nombre_completo_enc = ?, empresa_enc = ?, tipo_documento = ?, numero_documento_enc = ?, telefono_enc = ?
-         WHERE id = ?`,
-        [nombreEnc, empresaEnc, cleanTipoDoc, numDocEnc, telEnc, targetRow.id]
-      );
-
-      const [rows] = await pool.query('SELECT * FROM usuarios WHERE id = ? LIMIT 1', [targetRow.id]);
-      if (rows && rows[0]) {
-        const dbSafe = formatSafeUser(rows[0]);
-        if (dbSafe && dbSafe.telefono) {
-          safeUser = dbSafe;
-        }
-      }
+    if (!targetRow) {
+      return res.status(404).json({ ok: false, message: 'Usuario no encontrado en la base de datos.' });
     }
-  } catch (_) {
-    // Si la BD externa está desconectada, safeUser ya está 100% garantizado con memUser
-  }
 
-  return res.json({
-    ok: true,
-    message: 'Información de perfil actualizada exitosamente.',
-    user: safeUser
-  });
+    await pool.query(
+      `UPDATE usuarios 
+       SET nombre_completo_enc = ?, empresa_enc = ?, tipo_documento = ?, numero_documento_enc = ?, telefono_enc = ?
+       WHERE id = ?`,
+      [nombreEnc, empresaEnc, cleanTipoDoc, numDocEnc, telEnc, targetRow.id]
+    );
+
+    const [rows] = await pool.query('SELECT * FROM usuarios WHERE id = ? LIMIT 1', [targetRow.id]);
+    const safeUser = formatSafeUser(rows[0]);
+
+    return res.json({
+      ok: true,
+      message: 'Información de perfil actualizada exitosamente.',
+      user: safeUser
+    });
+  } catch (error) {
+    return sendDatabaseError(res, error, 'Actualización de perfil');
+  }
 });
 
 /**
@@ -1664,124 +1442,31 @@ router.post('/auth/cambiar-password', async (req, res) => {
     }
     const userRow = rows ? rows[0] : null;
 
-    if (userRow) {
-      if (userRow.password_hash) {
-        if (!password_actual || !String(password_actual).trim()) {
-          return res.status(400).json({ ok: false, error: 'Debes ingresar tu contraseña actual para cambiarla.' });
-        }
-        if (!verifyPassword(String(password_actual), userRow.password_hash)) {
-          return res.status(400).json({ ok: false, error: 'La contraseña actual no es correcta.' });
-        }
-      }
-
-      const newHash = hashPassword(cleanNewPass);
-      await pool.query('UPDATE usuarios SET password_hash = ? WHERE id = ?', [newHash, userRow.id]);
-      userRow.password_hash = newHash;
-
-      let memUser = usuariosFallback.find((u) =>
-        (emailHash && u.email_hash === emailHash) ||
-        Number(u.id) === Number(userRow.id) ||
-        Number(u.id) === Number(authUser.id)
-      );
-      if (memUser) {
-        memUser.password_hash = newHash;
-      }
-      saveFallbackStore();
-
-      const safeUser = formatSafeUser(userRow);
-      return res.json({
-        ok: true,
-        message: 'Contraseña actualizada exitosamente.',
-        user: safeUser
-      });
+    if (!userRow) {
+      return res.status(404).json({ ok: false, message: 'Usuario no encontrado en la base de datos.' });
     }
 
-    let memUser = usuariosFallback.find((u) => Number(u.id) === Number(authUser.id));
-    if (!memUser) {
-      const newHash = hashPassword(cleanNewPass);
-      memUser = {
-        id: authUser.id || Date.now(),
-        username: authUser.username || 'Usuario',
-        nombre_completo_enc: encryptData(authUser.username || 'Usuario'),
-        email_hash: authUser.email ? hashLookup(authUser.email) : hashLookup(`${authUser.username || 'user'}@danillanos.com`),
-        email_enc: authUser.email ? encryptData(authUser.email) : encryptData(`${authUser.username || 'user'}@danillanos.com`),
-        password_hash: newHash,
-        rol: authUser.rol || 'cliente',
-        activo: 1
-      };
-      usuariosFallback.push(memUser);
-      saveFallbackStore();
-      return res.json({
-        ok: true,
-        source: 'fallback',
-        message: 'Contraseña actualizada exitosamente.',
-        user: formatSafeUser(memUser)
-      });
-    }
-
-    if (memUser.password_hash) {
+    if (userRow.password_hash) {
       if (!password_actual || !String(password_actual).trim()) {
         return res.status(400).json({ ok: false, error: 'Debes ingresar tu contraseña actual para cambiarla.' });
       }
-      if (!verifyPassword(String(password_actual), memUser.password_hash)) {
+      if (!verifyPassword(String(password_actual), userRow.password_hash)) {
         return res.status(400).json({ ok: false, error: 'La contraseña actual no es correcta.' });
       }
     }
+
     const newHash = hashPassword(cleanNewPass);
-    memUser.password_hash = newHash;
-    saveFallbackStore();
-    const safeUser = formatSafeUser(memUser);
+    await pool.query('UPDATE usuarios SET password_hash = ? WHERE id = ?', [newHash, userRow.id]);
+    userRow.password_hash = newHash;
+
+    const safeUser = formatSafeUser(userRow);
     return res.json({
       ok: true,
       message: 'Contraseña actualizada exitosamente.',
       user: safeUser
     });
   } catch (error) {
-    let memUser = usuariosFallback.find((u) =>
-      Number(u.id) === Number(authUser.id) ||
-      (authUser.email && u.email_enc && decryptData(u.email_enc) === authUser.email) ||
-      (authUser.username && u.username === authUser.username)
-    );
-
-    if (!memUser) {
-      const newHash = hashPassword(cleanNewPass);
-      memUser = {
-        id: authUser.id || Date.now(),
-        username: authUser.username || 'Usuario',
-        nombre_completo_enc: encryptData(authUser.username || 'Usuario'),
-        email_hash: authUser.email ? hashLookup(authUser.email) : hashLookup(`${authUser.username || 'user'}@danillanos.com`),
-        email_enc: authUser.email ? encryptData(authUser.email) : encryptData(`${authUser.username || 'user'}@danillanos.com`),
-        password_hash: newHash,
-        rol: authUser.rol || 'cliente',
-        activo: 1
-      };
-      usuariosFallback.push(memUser);
-      saveFallbackStore();
-      return res.json({
-        ok: true,
-        source: 'fallback',
-        message: 'Contraseña actualizada exitosamente.',
-        user: formatSafeUser(memUser)
-      });
-    }
-
-    if (memUser.password_hash) {
-      if (!password_actual || !String(password_actual).trim()) {
-        return res.status(400).json({ ok: false, error: 'Debes ingresar tu contraseña actual para cambiarla.' });
-      }
-      if (!verifyPassword(String(password_actual), memUser.password_hash)) {
-        return res.status(400).json({ ok: false, error: 'La contraseña actual no es correcta.' });
-      }
-    }
-    const fallbackHash = hashPassword(cleanNewPass);
-    memUser.password_hash = fallbackHash;
-    saveFallbackStore();
-    return res.json({
-      ok: true,
-      source: 'fallback',
-      message: 'Contraseña actualizada exitosamente.',
-      user: formatSafeUser(memUser)
-    });
+    return sendDatabaseError(res, error, 'Actualización de contraseña');
   }
 });
 
@@ -1807,10 +1492,7 @@ router.get('/direcciones', async (req, res) => {
     );
     return res.json({ ok: true, data: rows.map(formatSafeAddress) });
   } catch (error) {
-    const list = direccionesFallback
-      .filter((d) => d.usuario_id === authUser.id)
-      .map(formatSafeAddress);
-    return res.json({ ok: true, data: list });
+    return sendDatabaseError(res, error, 'Carga de direcciones');
   }
 });
 
@@ -1879,34 +1561,7 @@ router.post('/direcciones', async (req, res) => {
       direcciones: dirRows.map(formatSafeAddress)
     });
   } catch (error) {
-    const userDirs = direccionesFallback.filter((d) => d.usuario_id === authUser.id);
-    if (userDirs.length >= 5) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Máximo permitido alcanzado: Solo puedes guardar hasta 5 direcciones distintas por cuenta.'
-      });
-    }
-    const newDir = {
-      id: direccionesFallback.length + 1,
-      usuario_id: authUser.id,
-      etiqueta: (etiqueta || 'Mi Dirección').trim(),
-      direccion_enc: direccionEnc,
-      barrio_referencia: barrio_referencia || '',
-      municipio: zone.municipio,
-      departamento: 'Meta',
-      lat: zone.lat,
-      lng: zone.lng,
-      es_villavicencio: zone.es_villavicencio,
-      tiempo_entrega_estimado: zone.tiempo_entrega_estimado,
-      es_principal: userDirs.length === 0 ? 1 : 0
-    };
-    direccionesFallback.push(newDir);
-    return res.status(201).json({
-      ok: true,
-      direcciones: direccionesFallback
-        .filter((d) => d.usuario_id === authUser.id)
-        .map(formatSafeAddress)
-    });
+    return sendDatabaseError(res, error, 'Guardado de dirección');
   }
 });
 
@@ -1933,16 +1588,7 @@ router.delete('/direcciones/:id', async (req, res) => {
     );
     return res.json({ ok: true, direcciones: dirRows.map(formatSafeAddress) });
   } catch (error) {
-    const idx = direccionesFallback.findIndex(
-      (d) => d.id === dirId && d.usuario_id === authUser.id
-    );
-    if (idx !== -1) direccionesFallback.splice(idx, 1);
-    return res.json({
-      ok: true,
-      direcciones: direccionesFallback
-        .filter((d) => d.usuario_id === authUser.id)
-        .map(formatSafeAddress)
-    });
+    return sendDatabaseError(res, error, 'Eliminación de dirección');
   }
 });
 
@@ -1979,18 +1625,19 @@ router.get('/mis-pedidos', async (req, res) => {
         items.filter((i) => i.pedido_id === ord.id)
       )
     );
-    const clientTickets = ticketsFallback
-      .filter((t) => Number(t.usuario_id) === Number(authUser.id))
-      .map(formatSafeTicket);
+
+    let clientTickets = [];
+    try {
+      const [tRows] = await pool.query(
+        'SELECT * FROM tickets_soporte WHERE usuario_id = ? ORDER BY creado_en DESC',
+        [authUser.id]
+      );
+      clientTickets = tRows.map(formatSafeTicket);
+    } catch (_) {}
+
     return res.json({ ok: true, apiVersion: 3, data: formatted, tickets: clientTickets });
   } catch (error) {
-    const list = pedidosFallback
-      .filter((p) => p.usuario_id === authUser.id)
-      .map((p) => formatSafeOrder(p, p.items || []));
-    const clientTickets = ticketsFallback
-      .filter((t) => Number(t.usuario_id) === Number(authUser.id))
-      .map(formatSafeTicket);
-    return res.json({ ok: true, apiVersion: 3, data: list, tickets: clientTickets });
+    return sendDatabaseError(res, error, 'Carga de pedidos del usuario');
   }
 });
 
@@ -2033,12 +1680,6 @@ router.patch('/pedidos/:id/cancelar', async (req, res) => {
          WHERE id = ? AND usuario_id = ?`,
         [motivo, reembolsoEstado, pedidoId, authUser.id]
       );
-      const memOrd = pedidosFallback.find((p) => Number(p.id) === pedidoId);
-      if (memOrd) {
-        memOrd.estado = 'cancelado';
-        memOrd.razon_cancelacion = motivo;
-        memOrd.reembolso_estado = reembolsoEstado;
-      }
       return res.json({
         ok: true,
         reembolso_estado: reembolsoEstado,
@@ -2046,31 +1687,9 @@ router.patch('/pedidos/:id/cancelar', async (req, res) => {
       });
     }
     return res.status(404).json({ ok: false, message: 'Pedido no encontrado.' });
-  } catch (_) {}
-
-  const ord = pedidosFallback.find((p) => Number(p.id) === pedidoId);
-  if (!ord) {
-    return res.status(404).json({ ok: false, message: 'Pedido no encontrado.' });
+  } catch (error) {
+    return sendDatabaseError(res, error, 'Cancelación de pedido');
   }
-  if (Number(ord.usuario_id) !== Number(authUser.id)) {
-    return res.status(403).json({ ok: false, message: 'No autorizado para cancelar este pedido.' });
-  }
-  if (!['pendiente', 'en_proceso'].includes(ord.estado)) {
-    return res.status(400).json({
-      ok: false,
-      message: 'El pedido ya está en ruta de envío y no puede cancelarse.'
-    });
-  }
-  const requiresRefund = ['tarjeta', 'pse', 'nequi', 'bancolombia'].includes(ord.metodo_pago);
-  ord.estado = 'cancelado';
-  ord.razon_cancelacion = motivo;
-  ord.reembolso_estado = requiresRefund ? 'reembolsado' : 'no_aplica';
-
-  return res.json({
-    ok: true,
-    reembolso_estado: ord.reembolso_estado,
-    message: `Pedido #${pedidoId} cancelado correctamente.`
-  });
 });
 
 /**
@@ -2140,13 +1759,12 @@ router.post('/pedidos', async (req, res) => {
     for (const item of items) {
       const qty = Math.max(1, Math.min(9999, Math.round(Number(item.cantidad) || 1)));
       const dbProd = prodMap.get(Number(item.id));
-      const fbRef = productosFallback.find((p) => Number(p.id) === Number(item.id));
-      if (!dbProd && !fbRef) {
+      if (!dbProd) {
         await connection.rollback();
         connection.release();
         return res.status(400).json({ ok: false, message: 'Uno de los productos seleccionados ya no está disponible.' });
       }
-      let unitPrice = fbRef ? Number(formatProductWithDiscount(fbRef).product.precio) : 0;
+      let unitPrice = 0;
 
       if (dbProd) {
         const { product: liveProd, justExpired } = formatProductWithDiscount(dbProd);
@@ -2179,18 +1797,7 @@ router.post('/pedidos', async (req, res) => {
           }
         }
 
-        const fbProd = productosFallback.find((p) => Number(p.id) === Number(dbProd.id));
-        if (fbProd && fbProd.descuento_porcentaje > 0 && fbProd.descuento_tipo === 'unidades') {
-          const nextFbSold = Number(fbProd.descuento_unidades_vendidas || 0) + qty;
-          if (Number(fbProd.descuento_unidades_limite || 0) > 0 && nextFbSold >= Number(fbProd.descuento_unidades_limite)) {
-            fbProd.descuento_porcentaje = 0;
-            fbProd.descuento_tipo = 'manual';
-            fbProd.descuento_unidades_limite = null;
-            fbProd.descuento_unidades_vendidas = 0;
-          } else {
-            fbProd.descuento_unidades_vendidas = nextFbSold;
-          }
-        }
+
       }
 
       resolvedItems.push({
@@ -2252,78 +1859,7 @@ router.post('/pedidos', async (req, res) => {
       await connection.rollback();
       connection.release();
     }
-
-    let fbDiscountMutated = false;
-    const resolvedFallbackItems = items.map((i) => {
-      const qty = Math.max(1, Number(i.cantidad) || 1);
-      const fbProd = productosFallback.find((p) => Number(p.id) === Number(i.id));
-      let unitPrice = Number(i.precio) || 0;
-      if (fbProd) {
-        const { product: liveFb, justExpired } = formatProductWithDiscount(fbProd);
-        unitPrice = Number(liveFb.precio);
-        if (justExpired) {
-          fbProd.descuento_porcentaje = 0;
-          fbProd.descuento_tipo = 'manual';
-          fbProd.descuento_expira_en = null;
-          fbProd.descuento_unidades_limite = null;
-          fbProd.descuento_unidades_vendidas = 0;
-          fbDiscountMutated = true;
-        } else if (liveFb.descuento_activo && liveFb.descuento_tipo === 'unidades') {
-          const nextSold = Number(fbProd.descuento_unidades_vendidas || 0) + qty;
-          if (Number(fbProd.descuento_unidades_limite || 0) > 0 && nextSold >= Number(fbProd.descuento_unidades_limite)) {
-            fbProd.descuento_porcentaje = 0;
-            fbProd.descuento_tipo = 'manual';
-            fbProd.descuento_unidades_limite = null;
-            fbProd.descuento_unidades_vendidas = 0;
-          } else {
-            fbProd.descuento_unidades_vendidas = nextSold;
-          }
-          fbDiscountMutated = true;
-        }
-      }
-      return {
-        producto_id: i.id,
-        nombre_producto: i.nombre,
-        cantidad: qty,
-        precio_unitario: unitPrice,
-        subtotal: unitPrice * qty
-      };
-    });
-    if (fbDiscountMutated) saveFallbackStore();
-    const fallbackTotal = resolvedFallbackItems.reduce((acc, i) => acc + i.subtotal, 0);
-
-    const fallbackId = pedidosFallback.length + 1;
-    pedidosFallback.unshift({
-      id: fallbackId,
-      usuario_id: authUser.id,
-      nombre_recibe_enc: nombreEnc,
-      telefono_cliente_enc: telEnc,
-      direccion_entrega_enc: dirEnc,
-      municipio: zone.municipio,
-      lat: zone.lat,
-      lng: zone.lng,
-      es_villavicencio: zone.es_villavicencio,
-      tiempo_entrega_estimado: zone.tiempo_entrega_estimado,
-      metodo_pago: validMethod,
-      referencia_pago: referencia_pago || `DAN-${Date.now().toString().slice(-6)}`,
-      total: fallbackTotal,
-      estado: 'pendiente',
-      observaciones_cliente: observaciones_cliente || '',
-      razon_cancelacion: null,
-      reembolso_estado: 'no_aplica',
-      creado_en: new Date().toISOString(),
-      items: resolvedFallbackItems
-    });
-    saveFallbackStore();
-
-    return res.status(201).json({
-      ok: true,
-      source: 'fallback',
-      pedido_id: fallbackId,
-      total: fallbackTotal,
-      tiempo_entrega_estimado: zone.tiempo_entrega_estimado,
-      message: '¡Pedido registrado con éxito!'
-    });
+    return sendDatabaseError(res, error, 'Creación de pedido');
   }
 });
 
@@ -2416,10 +1952,7 @@ router.get('/staff/pedidos', requireStaffRole(), async (req, res) => {
     let formattedTickets = [];
     if (['admin', 'soporte'].includes(req.user.rol)) {
       const [tickets] = await pool.query('SELECT * FROM tickets_soporte ORDER BY creado_en DESC');
-      formattedTickets = tickets.map((r) => {
-        const mem = ticketsFallback.find((t) => Number(t.id) === Number(r.id));
-        return formatSafeTicket(mem || r);
-      });
+      formattedTickets = tickets.map(formatSafeTicket);
     }
 
     const staffUsers = userRows.map(formatSafeUser);
@@ -2446,21 +1979,7 @@ router.get('/staff/pedidos', requireStaffRole(), async (req, res) => {
       ...scoped
     });
   } catch (error) {
-    const formatted = pedidosFallback.map((ord) => formatSafeOrder(ord, ord.items || []));
-    const staffUsers = usuariosFallback.filter((u) => u.rol !== 'cliente').map(formatSafeUser);
-    const entregadores = staffUsers.filter((u) => u.rol === 'entregador' && u.activo !== false);
-    const formattedTickets = ['admin', 'soporte'].includes(req.user.rol)
-      ? ticketsFallback.map(formatSafeTicket)
-      : [];
-    const scoped = scopeStaffPayloadByRole(req.user, formatted, formattedTickets, entregadores, staffUsers);
-
-    return res.json({
-      ok: true,
-      apiVersion: 3,
-      source: 'fallback',
-      sede: DANILLANOS_HQ,
-      ...scoped
-    });
+    return sendDatabaseError(res, error, 'Carga de pedidos de staff');
   }
 });
 
@@ -2494,33 +2013,12 @@ router.patch(
          WHERE id = ? AND estado = 'pendiente'`,
         [pedidoId]
       );
-      const ord = pedidosFallback.find((p) => Number(p.id) === pedidoId);
-      if (ord) {
-        ord.estado = 'en_proceso';
-        ord.fecha_confirmacion = new Date().toISOString();
-      }
       return res.json({
         ok: true,
         message: `Pedido #${pedidoId} aceptado y enviado a Bodega para alistamiento.`
       });
     } catch (error) {
-      const ord = pedidosFallback.find((p) => Number(p.id) === pedidoId);
-      if (!ord) {
-        return res.status(404).json({ ok: false, message: 'Pedido no encontrado.' });
-      }
-      if (ord.estado !== 'pendiente') {
-        return res.status(400).json({
-          ok: false,
-          message: `El pedido #${pedidoId} ya fue procesado.`
-        });
-      }
-      ord.estado = 'en_proceso';
-      ord.fecha_confirmacion = new Date().toISOString();
-      saveFallbackStore();
-      return res.json({
-        ok: true,
-        message: `Pedido #${pedidoId} aceptado y enviado a Bodega para alistamiento.`
-      });
+      return sendDatabaseError(res, error, 'Confirmación de pedido por empleado');
     }
   }
 );
@@ -2573,33 +2071,12 @@ router.patch(
          WHERE id = ? AND estado = 'en_proceso'`,
         [chosenDriverId, pedidoId]
       );
-      const ord = pedidosFallback.find((p) => Number(p.id) === pedidoId);
-      if (ord) {
-        ord.estado = 'en_camino';
-        ord.entregador_id = chosenDriverId;
-      }
       return res.json({
         ok: true,
         message: `Pedido #${pedidoId} alistado y asignado al entregador para reparto.`
       });
     } catch (error) {
-      const ord = pedidosFallback.find((p) => Number(p.id) === pedidoId);
-      if (!ord) {
-        return res.status(404).json({ ok: false, message: 'Pedido no encontrado.' });
-      }
-      if (ord.estado !== 'en_proceso') {
-        return res.status(400).json({
-          ok: false,
-          message: `El pedido #${pedidoId} ya fue despachado o no está en bodega.`
-        });
-      }
-      ord.estado = 'en_camino';
-      ord.entregador_id = chosenDriverId;
-      saveFallbackStore();
-      return res.json({
-        ok: true,
-        message: `Pedido #${pedidoId} alistado y asignado al entregador para reparto.`
-      });
+      return sendDatabaseError(res, error, 'Despacho de pedido a reparto por bodega');
     }
   }
 );
@@ -2662,36 +2139,13 @@ router.patch(
         [razon_cancelacion.trim(), reembolsoEstado, pedidoId]
       );
 
-      const ord = pedidosFallback.find((p) => Number(p.id) === pedidoId);
-      if (ord) {
-        ord.estado = 'cancelado';
-        ord.razon_cancelacion = razon_cancelacion.trim();
-        ord.reembolso_estado = reembolsoEstado;
-      }
-
       return res.json({
         ok: true,
         reembolso_estado: reembolsoEstado,
         message: `Pedido #${pedidoId} cancelado.`
       });
     } catch (error) {
-      const ord = pedidosFallback.find((p) => Number(p.id) === pedidoId);
-      if (!ord || !canRoleCancelOrder(ord)) {
-        return res.status(403).json({
-          ok: false,
-          message: 'No es posible cancelar este pedido desde tu rol actual.'
-        });
-      }
-      const requiresRefund = ['tarjeta', 'pse', 'nequi', 'bancolombia'].includes(ord.metodo_pago);
-      ord.estado = 'cancelado';
-      ord.razon_cancelacion = razon_cancelacion.trim();
-      ord.reembolso_estado = requiresRefund ? 'reembolsado' : 'no_aplica';
-      saveFallbackStore();
-      return res.json({
-        ok: true,
-        reembolso_estado: ord.reembolso_estado,
-        message: `Pedido #${pedidoId} cancelado.`
-      });
+      return sendDatabaseError(res, error, 'Cancelación de pedido por staff');
     }
   }
 );
@@ -2751,33 +2205,12 @@ router.patch(
         [req.user.id, foto_entrega_url, observaciones_entregador || 'Entrega completada.', pedidoId]
       );
 
-      const ord = pedidosFallback.find((p) => Number(p.id) === pedidoId);
-      if (ord) {
-        ord.estado = 'entregado';
-        ord.foto_entrega_url = foto_entrega_url;
-        ord.observaciones_entregador = observaciones_entregador || 'Entrega verificada.';
-        ord.fecha_entrega = new Date().toISOString();
-      }
-
       return res.json({
         ok: true,
         message: `Pedido #${pedidoId} entregado.`
       });
     } catch (error) {
-      const ord = pedidosFallback.find((p) => Number(p.id) === pedidoId);
-      if (!ord || ord.estado !== 'en_camino') {
-        return res.status(400).json({ ok: false, message: 'El pedido no se encuentra en ruta de entrega.' });
-      }
-      ord.estado = 'entregado';
-      ord.entregador_id = ord.entregador_id || req.user.id;
-      ord.foto_entrega_url = foto_entrega_url;
-      ord.observaciones_entregador = observaciones_entregador || 'Entrega verificada.';
-      ord.fecha_entrega = new Date().toISOString();
-      saveFallbackStore();
-      return res.json({
-        ok: true,
-        message: `Pedido #${pedidoId} entregado.`
-      });
+      return sendDatabaseError(res, error, 'Finalización y entrega de pedido');
     }
   }
 );
@@ -2799,13 +2232,9 @@ router.patch(
         observaciones_entregador || '',
         pedidoId
       ]);
-      const ord = pedidosFallback.find((p) => p.id === pedidoId);
-      if (ord) ord.observaciones_entregador = observaciones_entregador || '';
       return res.json({ ok: true, message: `Observación guardada en pedido #${pedidoId}.` });
     } catch (error) {
-      const ord = pedidosFallback.find((p) => p.id === pedidoId);
-      if (ord) ord.observaciones_entregador = observaciones_entregador || '';
-      return res.json({ ok: true, message: `Observación guardada en pedido #${pedidoId}.` });
+      return sendDatabaseError(res, error, 'Registro de observación');
     }
   }
 );
@@ -2830,17 +2259,9 @@ router.get('/mis-tickets', async (req, res) => {
       'SELECT * FROM tickets_soporte WHERE usuario_id = ? ORDER BY creado_en DESC',
       [authUser.id]
     );
-    // Sincronizar con fallback si hay mensajes en memoria
-    const merged = rows.map((r) => {
-      const mem = ticketsFallback.find((t) => Number(t.id) === Number(r.id));
-      return formatSafeTicket(mem || r);
-    });
-    return res.json({ ok: true, data: merged });
+    return res.json({ ok: true, data: rows.map(formatSafeTicket) });
   } catch (error) {
-    const list = ticketsFallback
-      .filter((t) => Number(t.usuario_id) === Number(authUser.id))
-      .map(formatSafeTicket);
-    return res.json({ ok: true, data: list });
+    return sendDatabaseError(res, error, 'Carga de tickets de soporte');
   }
 });
 
@@ -2879,10 +2300,7 @@ router.post('/soporte/crear', async (req, res) => {
         safePedidoId = null;
       }
     } catch (_) {
-      const ordMem = pedidosFallback.find((p) => Number(p.id) === safePedidoId);
-      if (!ordMem || Number(ordMem.usuario_id) !== Number(authUser.id)) {
-        safePedidoId = null;
-      }
+      safePedidoId = null;
     }
   }
 
@@ -2921,8 +2339,6 @@ router.post('/soporte/crear', async (req, res) => {
       mensajes: [initialMsg],
       creado_en: new Date().toISOString()
     };
-    ticketsFallback.unshift(createdTicket);
-    saveFallbackStore();
 
     return res.status(201).json({
       ok: true,
@@ -2931,28 +2347,7 @@ router.post('/soporte/crear', async (req, res) => {
       message: 'Solicitud creada.'
     });
   } catch (error) {
-    const newId = ticketsFallback.reduce((max, t) => Math.max(max, Number(t.id) || 0), 0) + 1;
-    const createdTicket = {
-      id: newId,
-      pedido_id: safePedidoId,
-      usuario_id: authUser.id,
-      tipo: cleanTipo,
-      asunto: cleanAsunto,
-      descripcion: cleanDescripcion,
-      imagen_cliente_url: imagen_cliente_url || null,
-      estado: 'abierto',
-      respuesta_soporte: null,
-      mensajes: [initialMsg],
-      creado_en: new Date().toISOString()
-    };
-    ticketsFallback.unshift(createdTicket);
-    saveFallbackStore();
-    return res.status(201).json({
-      ok: true,
-      ticket_id: newId,
-      ticket: createdTicket,
-      message: 'Solicitud creada.'
-    });
+    return sendDatabaseError(res, error, 'Creación de ticket de soporte');
   }
 });
 
@@ -2981,83 +2376,50 @@ router.post('/soporte/:id/mensaje', async (req, res) => {
   const isStaff = ['soporte', 'admin'].includes(liveUser.rol);
   const cleanTexto = texto ? String(texto).trim().slice(0, 2500) : '';
 
-  let dbTicket = null;
   try {
     const [dbRows] = await pool.query(
       'SELECT id, usuario_id, asunto, descripcion, estado FROM tickets_soporte WHERE id = ? LIMIT 1',
       [ticketId]
     );
-    if (dbRows && dbRows[0]) {
-      dbTicket = dbRows[0];
-      if (!isStaff && Number(dbTicket.usuario_id) !== Number(liveUser.id)) {
-        return res.status(403).json({ ok: false, message: 'No tienes permiso para acceder a este ticket.' });
-      }
-      if (dbTicket.estado === 'resuelto' || dbTicket.estado === 'cerrado') {
-        return res.status(400).json({ ok: false, message: 'Este ticket ya fue resuelto y cerrado. El chat está bloqueado.' });
-      }
+    if (!dbRows || !dbRows[0]) {
+      return res.status(404).json({ ok: false, message: 'Ticket de soporte no encontrado.' });
     }
-  } catch (_) {}
+    const dbTicket = dbRows[0];
+    if (!isStaff && Number(dbTicket.usuario_id) !== Number(liveUser.id)) {
+      return res.status(403).json({ ok: false, message: 'No tienes permiso para acceder a este ticket.' });
+    }
+    if (dbTicket.estado === 'resuelto' || dbTicket.estado === 'cerrado') {
+      return res.status(400).json({ ok: false, message: 'Este ticket ya fue resuelto y cerrado. El chat está bloqueado.' });
+    }
 
-  let tk = ticketsFallback.find((t) => Number(t.id) === ticketId);
-  if (tk && !isStaff && Number(tk.usuario_id) !== Number(liveUser.id)) {
-    return res.status(403).json({ ok: false, message: 'No tienes permiso para acceder a este ticket.' });
-  }
-  if (!dbTicket && !tk) {
-    return res.status(404).json({ ok: false, message: 'Ticket de soporte no encontrado.' });
-  }
-  if (tk && (tk.estado === 'resuelto' || tk.estado === 'cerrado')) {
-    return res.status(400).json({ ok: false, message: 'Este ticket ya fue resuelto y cerrado. El chat está bloqueado.' });
-  }
+    const validStaffStates = ['abierto', 'en_revision', 'resuelto', 'cerrado'];
+    const requestedStaffState = isStaff && validStaffStates.includes(estado) ? estado : null;
+    const nextState = requestedStaffState || (isStaff && dbTicket.estado === 'abierto' ? 'en_revision' : dbTicket.estado);
+    const replyText = isStaff && cleanTexto ? cleanTexto : null;
 
-  const newMsg = {
-    id: Date.now(),
-    autor: isStaff ? `${liveUser.username} (Soporte)` : (authUser.nombre_completo || liveUser.username),
-    rol: isStaff ? 'soporte' : 'cliente',
-    texto: cleanTexto,
-    imagen_url: imagen_url || null,
-    fecha: new Date().toISOString()
-  };
-
-  const validStaffStates = ['abierto', 'en_revision', 'resuelto', 'cerrado'];
-  const requestedStaffState = isStaff && validStaffStates.includes(estado) ? estado : null;
-
-  if (!tk) {
-    tk = {
-      id: ticketId,
-      usuario_id: dbTicket ? dbTicket.usuario_id : liveUser.id,
-      asunto: dbTicket ? dbTicket.asunto : `Ticket #${ticketId}`,
-      descripcion: dbTicket ? dbTicket.descripcion : '',
-      estado: requestedStaffState || (dbTicket ? dbTicket.estado : 'abierto'),
-      mensajes: dbTicket ? formatSafeTicket(dbTicket).mensajes : []
-    };
-    ticketsFallback.push(tk);
-  }
-
-  if (!Array.isArray(tk.mensajes)) tk.mensajes = formatSafeTicket(tk).mensajes;
-  tk.mensajes.push(newMsg);
-  if (isStaff && newMsg.texto) {
-    tk.respuesta_soporte = newMsg.texto;
-  }
-  if (requestedStaffState) {
-    tk.estado = requestedStaffState;
-  } else if (isStaff && tk.estado === 'abierto') {
-    tk.estado = 'en_revision';
-  }
-  saveFallbackStore();
-
-  try {
     await pool.query(
       'UPDATE tickets_soporte SET respuesta_soporte = COALESCE(?, respuesta_soporte), estado = ? WHERE id = ?',
-      [isStaff && newMsg.texto ? newMsg.texto : null, tk.estado, ticketId]
+      [replyText, nextState, ticketId]
     );
-  } catch (_) {
-    // Sincronizado en memoria
-  }
 
-  return res.json({
-    ok: true,
-    ticket: formatSafeTicket(tk)
-  });
+    const [updatedRows] = await pool.query('SELECT * FROM tickets_soporte WHERE id = ? LIMIT 1', [ticketId]);
+    const updatedTicket = formatSafeTicket(updatedRows[0]);
+    updatedTicket.mensajes.push({
+      id: Date.now(),
+      autor: isStaff ? `${liveUser.username} (Soporte)` : (authUser.nombre_completo || liveUser.username),
+      rol: isStaff ? 'soporte' : 'cliente',
+      texto: cleanTexto,
+      imagen_url: imagen_url || null,
+      fecha: new Date().toISOString()
+    });
+
+    return res.json({
+      ok: true,
+      ticket: updatedTicket
+    });
+  } catch (error) {
+    return sendDatabaseError(res, error, 'Envío de mensaje en ticket de soporte');
+  }
 });
 
 /**
@@ -3078,36 +2440,23 @@ router.patch('/mis-tickets/:id/cerrar', async (req, res) => {
       'SELECT id, usuario_id FROM tickets_soporte WHERE id = ? LIMIT 1',
       [ticketId]
     );
-    if (rows[0] && Number(rows[0].usuario_id) !== Number(authUser.id)) {
+    if (!rows[0]) {
+      return res.status(404).json({ ok: false, message: 'Ticket no encontrado.' });
+    }
+    if (Number(rows[0].usuario_id) !== Number(authUser.id)) {
       return res.status(403).json({ ok: false, message: 'No tienes permiso para cerrar este ticket.' });
     }
     await pool.query(
       'UPDATE tickets_soporte SET estado = "resuelto" WHERE id = ? AND usuario_id = ?',
       [ticketId, authUser.id]
     );
-  } catch (_) {}
-
-  let tk = ticketsFallback.find((t) => Number(t.id) === ticketId);
-  if (tk) {
-    if (Number(tk.usuario_id) !== Number(authUser.id)) {
-      return res.status(403).json({ ok: false, message: 'No tienes permiso para cerrar este ticket.' });
-    }
-    tk.estado = 'resuelto';
-    if (!Array.isArray(tk.mensajes)) tk.mensajes = formatSafeTicket(tk).mensajes;
-    tk.mensajes.push({
-      id: Date.now(),
-      autor: `${authUser.nombre_completo || authUser.username || 'Cliente'} (Cliente)`,
-      rol: 'cliente',
-      texto: 'El cliente ha marcado este ticket como cerrado y resuelto.',
-      fecha: new Date().toISOString()
+    return res.json({
+      ok: true,
+      message: `Ticket #${ticketId} cerrado con éxito por el cliente.`
     });
-    saveFallbackStore();
+  } catch (error) {
+    return sendDatabaseError(res, error, 'Cierre de ticket');
   }
-
-  return res.json({
-    ok: true,
-    message: `Ticket #${ticketId} cerrado con éxito por el cliente.`
-  });
 });
 
 /**
@@ -3122,31 +2471,19 @@ router.patch(
     const ticketId = Number(req.params.id);
     const { respuesta_soporte, estado } = req.body;
 
-    let tk = ticketsFallback.find((t) => Number(t.id) === ticketId);
-    if (tk) {
-      if (!Array.isArray(tk.mensajes)) tk.mensajes = formatSafeTicket(tk).mensajes;
-      if (respuesta_soporte && String(respuesta_soporte).trim()) {
-        tk.mensajes.push({
-          id: Date.now(),
-          autor: `${req.user.username} (Soporte)`,
-          rol: 'soporte',
-          texto: String(respuesta_soporte).trim(),
-          fecha: new Date().toISOString()
-        });
-        tk.respuesta_soporte = String(respuesta_soporte).trim();
-      }
-      if (estado) tk.estado = estado;
-      saveFallbackStore();
-    }
-
     try {
+      const [rows] = await pool.query('SELECT id FROM tickets_soporte WHERE id = ? LIMIT 1', [ticketId]);
+      if (!rows[0]) {
+        return res.status(404).json({ ok: false, message: 'Ticket no encontrado.' });
+      }
       await pool.query(
         'UPDATE tickets_soporte SET respuesta_soporte = COALESCE(?, respuesta_soporte), estado = ? WHERE id = ?',
         [respuesta_soporte || null, estado || 'resuelto', ticketId]
       );
-    } catch (_) {}
-
-    return res.json({ ok: true, message: `Ticket #${ticketId} actualizado.` });
+      return res.json({ ok: true, message: `Ticket #${ticketId} actualizado.` });
+    } catch (error) {
+      return sendDatabaseError(res, error, 'Actualización de ticket por soporte');
+    }
   }
 );
 
@@ -3181,7 +2518,6 @@ router.post('/staff/catalogo', requireStaffRole(['admin']), async (req, res) => 
   }
 
   const catId = Number(categoria_id) || 1;
-  const catObj = categoriasFallback.find((c) => Number(c.id) === catId) || categoriasFallback[0];
   const sku = `DAN-ADM-${Date.now().toString().slice(-4)}`;
   const cleanPrice = Math.max(0, Number(rawBasePrice) || 0);
   const disc = parseDiscountPayload(req.body, null);
@@ -3199,7 +2535,7 @@ router.post('/staff/catalogo', requireStaffRole(['admin']), async (req, res) => 
         imagen_url, stock, es_mas_vendido, etiqueta, temperatura_conservacion, activo
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 150, ?, ?, ?, 1)`,
       [
-        catObj.id,
+        catId,
         sku,
         String(nombre).trim().toUpperCase(),
         descripcion || 'Calidad garantizada Danillanos.',
@@ -3218,61 +2554,17 @@ router.post('/staff/catalogo', requireStaffRole(['admin']), async (req, res) => 
       ]
     );
 
-    const newProd = {
-      id: result.insertId,
-      categoria_id: catObj.id,
-      categoria_slug: catObj.slug,
-      categoria_nombre: catObj.nombre,
-      codigo_sku: sku,
-      nombre: String(nombre).trim().toUpperCase(),
-      descripcion: descripcion || 'Calidad garantizada Danillanos.',
-      presentacion: presentacion || 'Unidad',
-      precio: cleanPrice,
-      precio_base: cleanPrice,
-      descuento_porcentaje: disc.descuento_porcentaje,
-      descuento_tipo: disc.descuento_tipo,
-      descuento_expira_en: disc.descuento_expira_en,
-      descuento_expira_ms: disc.descuento_expira_ms,
-      descuento_unidades_limite: disc.descuento_unidades_limite,
-      descuento_unidades_vendidas: disc.descuento_unidades_vendidas,
-      imagen_url: defaultImg,
-      stock: 150,
-      es_mas_vendido: es_mas_vendido ? 1 : 0,
-      etiqueta: etiqueta || null,
-      temperatura_conservacion: temperatura_conservacion || 'Congelado -18°C'
-    };
-    productosFallback.unshift(newProd);
-    saveFallbackStore();
+    const [dbRows] = await pool.query(
+      `SELECT p.*, cat.slug AS categoria_slug, cat.nombre AS categoria_nombre
+       FROM productos p
+       INNER JOIN categorias cat ON p.categoria_id = cat.id
+       WHERE p.id = ? LIMIT 1`,
+      [result.insertId]
+    );
 
-    return res.status(201).json({ ok: true, product: formatProductWithDiscount(newProd).product });
+    return res.status(201).json({ ok: true, product: formatProductWithDiscount(dbRows[0]).product });
   } catch (error) {
-    const nextId = productosFallback.reduce((max, p) => Math.max(max, Number(p.id) || 0), 0) + 1;
-    const newProd = {
-      id: nextId,
-      categoria_id: catObj.id,
-      categoria_slug: catObj.slug,
-      categoria_nombre: catObj.nombre,
-      codigo_sku: sku,
-      nombre: String(nombre).trim().toUpperCase(),
-      descripcion: descripcion || 'Calidad garantizada Danillanos.',
-      presentacion: presentacion || 'Unidad',
-      precio: cleanPrice,
-      precio_base: cleanPrice,
-      descuento_porcentaje: disc.descuento_porcentaje,
-      descuento_tipo: disc.descuento_tipo,
-      descuento_expira_en: disc.descuento_expira_en,
-      descuento_expira_ms: disc.descuento_expira_ms,
-      descuento_unidades_limite: disc.descuento_unidades_limite,
-      descuento_unidades_vendidas: disc.descuento_unidades_vendidas,
-      imagen_url: defaultImg,
-      stock: 150,
-      es_mas_vendido: es_mas_vendido ? 1 : 0,
-      etiqueta: etiqueta || null,
-      temperatura_conservacion: temperatura_conservacion || 'Congelado -18°C'
-    };
-    productosFallback.unshift(newProd);
-    saveFallbackStore();
-    return res.status(201).json({ ok: true, source: 'fallback', product: formatProductWithDiscount(newProd).product });
+    return sendDatabaseError(res, error, 'Creación de producto en catálogo');
   }
 });
 
@@ -3297,46 +2589,19 @@ router.put('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) 
   } = req.body;
 
   const catId = Number(categoria_id) || 1;
-  const catObj = categoriasFallback.find((c) => Number(c.id) === catId) || categoriasFallback[0];
-  const existing = productosFallback.find((p) => Number(p.id) === prodId);
-
   const rawBasePrice = precio_base !== undefined ? precio_base : precio;
-  const resolvedBasePrice =
-    rawBasePrice !== undefined
-      ? Math.max(0, Number(rawBasePrice) || 0)
-      : Number(existing?.precio_base ?? existing?.precio ?? 0);
-
-  const hasDiscountFields = req.body.descuento_porcentaje !== undefined;
-  const disc = hasDiscountFields
-    ? parseDiscountPayload(req.body, existing)
-    : parseDiscountPayload({ preserve_vendidas: true }, existing);
-
-  if (existing) {
-    if (nombre !== undefined) existing.nombre = String(nombre).trim().toUpperCase();
-    if (categoria_id !== undefined) {
-      existing.categoria_id = catObj.id;
-      existing.categoria_slug = catObj.slug;
-      existing.categoria_nombre = catObj.nombre;
-    }
-    if (presentacion !== undefined) existing.presentacion = presentacion;
-    if (descripcion !== undefined) existing.descripcion = descripcion;
-    existing.precio = resolvedBasePrice;
-    existing.precio_base = resolvedBasePrice;
-    existing.descuento_porcentaje = disc.descuento_porcentaje;
-    existing.descuento_tipo = disc.descuento_tipo;
-    existing.descuento_expira_en = disc.descuento_expira_en;
-    existing.descuento_expira_ms = disc.descuento_expira_ms;
-    existing.descuento_unidades_limite = disc.descuento_unidades_limite;
-    existing.descuento_unidades_vendidas = disc.descuento_unidades_vendidas;
-    if (temperatura_conservacion !== undefined) existing.temperatura_conservacion = temperatura_conservacion;
-    if (etiqueta !== undefined) existing.etiqueta = etiqueta || null;
-    if (imagen_url !== undefined && imagen_url.trim()) existing.imagen_url = imagen_url.trim();
-    if (es_mas_vendido !== undefined) existing.es_mas_vendido = es_mas_vendido ? 1 : 0;
-    saveFallbackStore();
-  }
+  const cleanPrice = rawBasePrice !== undefined ? Math.max(0, Number(rawBasePrice) || 0) : undefined;
+  const disc = parseDiscountPayload(req.body, null);
 
   try {
     await ensureProductDiscountColumns();
+    const [existingRows] = await pool.query('SELECT * FROM productos WHERE id = ? LIMIT 1', [prodId]);
+    if (!existingRows || !existingRows[0]) {
+      return res.status(404).json({ ok: false, message: 'Producto no encontrado.' });
+    }
+    const currentProd = existingRows[0];
+    const resolvedBasePrice = cleanPrice !== undefined ? cleanPrice : Number(currentProd.precio);
+
     await pool.query(
       `UPDATE productos
        SET categoria_id = ?, nombre = ?, presentacion = ?, descripcion = ?, precio = ?,
@@ -3346,10 +2611,10 @@ router.put('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) 
            es_mas_vendido = ?
        WHERE id = ?`,
       [
-        catObj.id,
-        String(nombre || existing?.nombre || '').trim().toUpperCase(),
-        presentacion || existing?.presentacion || 'Unidad',
-        descripcion || existing?.descripcion || '',
+        catId,
+        String(nombre || currentProd.nombre).trim().toUpperCase(),
+        presentacion || currentProd.presentacion || 'Unidad',
+        descripcion !== undefined ? descripcion : currentProd.descripcion,
         resolvedBasePrice,
         disc.descuento_porcentaje,
         disc.descuento_tipo,
@@ -3357,10 +2622,10 @@ router.put('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) 
         disc.descuento_expira_ms,
         disc.descuento_unidades_limite,
         disc.descuento_unidades_vendidas,
-        temperatura_conservacion || existing?.temperatura_conservacion || 'Congelado -18°C',
-        etiqueta || null,
+        temperatura_conservacion || currentProd.temperatura_conservacion || 'Congelado -18°C',
+        etiqueta !== undefined ? etiqueta : currentProd.etiqueta,
         imagen_url || '',
-        es_mas_vendido ? 1 : 0,
+        es_mas_vendido !== undefined ? (es_mas_vendido ? 1 : 0) : currentProd.es_mas_vendido,
         prodId
       ]
     );
@@ -3371,14 +2636,10 @@ router.put('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) 
        WHERE p.id = ? LIMIT 1`,
       [prodId]
     );
-    if (dbRows && dbRows[0]) {
-      return res.json({ ok: true, product: formatProductWithDiscount(dbRows[0]).product });
-    }
-  } catch (err) {
-    console.error('[PUT /staff/catalogo/:id] Error MySQL:', err.message);
+    return res.json({ ok: true, product: formatProductWithDiscount(dbRows[0]).product });
+  } catch (error) {
+    return sendDatabaseError(res, error, 'Actualización de producto');
   }
-
-  return res.json({ ok: true, product: existing ? formatProductWithDiscount(existing).product : null });
 });
 
 /**
@@ -3388,25 +2649,15 @@ router.put('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) 
  */
 router.patch('/staff/catalogo/:id/descuento', requireStaffRole(['admin']), async (req, res) => {
   const prodId = Number(req.params.id);
-  const existing = productosFallback.find((p) => Number(p.id) === prodId) || null;
-  const disc = parseDiscountPayload(req.body, existing);
-
-  if (existing) {
-    if (existing.precio_base === undefined) {
-      existing.precio_base = Number(existing.precio || 0);
-    }
-    existing.precio = Number(existing.precio_base);
-    existing.descuento_porcentaje = disc.descuento_porcentaje;
-    existing.descuento_tipo = disc.descuento_tipo;
-    existing.descuento_expira_en = disc.descuento_expira_en;
-    existing.descuento_expira_ms = disc.descuento_expira_ms;
-    existing.descuento_unidades_limite = disc.descuento_unidades_limite;
-    existing.descuento_unidades_vendidas = disc.descuento_unidades_vendidas;
-    saveFallbackStore();
-  }
+  const disc = parseDiscountPayload(req.body, null);
 
   try {
     await ensureProductDiscountColumns();
+    const [existingRows] = await pool.query('SELECT * FROM productos WHERE id = ? LIMIT 1', [prodId]);
+    if (!existingRows || !existingRows[0]) {
+      return res.status(404).json({ ok: false, message: 'Producto no encontrado en el catálogo.' });
+    }
+
     await pool.query(
       `UPDATE productos
        SET descuento_porcentaje = ?,
@@ -3434,34 +2685,18 @@ router.patch('/staff/catalogo/:id/descuento', requireStaffRole(['admin']), async
        WHERE p.id = ? LIMIT 1`,
       [prodId]
     );
-    if (dbRows && dbRows[0]) {
-      return res.json({
-        ok: true,
-        source: 'mysql',
-        product: formatProductWithDiscount(dbRows[0]).product,
-        message:
-          disc.descuento_porcentaje > 0
-            ? `Descuento del ${disc.descuento_porcentaje}% guardado en el servidor.`
-            : 'Descuento retirado; el producto volvió a su precio regular.'
-      });
-    }
-  } catch (err) {
-    console.error('[PATCH /staff/catalogo/:id/descuento] Error MySQL:', err.message);
+    return res.json({
+      ok: true,
+      source: 'mysql',
+      product: formatProductWithDiscount(dbRows[0]).product,
+      message:
+        disc.descuento_porcentaje > 0
+          ? `Descuento del ${disc.descuento_porcentaje}% guardado en el servidor.`
+          : 'Descuento retirado; el producto volvió a su precio regular.'
+    });
+  } catch (error) {
+    return sendDatabaseError(res, error, 'Actualización de descuento');
   }
-
-  if (!existing) {
-    return res.status(404).json({ ok: false, message: 'Producto no encontrado en el catálogo.' });
-  }
-
-  return res.json({
-    ok: true,
-    source: 'fallback',
-    product: formatProductWithDiscount(existing).product,
-    message:
-      disc.descuento_porcentaje > 0
-        ? `Descuento del ${disc.descuento_porcentaje}% aplicado exitosamente.`
-        : 'Descuento retirado; el producto volvió a su precio regular.'
-  });
 });
 
 /**
@@ -3471,17 +2706,16 @@ router.patch('/staff/catalogo/:id/descuento', requireStaffRole(['admin']), async
  */
 router.delete('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, res) => {
   const prodId = Number(req.params.id);
-  const idx = productosFallback.findIndex((p) => Number(p.id) === prodId);
-  if (idx !== -1) {
-    productosFallback.splice(idx, 1);
-    saveFallbackStore();
-  }
 
   try {
-    await pool.query('UPDATE productos SET activo = 0 WHERE id = ?', [prodId]);
-  } catch (_) {}
-
-  return res.json({ ok: true, deletedId: prodId });
+    const [resDb] = await pool.query('UPDATE productos SET activo = 0 WHERE id = ?', [prodId]);
+    if (resDb.affectedRows === 0) {
+      return res.status(404).json({ ok: false, message: 'Producto no encontrado.' });
+    }
+    return res.json({ ok: true, deletedId: prodId });
+  } catch (error) {
+    return sendDatabaseError(res, error, 'Baja de producto del catálogo');
+  }
 });
 
 /**
@@ -3492,14 +2726,9 @@ router.delete('/staff/catalogo/:id', requireStaffRole(['admin']), async (req, re
 router.get('/staff/usuarios', requireStaffRole(['admin']), async (req, res) => {
   try {
     const [rows] = await pool.query("SELECT * FROM usuarios WHERE rol != 'cliente' ORDER BY id ASC");
-    if (rows.length > 0) {
-      return res.json({ ok: true, data: rows.map(formatSafeUser) });
-    }
-    const staffFallback = usuariosFallback.filter((u) => u.rol !== 'cliente');
-    return res.json({ ok: true, data: staffFallback.map(formatSafeUser) });
+    return res.json({ ok: true, data: rows.map(formatSafeUser) });
   } catch (error) {
-    const staffFallback = usuariosFallback.filter((u) => u.rol !== 'cliente');
-    return res.json({ ok: true, data: staffFallback.map(formatSafeUser) });
+    return sendDatabaseError(res, error, 'Carga de usuarios de staff');
   }
 });
 
@@ -3548,25 +2777,8 @@ router.post('/staff/usuarios', requireStaffRole(['admin']), async (req, res) => 
       updated: true,
       message: `Usuario ${cleanEmail} asignado exitosamente al rol de ${userRole.toUpperCase()}.`
     });
-  } catch (err) {
-    let memUser = usuariosFallback.find(
-      (u) => u.email_hash === emailHash || (u.email && u.email.toLowerCase() === cleanEmail)
-    );
-    if (!memUser) {
-      return res.status(404).json({
-        ok: false,
-        message: 'El usuario no está registrado en la plataforma. Primero debe crearse una cuenta antes de poder añadirlo a la lista de empleados.'
-      });
-    }
-    memUser.rol = userRole;
-    memUser.activo = 1;
-    saveFallbackStore();
-    return res.json({
-      ok: true,
-      user: formatSafeUser(memUser),
-      updated: true,
-      message: `Usuario ${cleanEmail} asignado exitosamente al rol de ${userRole.toUpperCase()}.`
-    });
+  } catch (error) {
+    return sendDatabaseError(res, error, 'Asignación de rol a usuario');
   }
 });
 
@@ -3591,13 +2803,6 @@ router.patch('/staff/usuarios/:id', requireStaffRole(['admin']), async (req, res
   const validRoles = ['cliente', 'empleado', 'bodega', 'entregador', 'soporte', 'admin'];
   const normalizedRole = rol ? normalizeStaffRole(rol) : null;
 
-  const memUser = usuariosFallback.find((u) => Number(u.id) === userId);
-  if (memUser) {
-    if (normalizedRole && validRoles.includes(normalizedRole)) memUser.rol = normalizedRole;
-    if (activo !== undefined) memUser.activo = activo ? 1 : 0;
-    saveFallbackStore();
-  }
-
   try {
     await ensureProductDiscountColumns();
     if (normalizedRole && validRoles.includes(normalizedRole)) {
@@ -3607,18 +2812,16 @@ router.patch('/staff/usuarios/:id', requireStaffRole(['admin']), async (req, res
       await pool.query('UPDATE usuarios SET activo = ? WHERE id = ?', [activo ? 1 : 0, userId]);
     }
     const [updatedRows] = await pool.query('SELECT * FROM usuarios WHERE id = ? LIMIT 1', [userId]);
-    if (updatedRows && updatedRows[0]) {
-      return res.json({
-        ok: true,
-        user: formatSafeUser(updatedRows[0])
-      });
+    if (!updatedRows || !updatedRows[0]) {
+      return res.status(404).json({ ok: false, message: 'Usuario no encontrado.' });
     }
-  } catch (_) {}
-
-  return res.json({
-    ok: true,
-    user: memUser ? formatSafeUser(memUser) : null
-  });
+    return res.json({
+      ok: true,
+      user: formatSafeUser(updatedRows[0])
+    });
+  } catch (error) {
+    return sendDatabaseError(res, error, 'Modificación de estado de usuario');
+  }
 });
 
 module.exports = router;

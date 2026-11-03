@@ -16,7 +16,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '..', '..', '.env') });
 require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 require('dotenv').config();
 
-const { checkDatabaseConnection, dbConfig } = require('./config/db');
+const { pool, checkDatabaseConnection, dbConfig } = require('./config/db');
 const apiRouter = require('./routes/api');
 
 const app = express();
@@ -236,22 +236,61 @@ app.use((err, req, res, next) => {
   });
 });
 
+/**
+ * Verifica la disponibilidad de la base de datos MySQL e inicializa automáticamente
+ * el esquema DDL y los datos semilla si detecta que la base de datos se encuentra vacía.
+ *
+ * @async
+ * @function autoInitializeDatabaseIfEmpty
+ * @returns {Promise<boolean>}
+ */
+async function autoInitializeDatabaseIfEmpty() {
+  try {
+    const isConnected = await checkDatabaseConnection();
+    if (!isConnected) {
+      console.error('\n🚨 ============================================================');
+      console.error('❌ ERROR CRÍTICO: No se pudo conectar a la base de datos MySQL.');
+      console.error('   Verifica la variable DATABASE_URL o MYSQL_URL en Railway.');
+      console.error('============================================================\n');
+      return false;
+    }
+
+    console.log(`✅ Servidor MySQL conectado (${dbConfig.host}:${dbConfig.port}/${dbConfig.database})`);
+
+    // Comprobar si las tablas principales ya existen
+    const [tables] = await pool.query("SHOW TABLES LIKE 'usuarios'");
+    if (!tables || tables.length === 0) {
+      console.log('⚠️  No se encontraron tablas en la base de datos MySQL.');
+      console.log('🚀 Ejecutando inicialización automática DDL/DML (runSchema)...');
+      const { runSchema } = require('../run-schema');
+      await runSchema();
+      console.log('🎉 ¡Base de datos inicializada exitosamente en MySQL!');
+    } else {
+      console.log('✅ Tablas verificadas en MySQL (usuarios, productos, etc. activos).');
+    }
+    return true;
+  } catch (initErr) {
+    console.error('\n🚨 ============================================================');
+    console.error('❌ ERROR CRÍTICO AL INICIALIZAR LA BASE DE DATOS MYSQL:');
+    console.error(`   Mensaje: ${initErr.message}`);
+    console.error(`   Código:  ${initErr.code || 'N/A'}`);
+    if (initErr.sqlMessage) console.error(`   SQL:     ${initErr.sqlMessage}`);
+    console.error('============================================================\n');
+    return false;
+  }
+}
+
 // Inicialización del servidor HTTP únicamente si se ejecuta como proceso principal
 if (require.main === module) {
   app.listen(PORT, async () => {
-    const isConnected = await checkDatabaseConnection();
     console.log('============================================================');
     console.log('🥩 DANILLANOS - CÁRNICOS, CONGELADOS E INSUMOS PARA RESTAURANTE');
     console.log(`🚀 Tienda principal:   http://localhost:${PORT}/`);
     console.log(`👤 Perfil y Mapa:      http://localhost:${PORT}/perfil`);
     console.log(`💳 Pasarela de Pagos:  http://localhost:${PORT}/pagos`);
     console.log(`🛠️  Panel Operativo:    http://localhost:${PORT}/panel`);
-    if (isConnected) {
-      console.log(`✅ Base de datos MySQL conectada (${dbConfig.host}:${dbConfig.port}/${dbConfig.database})`);
-    } else {
-      console.log('ℹ️  Modo Respaldo Activo (235 productos listos).');
-    }
     console.log('============================================================');
+    await autoInitializeDatabaseIfEmpty();
   });
 }
 
