@@ -240,15 +240,18 @@
         <div class="logged-profile-actions">
           <a href="panel.html" class="btn-primary hidden" id="btnGoToStaffPanel">
             <span class="material-symbols-rounded">dashboard_customize</span>
-            <span>Panel Operativo</span>
+            <span class="btn-label-desktop">Panel Operativo</span>
+            <span class="btn-label-mobile">Panel</span>
           </a>
           <a href="index.html" class="btn-secondary" id="btnReturnHome">
             <span class="material-symbols-rounded">storefront</span>
-            <span>Volver al Inicio</span>
+            <span class="btn-label-desktop">Volver al Inicio</span>
+            <span class="btn-label-mobile">Tienda</span>
           </a>
           <button type="button" class="btn-secondary" id="btnLogoutProfile">
             <span class="material-symbols-rounded">logout</span>
-            <span>Cerrar Sesión</span>
+            <span class="btn-label-desktop">Cerrar Sesión</span>
+            <span class="btn-label-mobile">Salir</span>
           </button>
         </div>
       </div>
@@ -258,23 +261,24 @@
         <span class="customer-tab-slider" id="customerTabSlider" aria-hidden="true"></span>
         <button type="button" class="customer-tab-btn active" data-profile-tab="pedidos">
           <span class="material-symbols-rounded">local_shipping</span>
-          <span>Pedidos en Curso</span>
+          <span class="customer-tab-label">Pedidos<span class="tab-label-extra"> en Curso</span></span>
           <span class="customer-tab-count" id="tabActiveOrdersCount">0</span>
           <span class="tab-notification-dot hidden" id="tabPedidosDot" title="Actualización activa en tus despachos"></span>
         </button>
         <button type="button" class="customer-tab-btn" data-profile-tab="direcciones">
           <span class="material-symbols-rounded">manage_accounts</span>
-          <span>Mi Cuenta</span>
+          <span class="customer-tab-label">Mi Cuenta</span>
           <span class="customer-tab-count" id="addressCountBadge">0/5</span>
         </button>
         <button type="button" class="customer-tab-btn" data-profile-tab="historial">
           <span class="material-symbols-rounded">receipt_long</span>
-          <span>Historial de Compras</span>
+          <span class="customer-tab-label">Historial<span class="tab-label-extra"> de Compras</span></span>
           <span class="customer-tab-count" id="tabHistoryOrdersCount">0</span>
+          <span class="tab-notification-dot hidden" id="tabHistorialDot" title="Actualización en tu historial"></span>
         </button>
         <button type="button" class="customer-tab-btn" data-profile-tab="soporte">
           <span class="material-symbols-rounded">support_agent</span>
-          <span>Soporte y Mis Tickets</span>
+          <span class="customer-tab-label">Soporte<span class="tab-label-extra"> y Mis Tickets</span></span>
           <span class="customer-tab-count" id="tabTicketsCount">0</span>
           <span class="tab-notification-dot hidden" id="tabSoporteDot" title="Respuestas del equipo de soporte"></span>
         </button>
@@ -307,25 +311,25 @@
       </div>
 
       <!-- Tarjeta informativa con datos comerciales modificables en línea -->
-      <div class="surface-card company-summary-card" id="companySummaryCard" style="margin-bottom: 1.5rem; padding: 1.15rem 1.45rem;"></div>
+      <div class="surface-card company-summary-card" id="companySummaryCard"></div>
 
       <!-- Tarjeta de gestión de seguridad y credenciales de acceso -->
-      <div class="surface-card security-summary-card" id="securitySummaryCard" style="margin-bottom: 1.5rem; padding: 1.15rem 1.45rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
-          <div style="display:flex; align-items:center; gap:0.85rem;">
-            <div class="security-card-icon-badge" style="width:42px; height:42px; border-radius:50%; background:var(--bg-elevated); display:flex; align-items:center; justify-content:center; border:1px solid var(--border-strong); flex-shrink:0;">
-              <span class="material-symbols-rounded" id="securityCardIcon" style="color:var(--brand-red); font-size:1.4rem;">lock</span>
+      <div class="surface-card security-summary-card" id="securitySummaryCard">
+        <div class="security-card-inner">
+          <div class="security-card-left">
+            <div class="security-card-icon-badge">
+              <span class="material-symbols-rounded" id="securityCardIcon">lock</span>
             </div>
-            <div>
-              <strong style="font-size:1.08rem; display:block; font-weight:800;">Seguridad y Contraseña</strong>
-              <p style="font-size:0.82rem; color:var(--text-secondary); margin:2px 0 0;" id="securityCardStatusText">
+            <div class="security-card-text">
+              <strong class="security-card-title">Seguridad y Contraseña</strong>
+              <p class="security-card-desc" id="securityCardStatusText">
                 Protege tu cuenta y gestiona tu clave de acceso.
               </p>
             </div>
           </div>
-          <div style="display:flex; align-items:center; gap:0.6rem;">
-            <button type="button" class="btn-secondary" id="btnOpenPasswordModal" style="padding:0.58rem 1.25rem; font-size:0.86rem; display:inline-flex; align-items:center; gap:0.45rem;">
-              <span class="material-symbols-rounded" style="font-size:1.15rem;">password</span>
+          <div class="security-card-actions">
+            <button type="button" class="btn-secondary security-pwd-btn" id="btnOpenPasswordModal">
+              <span class="material-symbols-rounded">password</span>
               <span id="btnOpenPasswordModalText">Cambiar Contraseña</span>
             </button>
           </div>

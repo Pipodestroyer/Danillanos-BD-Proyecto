@@ -566,6 +566,23 @@
         return;
       }
 
+      const profTabLink = e.target.closest('[data-mobile-profile-tab]');
+      if (profTabLink && CURRENT_PAGE === 'perfil' && state.user) {
+        e.preventDefault();
+        const targetTab = profTabLink.getAttribute('data-mobile-profile-tab');
+        switchCustomerProfileTab(targetTab);
+        closeMobileMenu();
+        return;
+      }
+
+      const openCartBtn = e.target.closest('[data-mobile-open-cart]');
+      if (openCartBtn) {
+        e.preventDefault();
+        closeMobileMenu();
+        document.getElementById('cartToggleBtn')?.click();
+        return;
+      }
+
       const logoutBtn = e.target.closest('#mobileDrawerLogoutBtn');
       if (logoutBtn) {
         attemptUserLogout(() => {
@@ -596,61 +613,112 @@
     const navBody = document.getElementById('mobileNavBody');
     if (!navBody) return;
 
+    const cartUnits = typeof getCartTotalUnits === 'function' ? getCartTotalUnits() : 0;
+    const hasCartItems = Array.isArray(state.cart) && state.cart.length > 0;
+    const totalProdCount = Array.isArray(state.products) && state.products.length > 0 ? state.products.length : 0;
+
+    const customerOrders = state.customerOrders || [];
+    const activeOrdersCount = customerOrders.filter((o) =>
+      ['pendiente', 'en_proceso', 'en_camino'].includes(o.estado)
+    ).length;
+    const hasActiveOrderDot =
+      state.user &&
+      normalizeRole(state.user.rol) === 'cliente' &&
+      customerOrders.some(
+        (o) => ['pendiente', 'en_proceso', 'en_camino'].includes(o.estado) && hasCustomerOrderNovelty(o)
+      );
+    const hasTicketDot =
+      state.user &&
+      normalizeRole(state.user.rol) === 'cliente' &&
+      (state.customerTickets || []).some((t) => hasTicketUnreadForClient(t));
+
+    const userAvatarMarkup = state.user
+      ? state.user.avatar_url && !state.user.avatar_url.includes('test-avatar-photo')
+        ? `<img src="${state.user.avatar_url}" alt="${state.user.nombre_completo || 'Usuario'}" class="mobile-drawer-avatar-img" referrerpolicy="no-referrer" />`
+        : `<span>${(state.user.nombre_completo || 'U').charAt(0).toUpperCase()}</span>`
+      : '';
+
     const authLinks = !state.user
       ? `
-        <div class="mobile-nav-section-title">Cuenta de Cliente</div>
-        <a href="perfil.html#cuenta-section" class="mobile-nav-link">
+        <div class="mobile-nav-section-title">Tu Cuenta</div>
+        <a href="perfil.html#cuenta-section" class="mobile-nav-link mobile-nav-highlight">
           <span class="material-symbols-rounded">login</span>
           <span>Iniciar Sesión / Crear Cuenta</span>
         </a>
       `
       : `
-        <div class="mobile-nav-section-title">Hola, ${state.user.nombre_completo}</div>
+        <div class="mobile-drawer-user-card">
+          <div class="mobile-drawer-avatar">${userAvatarMarkup}</div>
+          <div class="mobile-drawer-user-meta">
+            <strong>${state.user.nombre_completo || 'Cliente'}</strong>
+            <span>${state.user.email || ''}</span>
+          </div>
+        </div>
         ${
           isStaffUser()
-            ? `<a href="panel.html" class="mobile-nav-link">
+            ? `<a href="panel.html" class="mobile-nav-link mobile-nav-highlight">
                  <span class="material-symbols-rounded">dashboard_customize</span>
-                 <span>Panel Operativo (${state.user.rol.toUpperCase()})</span>
+                 <span>Panel Operativo (${normalizeRole(state.user.rol).toUpperCase()})</span>
                </a>`
             : ''
         }
-        <a href="perfil.html#cuenta-section" class="mobile-nav-link">
-          <span class="material-symbols-rounded">badge</span>
-          <span>Mi Perfil Encriptado</span>
-        </a>
-        <a href="perfil.html#direcciones-mapa-section" class="mobile-nav-link">
-          <span class="material-symbols-rounded">pin_drop</span>
-          <span>Mis Direcciones (${state.direcciones.length}/5)</span>
-        </a>
-        <a href="perfil.html#mis-pedidos-section" class="mobile-nav-link">
+        <a href="perfil.html#mis-pedidos-section" class="mobile-nav-link" data-mobile-profile-tab="pedidos">
           <span class="material-symbols-rounded">local_shipping</span>
-          <span>Mis Pedidos en Progreso e Historial</span>
+          <span>Pedidos en Curso</span>
+          <span class="mobile-nav-right-meta">
+            ${activeOrdersCount > 0 ? `<span class="mobile-nav-pill">${activeOrdersCount}</span>` : ''}
+            ${hasActiveOrderDot ? `<span class="notification-red-dot"></span>` : ''}
+          </span>
         </a>
-        <a href="pagos.html" class="mobile-nav-link">
-          <span class="material-symbols-rounded">shopping_cart_checkout</span>
-          <span>Ir a la Pasarela de Pagos</span>
+        <a href="perfil.html#direcciones-mapa-section" class="mobile-nav-link" data-mobile-profile-tab="direcciones">
+          <span class="material-symbols-rounded">manage_accounts</span>
+          <span>Mi Cuenta y Direcciones</span>
+          <span class="mobile-nav-pill">${(state.direcciones || []).length}/5</span>
         </a>
-        <button type="button" class="mobile-nav-link" id="mobileDrawerLogoutBtn">
-          <span class="material-symbols-rounded">logout</span>
-          <span>Cerrar Sesión</span>
-        </button>
+        <a href="perfil.html#historial-compras-section" class="mobile-nav-link" data-mobile-profile-tab="historial">
+          <span class="material-symbols-rounded">receipt_long</span>
+          <span>Historial de Compras</span>
+        </a>
+        <a href="perfil.html#soporte-cliente" class="mobile-nav-link" data-mobile-profile-tab="soporte">
+          <span class="material-symbols-rounded">support_agent</span>
+          <span>Soporte y Mis Tickets</span>
+          ${hasTicketDot ? `<span class="notification-red-dot"></span>` : ''}
+        </a>
       `;
+
+    const cartActionLink = hasCartItems
+      ? `<a href="pagos.html" class="mobile-nav-link mobile-nav-checkout">
+           <span class="material-symbols-rounded">shopping_cart_checkout</span>
+           <span>Finalizar Compra</span>
+           <span class="mobile-nav-pill is-red">${cartUnits}</span>
+         </a>`
+      : `<button type="button" class="mobile-nav-link" data-mobile-open-cart="true">
+           <span class="material-symbols-rounded">shopping_cart</span>
+           <span>Mi Carrito</span>
+           <span class="mobile-nav-pill">0</span>
+         </button>`;
 
     navBody.innerHTML = `
       ${authLinks}
-      <div class="mobile-nav-section-title">Navegación Principal</div>
+      <div class="mobile-nav-section-title">Tienda</div>
       <a href="index.html" class="mobile-nav-link">
         <span class="material-symbols-rounded">storefront</span>
         <span>Inicio y Promociones</span>
       </a>
-      <a href="perfil.html#soporte-cliente" class="mobile-nav-link">
-        <span class="material-symbols-rounded">support_agent</span>
-        <span>Soporte (Enviar Solicitud / Fotos)</span>
-      </a>
-      <div class="mobile-nav-section-title">Catálogo por Línea (235 Productos)</div>
+      ${cartActionLink}
+      ${
+        !state.user
+          ? `<a href="perfil.html#soporte-cliente" class="mobile-nav-link">
+               <span class="material-symbols-rounded">support_agent</span>
+               <span>Atención y Soporte</span>
+             </a>`
+          : ''
+      }
+      <div class="mobile-nav-section-title">Catálogo por Categoría${totalProdCount ? ` (${totalProdCount})` : ''}</div>
       <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="todos">
         <span class="material-symbols-rounded">apps</span>
-        <span>Todo el Catálogo (235)</span>
+        <span>Catálogo Completo</span>
+        ${totalProdCount ? `<span class="mobile-nav-pill">${totalProdCount}</span>` : ''}
       </a>
       <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="embutidos">
         <span class="material-symbols-rounded">kebab_dining</span>
@@ -658,32 +726,41 @@
       </a>
       <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="congelados">
         <span class="material-symbols-rounded">ac_unit</span>
-        <span>Papas Francesas y Congelados</span>
+        <span>Congelados</span>
       </a>
       <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="pulpas">
         <span class="material-symbols-rounded">local_drink</span>
-        <span>Pulpas de Fruta y Limonadas</span>
+        <span>Pulpas y Limonadas</span>
       </a>
       <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="salsas">
         <span class="material-symbols-rounded">soup_kitchen</span>
-        <span>Salsas Río Grande, Salsabor y Alimentek</span>
+        <span>Salsas Institucionales</span>
       </a>
       <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="pan">
         <span class="material-symbols-rounded">bakery_dining</span>
-        <span>Línea de Panes</span>
+        <span>Panadería</span>
       </a>
       <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="adobos">
         <span class="material-symbols-rounded">nutrition</span>
-        <span>Adobos, Ají y Sazonadores</span>
+        <span>Adobos y Sazonadores</span>
       </a>
       <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="desechables">
         <span class="material-symbols-rounded">takeout_dining</span>
-        <span>Desechables e Icopores</span>
+        <span>Desechables e Icopor</span>
       </a>
       <a href="index.html#catalogo-tienda" class="mobile-nav-link" data-mobile-cat="secos">
         <span class="material-symbols-rounded">eco</span>
-        <span>Don Maní y Dulcería</span>
+        <span>Frutos Secos y Dulcería</span>
       </a>
+      ${
+        state.user
+          ? `<div class="mobile-nav-divider"></div>
+             <button type="button" class="mobile-nav-link mobile-nav-logout" id="mobileDrawerLogoutBtn">
+               <span class="material-symbols-rounded">logout</span>
+               <span>Cerrar Sesión</span>
+             </button>`
+          : ''
+      }
     `;
   }
 
@@ -799,15 +876,30 @@
   }
 
   /**
+   * Registra silenciosamente el estado actual de un pedido como visto en almacenamiento local.
+   * @param {number|string} orderId - Identificador del pedido.
+   * @param {string} currentStatus - Estado actual del pedido.
+   * @returns {boolean} True si el estado registrado cambió.
+   */
+  function markOrderSeenQuietly(orderId, currentStatus) {
+    const seen = getSeenNotifications();
+    if (!seen.seenOrderStatuses) seen.seenOrderStatuses = {};
+    const nextVal = currentStatus || 'visto';
+    if (seen.seenOrderStatuses[orderId] !== nextVal) {
+      seen.seenOrderStatuses[orderId] = nextVal;
+      saveSeenNotifications(seen);
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Marca el estado actual de un pedido como visto por el cliente para limpiar alertas de novedad.
    * @param {number|string} orderId - Identificador del pedido.
    * @param {string} currentStatus - Estado actual del pedido.
    */
   function markOrderStatusSeen(orderId, currentStatus) {
-    const seen = getSeenNotifications();
-    if (!seen.seenOrderStatuses) seen.seenOrderStatuses = {};
-    seen.seenOrderStatuses[orderId] = currentStatus || 'visto';
-    saveSeenNotifications(seen);
+    markOrderSeenQuietly(orderId, currentStatus);
     syncUserNotificationDots();
   }
 
@@ -967,6 +1059,7 @@
   function syncUserNotificationDots() {
     const statusDot = document.getElementById('userStatusDot');
     const tabPedidosDot = document.getElementById('tabPedidosDot');
+    const tabHistorialDot = document.getElementById('tabHistorialDot');
     const tabSoporteDot = document.getElementById('tabSoporteDot');
 
     if (!state.user) {
@@ -975,6 +1068,7 @@
         statusDot.classList.remove('has-notification-red');
       }
       tabPedidosDot?.classList.add('hidden');
+      tabHistorialDot?.classList.add('hidden');
       tabSoporteDot?.classList.add('hidden');
       return;
     }
@@ -987,26 +1081,37 @@
       const customerOrders = state.customerOrders || [];
       const customerTickets = state.customerTickets || [];
 
-      // Detección de novedades logísticas en órdenes de compra del cliente
-      const orderNovelties = customerOrders.filter((o) => hasCustomerOrderNovelty(o));
+      // Detección de novedades logísticas separadas entre órdenes activas en curso e historial
+      const activeOrderNovelties = customerOrders.filter(
+        (o) => ['pendiente', 'en_proceso', 'en_camino'].includes(o.estado) && hasCustomerOrderNovelty(o)
+      );
+      const historyOrderNovelties = customerOrders.filter(
+        (o) => ['entregado', 'cancelado'].includes(o.estado) && hasCustomerOrderNovelty(o)
+      );
       // Verificación de réplicas de soporte no leídas por el cliente
       const ticketNovelties = customerTickets.filter((t) => hasTicketUnreadForClient(t));
 
-      const hasOrdersNotif = orderNovelties.length > 0;
+      const hasActiveOrdersNotif = activeOrderNovelties.length > 0;
+      const hasHistoryOrdersNotif = historyOrderNovelties.length > 0;
+      const hasOrdersNotif = hasActiveOrdersNotif || hasHistoryOrdersNotif;
       const hasTicketsNotif = ticketNovelties.length > 0;
       hasNotification = hasOrdersNotif || hasTicketsNotif;
 
       if (tabPedidosDot) {
-        tabPedidosDot.classList.toggle('hidden', !hasOrdersNotif);
+        tabPedidosDot.classList.toggle('hidden', !hasActiveOrdersNotif);
+      }
+      if (tabHistorialDot) {
+        tabHistorialDot.classList.toggle('hidden', !hasHistoryOrdersNotif);
       }
       if (tabSoporteDot) {
         tabSoporteDot.classList.toggle('hidden', !hasTicketsNotif);
       }
 
+      const totalOrderNovelties = activeOrderNovelties.length + historyOrderNovelties.length;
       if (hasOrdersNotif && hasTicketsNotif) {
         notifTitle = 'Tienes novedades en tus pedidos y respuestas nuevas de soporte';
       } else if (hasOrdersNotif) {
-        notifTitle = `Novedad: Tienes ${orderNovelties.length} actualización(es) en tus despachos`;
+        notifTitle = `Novedad: Tienes ${totalOrderNovelties} actualización(es) en tus despachos`;
       } else if (hasTicketsNotif) {
         notifTitle = `Novedad: Tienes ${ticketNovelties.length} respuesta(s) nueva(s) en tus tickets de soporte`;
       }
@@ -2580,8 +2685,8 @@
             <p class="product-desc">${product.presentacion} — ${product.descripcion}</p>
             <div class="product-footer">
               <div class="product-footer-top">
-                <span style="font-size:0.75rem; color:var(--text-muted);">Precio unitario</span>
-                <div>
+                <span class="product-price-label">Precio unitario</span>
+                <div class="product-price-box">
                   ${
                     product.precio_anterior
                       ? `<span class="product-price-old">${formatCurrency(product.precio_anterior)}</span>`
@@ -2604,9 +2709,9 @@
                   />
                   <button type="button" class="bulk-step-btn" data-card-qty-step="${product.id}" data-delta="1">+</button>
                 </div>
-                <button type="button" class="btn-add-product" data-add-product-id="${product.id}">
+                <button type="button" class="btn-add-product" data-add-product-id="${product.id}" aria-label="Añadir ${product.nombre} al carrito">
                   <span class="material-symbols-rounded">add_shopping_cart</span>
-                  <span>Añadir</span>
+                  <span class="btn-add-label">Añadir</span>
                 </button>
               </div>
             </div>
@@ -3098,6 +3203,31 @@
       const isMatch = sec.getAttribute('data-profile-window') === state.activeProfileTab;
       sec.classList.toggle('hidden', !state.user || !isMatch);
     });
+
+    if (state.user && Array.isArray(state.customerOrders)) {
+      if (state.activeProfileTab === 'pedidos' && state.customerExpandedOrderIds instanceof Set) {
+        let markedAny = false;
+        state.customerOrders.forEach((ord) => {
+          if (
+            ['pendiente', 'en_proceso', 'en_camino'].includes(ord.estado) &&
+            state.customerExpandedOrderIds.has(ord.id)
+          ) {
+            if (markOrderSeenQuietly(ord.id, ord.estado)) markedAny = true;
+            document.getElementById(`orderPulseDot_${ord.id}`)?.remove();
+          }
+        });
+        if (markedAny) syncUserNotificationDots();
+      } else if (state.activeProfileTab === 'historial') {
+        let markedHist = false;
+        state.customerOrders.forEach((ord) => {
+          if (['entregado', 'cancelado'].includes(ord.estado) && hasCustomerOrderNovelty(ord)) {
+            if (markOrderSeenQuietly(ord.id, ord.estado)) markedHist = true;
+            document.getElementById(`orderPulseDot_${ord.id}`)?.remove();
+          }
+        });
+        if (markedHist) syncUserNotificationDots();
+      }
+    }
 
     if (state.activeProfileTab === 'direcciones' && state.user) {
       setupInteractiveCoverageMap('addressMapCanvas');
@@ -4519,57 +4649,57 @@
       const companyCard = document.getElementById('companySummaryCard');
       if (companyCard) {
         companyCard.innerHTML = `
-          <div class="company-card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom:0.45rem;">
-            <div class="company-card-header-left" style="display:flex; align-items:center; gap:0.65rem;">
+          <div class="company-card-header">
+            <div class="company-card-header-left">
               <div>
-                <strong style="font-size:1.1rem; display:block; font-weight:800;">Información Comercial y Facturación</strong>
+                <strong class="company-card-title">Información Comercial y Facturación</strong>
               </div>
             </div>
-            <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
-              <button type="button" class="btn-secondary" id="btnToggleAddAddressSection" style="padding:0.58rem 1.25rem; font-size:0.86rem; display:inline-flex; align-items:center; gap:0.45rem;">
-                <span class="material-symbols-rounded" style="font-size:1.15rem;">add_location_alt</span>
+            <div class="company-card-actions">
+              <button type="button" class="btn-secondary btn-add-addr-toggle" id="btnToggleAddAddressSection">
+                <span class="material-symbols-rounded">add_location_alt</span>
                 <span id="toggleAddAddressBtnText">Añadir Dirección</span>
               </button>
               <button type="button" class="btn-profile-pencil-round" id="btnToggleProfileEdit" title="Editar información comercial" aria-label="Editar o Guardar datos comerciales">
-                <span class="material-symbols-rounded" id="btnToggleProfileEditIcon" style="font-size:1.2rem;">edit</span>
-                <span class="btn-pencil-label">Guardar Cambios</span>
+                <span class="material-symbols-rounded" id="btnToggleProfileEditIcon">edit</span>
+                <span class="btn-pencil-label">Guardar</span>
               </button>
               <button type="button" class="btn-profile-cancel-edit hidden" id="btnCancelProfileEdit" title="Cancelar edición" aria-label="Cancelar edición">
-                <span class="material-symbols-rounded" style="font-size:1.15rem;">close</span>
+                <span class="material-symbols-rounded">close</span>
               </button>
             </div>
           </div>
 
-          <div id="companyStaticGrid" class="company-inline-edit-grid" style="margin-top:0.35rem;">
-            <div style="background:var(--bg-elevated); padding:0.75rem 1rem; border-radius:var(--radius-md); border:1px solid var(--border-strong);">
-              <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Titular de la Cuenta</span>
-              <strong id="staticProfileNombre" style="font-size:0.96rem; color:var(--text-primary); font-weight:800; display:block; word-break:break-word;">
+          <div id="companyStaticGrid" class="company-inline-edit-grid">
+            <div class="company-static-cell">
+              <span class="company-static-label">Titular de la Cuenta</span>
+              <strong id="staticProfileNombre" class="company-static-value">
                 ${state.user.nombre_completo || state.user.username || 'No registrado'}
               </strong>
             </div>
-            <div style="background:var(--bg-elevated); padding:0.75rem 1rem; border-radius:var(--radius-md); border:1px solid var(--border-strong);">
-              <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Empresa / Negocio</span>
-              <strong id="staticProfileEmpresa" style="font-size:0.96rem; color:var(--text-primary); font-weight:800; display:block; word-break:break-word;">
+            <div class="company-static-cell">
+              <span class="company-static-label">Empresa / Negocio</span>
+              <strong id="staticProfileEmpresa" class="company-static-value">
                 ${state.user.empresa || 'Cuenta Personal / Hogar'}
               </strong>
             </div>
-            <div style="background:var(--bg-elevated); padding:0.75rem 1rem; border-radius:var(--radius-md); border:1px solid var(--border-strong);">
-              <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Documento de Identificación</span>
-              <strong id="staticProfileDocumento" style="font-size:0.96rem; color:var(--text-primary); font-weight:800; display:block; word-break:break-word;">
+            <div class="company-static-cell">
+              <span class="company-static-label">Documento de Identificación</span>
+              <strong id="staticProfileDocumento" class="company-static-value">
                 ${state.user.numero_documento ? `${state.user.tipo_documento || 'CC'}: ${state.user.numero_documento}` : 'No registrado'}
               </strong>
             </div>
-            <div style="background:var(--bg-elevated); padding:0.75rem 1rem; border-radius:var(--radius-md); border:1px solid var(--border-strong);">
-              <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Contacto Principal</span>
-              <strong id="staticProfileTelefono" style="font-size:0.96rem; color:var(--text-primary); font-weight:800; display:block; word-break:break-word;">
+            <div class="company-static-cell">
+              <span class="company-static-label">Contacto Principal</span>
+              <strong id="staticProfileTelefono" class="company-static-value">
                 ${state.user.telefono || 'No registrado'}
               </strong>
             </div>
           </div>
 
-          <form id="inlineProfileForm" class="company-inline-edit-grid hidden" onsubmit="return false;" style="margin-top:0.35rem;">
+          <form id="inlineProfileForm" class="company-inline-edit-grid hidden" onsubmit="return false;">
             <div class="form-group" style="margin:0;">
-              <label for="inlineProfileNombre" style="font-size:0.78rem; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">
+              <label for="inlineProfileNombre">
                 Titular de la Cuenta / Nombre *
               </label>
               <input
@@ -4582,7 +4712,7 @@
               />
             </div>
             <div class="form-group" style="margin:0;">
-              <label for="inlineProfileEmpresa" style="font-size:0.78rem; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">
+              <label for="inlineProfileEmpresa">
                 Empresa / Negocio (Opcional)
               </label>
               <input
@@ -4594,11 +4724,11 @@
               />
             </div>
             <div class="form-group" style="margin:0;">
-              <label style="font-size:0.78rem; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">
+              <label>
                 Documento de Identificación
               </label>
-              <div style="display:grid; grid-template-columns: 110px 1fr; gap:0.45rem;">
-                <select id="inlineProfileTipoDoc" class="modal-input" style="height:44px; padding:0 0.5rem; cursor:pointer;">
+              <div class="doc-split-grid">
+                <select id="inlineProfileTipoDoc" class="modal-input">
                   <option value="CC" ${state.user.tipo_documento === 'CC' ? 'selected' : ''}>CC</option>
                   <option value="NIT" ${state.user.tipo_documento === 'NIT' ? 'selected' : ''}>NIT</option>
                   <option value="CE" ${state.user.tipo_documento === 'CE' ? 'selected' : ''}>CE</option>
@@ -4614,7 +4744,7 @@
               </div>
             </div>
             <div class="form-group" style="margin:0;">
-              <label for="inlineProfileTelefono" style="font-size:0.78rem; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">
+              <label for="inlineProfileTelefono">
                 Contacto Principal (Celular) *
               </label>
               <input
@@ -4859,6 +4989,23 @@
       if (activeOrders.length > 0) state.customerExpandedOrderIds.add(activeOrders[0].id);
     }
 
+    // Si estamos en perfil y el pedido está visible/expandido en la pestaña activa, marcarlo como visto automáticamente
+    // (evita que el cliente tenga que colapsar y volver a desplegar su pedido al regresar de la pasarela de pagos)
+    if (CURRENT_PAGE === 'perfil' && state.user) {
+      const currentTab = state.activeProfileTab || 'pedidos';
+      if (currentTab === 'pedidos') {
+        activeOrders.forEach((ord) => {
+          if (state.customerExpandedOrderIds.has(ord.id)) {
+            markOrderSeenQuietly(ord.id, ord.estado);
+          }
+        });
+      } else if (currentTab === 'historial') {
+        historyOrdersAll.forEach((ord) => {
+          markOrderSeenQuietly(ord.id, ord.estado);
+        });
+      }
+    }
+
     const histQuery = document.getElementById('custHistorySearchInput')?.value || '';
     const histStatus = document.getElementById('custHistoryStatusFilter')?.value || 'todos';
     const histZone = document.getElementById('custHistoryZoneFilter')?.value || 'todas';
@@ -4989,7 +5136,7 @@
                                  <div class="timeline-icon-circle">
                                    <span class="material-symbols-rounded">warehouse</span>
                                  </div>
-                                 <span class="timeline-label-title">2. En Proceso</span>
+                                 <span class="timeline-label-title"><span class="tl-desktop-only">2. En Proceso</span><span class="tl-mobile-only">2. Bodega</span></span>
                                  <span class="timeline-label-sub">En bodega</span>
                                </div>
 
@@ -4997,7 +5144,7 @@
                                  <div class="timeline-icon-circle">
                                    <span class="material-symbols-rounded">local_shipping</span>
                                  </div>
-                                 <span class="timeline-label-title">3. En Reparto</span>
+                                 <span class="timeline-label-title"><span class="tl-desktop-only">3. En Reparto</span><span class="tl-mobile-only">3. En Ruta</span></span>
                                  <span class="timeline-label-sub">En camino</span>
                                </div>
 
@@ -5021,7 +5168,7 @@
 
                       <!-- Barra de acciones del pedido: Ver Factura, Contactar a Soporte y Cancelar (si aún no está en envío) -->
                       <div class="customer-order-actions-bar">
-                        <div style="font-size:0.79rem; color:var(--text-secondary);">
+                        <div class="customer-order-actions-note">
                           ${
                             isActiveSection
                               ? canCustomerCancel
@@ -5035,19 +5182,19 @@
                             isActiveSection
                               ? `<button type="button" class="btn-secondary" data-view-cust-invoice="${ord.id}">
                                    <span class="material-symbols-rounded">receipt_long</span>
-                                   <span>Ver Factura</span>
+                                   <span class="btn-label-desktop">Ver Factura</span><span class="btn-label-mobile">Factura</span>
                                  </button>`
                               : ''
                           }
                           <button type="button" class="btn-secondary" data-cust-contact-support="${ord.id}">
                             <span class="material-symbols-rounded">support_agent</span>
-                            <span>Contactar a Soporte</span>
+                            <span class="btn-label-desktop">Contactar a Soporte</span><span class="btn-label-mobile">Soporte</span>
                           </button>
                           ${
                             isActiveSection && canCustomerCancel
                               ? `<button type="button" class="btn-cancel-order" data-cust-toggle-cancel="${ord.id}">
                                    <span class="material-symbols-rounded">cancel</span>
-                                   <span>Cancelar Pedido</span>
+                                   <span class="btn-label-desktop">Cancelar Pedido</span><span class="btn-label-mobile">Cancelar</span>
                                  </button>`
                               : ''
                           }
@@ -5151,6 +5298,7 @@
           razon_cancelacion: reason,
           reembolso_estado
         });
+        markOrderSeenQuietly(id, 'cancelado');
 
         if (state.serverApiV3) {
           try {

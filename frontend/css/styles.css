@@ -7801,3 +7801,1171 @@ body[data-page="perfil"] [data-profile-window] .block-header .section-title {
   margin-top: 0 !important;
   margin-bottom: 0.35rem !important;
 }
+
+
+/* ==========================================================================
+   SISTEMA UNIFICADO DE CONSISTENCIA ESCRITORIO <-> MÓVIL (UI/UX COMPACTO Y LIMPIO)
+   ========================================================================== */
+
+/* 1. Etiquetas adaptativas y componentes compartidos (Escritorio por defecto) */
+.btn-label-mobile,
+.tl-mobile-only {
+  display: none;
+}
+
+.btn-label-desktop,
+.tl-desktop-only {
+  display: inline;
+}
+
+.product-price-label {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
+.customer-order-actions-note {
+  font-size: 0.79rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Tarjeta de Usuario y Badges en el Menú Lateral Móvil (Consistente con Escritorio) */
+.mobile-drawer-user-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  margin-bottom: 0.35rem;
+  border-radius: 14px;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.mobile-drawer-user-card:hover {
+  border-color: var(--brand-red);
+}
+
+.mobile-drawer-avatar {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 50%;
+  background: rgba(224, 26, 44, 0.14);
+  color: var(--brand-red);
+  border: 1.5px solid rgba(224, 26, 44, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading, 'Outfit', sans-serif);
+  font-weight: 800;
+  font-size: 0.95rem;
+  overflow: hidden;
+}
+
+.mobile-drawer-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.mobile-drawer-user-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.mobile-drawer-user-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-drawer-user-meta {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-drawer-user-chevron {
+  font-size: 1.15rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.mobile-nav-link {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.mobile-nav-link-accent {
+  background-color: rgba(224, 26, 44, 0.1) !important;
+  color: var(--brand-red) !important;
+  font-weight: 700 !important;
+}
+
+.mobile-nav-right-meta {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.mobile-nav-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.mobile-nav-pill-red {
+  background-color: var(--brand-red);
+  border-color: var(--brand-red);
+  color: #ffffff;
+}
+
+.mobile-nav-divider {
+  height: 1px;
+  background-color: var(--border-subtle);
+  margin: 0.5rem 0.4rem;
+}
+
+.mobile-nav-logout {
+  color: #ef4444 !important;
+}
+
+/* Tarjetas de Información Comercial y Seguridad (Mi Cuenta) */
+.company-card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.company-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.btn-add-addr-toggle {
+  padding: 0.5rem 0.95rem;
+  font-size: 0.84rem;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+}
+
+.company-static-cell {
+  min-width: 0;
+}
+
+.company-static-label {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.company-static-value {
+  display: block;
+  font-size: 0.92rem;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.doc-split-grid {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.security-summary-card {
+  margin-bottom: 1.25rem;
+}
+
+.security-card-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.security-card-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.security-card-icon-badge {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  border-radius: 12px;
+  background: rgba(224, 26, 44, 0.12);
+  color: var(--brand-red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.security-card-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.security-card-title {
+  font-size: 1rem;
+  display: block;
+  color: var(--text-primary);
+}
+
+.security-card-desc {
+  margin: 0.18rem 0 0;
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+  line-height: 1.38;
+}
+
+.security-card-actions {
+  flex-shrink: 0;
+}
+
+.security-pwd-btn {
+  padding: 0.56rem 1.05rem;
+  font-size: 0.85rem;
+  border-radius: var(--radius-pill);
+}
+
+/* Prevención global de desbordamiento horizontal en formularios Auth y Selectores */
+.wide-auth-container,
+.wide-auth-info,
+.wide-auth-card,
+.auth-forms-viewport,
+.auth-form-panel {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.address-select-row {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.address-select-row .custom-select-wrapper {
+  flex: 1 1 0% !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: calc(100% - 52px);
+}
+
+/* 2. Ajustes para Tabletas y Móviles (<= 1080px): Auth sin recortes y Buscador Integrado al Tema */
+@media (max-width: 1080px) {
+  .wide-auth-container {
+    grid-template-columns: minmax(0, 1fr) !important;
+    overflow: hidden;
+  }
+
+  /* Ocultar buscador de productos en Perfil y Pagos (igual que en escritorio) */
+  body[data-page="perfil"] .mobile-search-bar-row,
+  body[data-page="pagos"] .mobile-search-bar-row {
+    display: none !important;
+  }
+
+  /* Buscador móvil armónico con el tema claro/oscuro (reemplaza la franja negra rígida) */
+  .mobile-search-bar-row {
+    background-color: var(--bg-header) !important;
+    border-top: 1px solid var(--border-subtle) !important;
+    border-bottom: none !important;
+    padding: 0.42rem 0.85rem 0.55rem !important;
+  }
+
+  .mobile-search-box {
+    background-color: var(--bg-elevated) !important;
+    border: 1px solid var(--border-strong) !important;
+    border-radius: 999px !important;
+    padding: 0.15rem 0.22rem 0.15rem 0.85rem !important;
+    box-shadow: var(--shadow-sm) !important;
+  }
+
+  .mobile-search-box:focus-within {
+    border-color: var(--brand-red) !important;
+    box-shadow: 0 0 0 3px rgba(224, 26, 44, 0.14) !important;
+  }
+
+  .mobile-search-input {
+    color: var(--text-primary) !important;
+    background: transparent !important;
+  }
+
+  .mobile-search-input::placeholder {
+    color: var(--text-muted) !important;
+  }
+
+  .mobile-search-submit-btn {
+    border-radius: 999px !important;
+    background-color: var(--brand-red) !important;
+    color: #ffffff !important;
+  }
+}
+
+/* 3. Experiencia Móvil Completa Consistente con Escritorio (<= 768px) */
+@media (max-width: 768px) {
+  .btn-label-desktop,
+  .tl-desktop-only,
+  .tab-label-extra {
+    display: none !important;
+  }
+
+  .btn-label-mobile,
+  .tl-mobile-only {
+    display: inline !important;
+  }
+
+  /* Header idéntico y centrado en todas las páginas (incluyendo perfil.html) */
+  body[data-page="perfil"] header .header-container,
+  body[data-page="pagos"] header .header-container,
+  header .header-container {
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) auto !important;
+    justify-content: initial !important;
+    align-items: center !important;
+    padding: 0.48rem 0.65rem !important;
+    gap: 0.35rem !important;
+  }
+
+  body[data-page="perfil"] .header-brand-left,
+  .header-brand-left {
+    justify-self: center !important;
+  }
+
+  body[data-page="perfil"] .brand-text-wrapper,
+  .header-brand-left .brand-text-wrapper {
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  .mobile-search-bar-row {
+    padding: 0.35rem 0.7rem 0.48rem !important;
+  }
+
+  .mobile-search-input {
+    height: 30px !important;
+    font-size: 0.8rem !important;
+  }
+
+  .mobile-search-submit-btn {
+    width: 32px !important;
+    height: 30px !important;
+  }
+
+  .mobile-search-submit-btn .material-symbols-rounded {
+    font-size: 1.05rem !important;
+  }
+
+  /* Menú Hamburguesa compacto y proporcionado */
+  .mobile-nav-drawer {
+    width: min(84vw, 315px) !important;
+  }
+
+  .mobile-nav-header {
+    padding: 0.85rem 1rem !important;
+  }
+
+  .mobile-nav-body {
+    padding: 0.75rem 0.8rem 1.5rem !important;
+    gap: 0.18rem !important;
+  }
+
+  .mobile-nav-section-label {
+    font-size: 0.66rem !important;
+    margin: 0.65rem 0.45rem 0.25rem !important;
+    letter-spacing: 0.07em !important;
+  }
+
+  .mobile-nav-link {
+    padding: 0.56rem 0.7rem !important;
+    font-size: 0.84rem !important;
+    border-radius: 10px !important;
+    gap: 0.65rem !important;
+  }
+
+  .mobile-nav-link .material-symbols-rounded {
+    font-size: 1.18rem !important;
+  }
+
+  /* Carrusel Principal: recorte limpio de barra de progreso y proporciones nítidas */
+  .hero-carousel {
+    height: 248px !important;
+    border-radius: 16px !important;
+    overflow: hidden !important;
+    isolation: isolate;
+  }
+
+  .slide-title {
+    font-size: 1.04rem !important;
+  }
+
+  .slide-description {
+    font-size: 0.72rem !important;
+  }
+
+  .slide-price-value {
+    font-size: 1rem !important;
+  }
+
+  .slide-cta-btn {
+    padding: 0.4rem 0.82rem !important;
+    font-size: 0.74rem !important;
+  }
+
+  /* Tira de Beneficios (.trust-strip): tarjetas compactas y proporcionadas */
+  .trust-strip {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0.48rem !important;
+    margin-bottom: 1.1rem !important;
+  }
+
+  .trust-item {
+    padding: 0.6rem 0.78rem !important;
+    gap: 0.65rem !important;
+    border-radius: 13px !important;
+    align-items: center !important;
+  }
+
+  .trust-icon {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    border-radius: 10px !important;
+  }
+
+  .trust-icon .material-symbols-rounded {
+    font-size: 1.15rem !important;
+  }
+
+  .trust-title {
+    font-size: 0.82rem !important;
+    line-height: 1.22 !important;
+    margin-bottom: 1px !important;
+  }
+
+  .trust-desc {
+    font-size: 0.71rem !important;
+    line-height: 1.3 !important;
+  }
+
+  /* Encabezados de sección consistentes */
+  .section-eyebrow {
+    font-size: 0.62rem !important;
+    padding: 0.22rem 0.55rem !important;
+    gap: 0.28rem !important;
+    margin-bottom: 0.35rem !important;
+  }
+
+  .section-eyebrow .material-symbols-rounded {
+    font-size: 0.88rem !important;
+  }
+
+  .section-title,
+  .page-hero-title {
+    font-size: 1.16rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .section-subtitle,
+  .page-hero-desc {
+    font-size: 0.76rem !important;
+    line-height: 1.36 !important;
+  }
+
+  /* Catálogo en Cuadrícula de 2 Columnas (cercano a escritorio, sin tarjetas gigantes) */
+  .products-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.58rem !important;
+  }
+
+  .product-card {
+    border-radius: 14px !important;
+    min-width: 0 !important;
+  }
+
+  .product-image-wrap {
+    height: 128px !important;
+  }
+
+  .product-category-tag {
+    top: 0.45rem !important;
+    left: 0.45rem !important;
+    padding: 0.16rem 0.45rem !important;
+    font-size: 0.58rem !important;
+  }
+
+  .product-body {
+    padding: 0.65rem 0.65rem 0.7rem !important;
+    gap: 0.32rem !important;
+  }
+
+  .product-title {
+    font-size: 0.82rem !important;
+    line-height: 1.24 !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    min-height: 2.02em;
+  }
+
+  .product-desc {
+    font-size: 0.68rem !important;
+    line-height: 1.28 !important;
+    margin-bottom: 0.25rem !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+
+  .product-footer {
+    padding-top: 0.42rem !important;
+    gap: 0.42rem !important;
+  }
+
+  .product-price-label {
+    font-size: 0.58rem !important;
+  }
+
+  .product-price {
+    font-size: 0.96rem !important;
+    line-height: 1.15 !important;
+  }
+
+  .product-actions-row {
+    gap: 0.32rem !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  .bulk-qty-box {
+    padding: 2px !important;
+    border-radius: 999px !important;
+    gap: 1px !important;
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: space-between;
+  }
+
+  .bulk-qty-btn {
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 24px !important;
+    font-size: 0.88rem !important;
+  }
+
+  .bulk-qty-input {
+    width: 28px !important;
+    height: 24px !important;
+    font-size: 0.76rem !important;
+    padding: 0 !important;
+  }
+
+  .btn-add-product {
+    padding: 0.42rem 0.6rem !important;
+    min-height: 30px !important;
+    height: 30px !important;
+    font-size: 0.74rem !important;
+    border-radius: 999px !important;
+    gap: 0.25rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  .btn-add-product .material-symbols-rounded {
+    font-size: 1rem !important;
+  }
+
+  /* Vista de Invitado (Iniciar Sesión / Crear Cuenta) sin desbordamiento derecho */
+  .wide-auth-container {
+    padding: 0.95rem 0.8rem !important;
+    gap: 0.85rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .wide-auth-info .section-eyebrow {
+    display: inline-flex !important;
+  }
+
+  .wide-auth-benefits {
+    display: none !important;
+  }
+
+  .wide-auth-card {
+    padding: 0.85rem 0.72rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .auth-tabs {
+    padding: 0.26rem !important;
+    margin-bottom: 0.85rem !important;
+  }
+
+  .auth-tab {
+    padding: 0.48rem 0.5rem !important;
+    font-size: 0.8rem !important;
+  }
+
+  .btn-google-oauth {
+    padding: 0.58rem 0.85rem !important;
+    font-size: 0.82rem !important;
+    min-height: 40px !important;
+  }
+
+  .auth-divider {
+    margin: 0.7rem 0 !important;
+    font-size: 0.74rem !important;
+  }
+
+  .auth-form .form-row-2 {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0.65rem !important;
+  }
+
+  .auth-form label,
+  .form-group label {
+    font-size: 0.76rem !important;
+    margin-bottom: 0.25rem !important;
+  }
+
+  .modal-input {
+    padding: 0.56rem 0.8rem !important;
+    font-size: 0.84rem !important;
+    min-height: 38px !important;
+  }
+
+  .auth-form .btn-primary.btn-full {
+    padding: 0.62rem 1rem !important;
+    font-size: 0.86rem !important;
+    min-height: 40px !important;
+  }
+
+  /* Banner de Perfil Activo (#loggedProfileBanner): compacto y botones en una sola fila */
+  .logged-profile-banner {
+    padding: 0.9rem 0.9rem !important;
+    gap: 0.75rem !important;
+    border-radius: 16px !important;
+  }
+
+  .logged-profile-left {
+    gap: 0.7rem !important;
+    align-items: center !important;
+  }
+
+  .logged-avatar-large {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    font-size: 1.15rem !important;
+  }
+
+  .logged-profile-left .page-hero-title {
+    font-size: 1.06rem !important;
+    margin-bottom: 1px !important;
+  }
+
+  .logged-profile-text-box .page-hero-desc {
+    font-size: 0.73rem !important;
+    word-break: break-word !important;
+  }
+
+  .logged-user-extra {
+    font-size: 0.69rem !important;
+    margin-top: 1px !important;
+  }
+
+  .logged-profile-actions {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 0.45rem !important;
+    width: 100% !important;
+  }
+
+  .logged-profile-actions .btn-primary,
+  .logged-profile-actions .btn-secondary {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    padding: 0.44rem 0.55rem !important;
+    min-height: 34px !important;
+    font-size: 0.76rem !important;
+    border-radius: 999px !important;
+    gap: 0.3rem !important;
+    white-space: nowrap !important;
+    justify-content: center !important;
+  }
+
+  .logged-profile-actions .material-symbols-rounded {
+    font-size: 1rem !important;
+  }
+
+  /* Barra de 4 Pestañas Horizontal Deslizante en Móvil (igual que en escritorio) */
+  body[data-page="perfil"] .customer-profile-tabs {
+    margin-top: 0.85rem !important;
+    margin-bottom: 1rem !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.22rem !important;
+    padding: 0.28rem !important;
+    border-radius: 14px !important;
+  }
+
+  .customer-tab-btn {
+    position: relative !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.16rem !important;
+    padding: 0.45rem 0.2rem !important;
+    min-height: 52px !important;
+    border-radius: 11px !important;
+    font-size: 0.68rem !important;
+    text-align: center !important;
+    min-width: 0 !important;
+  }
+
+  .customer-tab-btn .material-symbols-rounded {
+    font-size: 1.15rem !important;
+  }
+
+  .customer-tab-label {
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+  }
+
+  .customer-tab-count {
+    position: absolute !important;
+    top: 3px !important;
+    right: 4px !important;
+    min-width: 16px !important;
+    height: 15px !important;
+    padding: 0 4px !important;
+    font-size: 0.56rem !important;
+    line-height: 15px !important;
+    margin-left: 0 !important;
+  }
+
+  .customer-tab-btn .tab-notification-dot {
+    position: absolute !important;
+    top: 4px !important;
+    left: 6px !important;
+    width: 7px !important;
+    height: 7px !important;
+    margin: 0 !important;
+  }
+
+  /* Timeline de 4 Pasos Conectada Horizontalmente en Móvil (NO 4 íconos sueltos) */
+  .order-timeline-4steps {
+    position: relative !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.15rem !important;
+    padding: 6px 0 4px !important;
+    margin: 0.65rem 0 0.45rem !important;
+  }
+
+  .order-timeline-line-bg {
+    display: block !important;
+    position: absolute !important;
+    top: 22px !important;
+    left: 12.5% !important;
+    right: 12.5% !important;
+    height: 3px !important;
+    z-index: 1 !important;
+  }
+
+  .timeline-point {
+    gap: 0.22rem !important;
+    min-width: 0 !important;
+  }
+
+  .timeline-icon-circle {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+  }
+
+  .timeline-icon-circle .material-symbols-rounded {
+    font-size: 1.05rem !important;
+  }
+
+  .timeline-label-title {
+    font-size: 0.64rem !important;
+    line-height: 1.15 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+  }
+
+  .timeline-label-sub {
+    font-size: 0.56rem !important;
+    line-height: 1.1 !important;
+  }
+
+  /* Acordeón de Pedido, Botones de Acción y Recibo Térmico en Móvil */
+  .customer-order-header {
+    padding: 0.8rem 0.85rem !important;
+    gap: 0.55rem !important;
+  }
+
+  .customer-order-title-row {
+    gap: 0.4rem !important;
+    flex-wrap: wrap !important;
+  }
+
+  .customer-order-title-row strong {
+    font-size: 0.92rem !important;
+  }
+
+  .customer-order-submeta {
+    font-size: 0.72rem !important;
+    line-height: 1.32 !important;
+  }
+
+  .customer-order-accordion.is-expanded .customer-order-body-content {
+    padding: 0.55rem 0.8rem 0.95rem !important;
+  }
+
+  .order-item-chip {
+    font-size: 0.7rem !important;
+    padding: 0.22rem 0.52rem !important;
+  }
+
+  .customer-order-actions-bar {
+    gap: 0.55rem !important;
+    padding-top: 0.65rem !important;
+    margin-top: 0.65rem !important;
+  }
+
+  .customer-order-actions-note {
+    font-size: 0.72rem !important;
+  }
+
+  .customer-order-actions-btns {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 0.38rem !important;
+    width: 100% !important;
+  }
+
+  .customer-order-actions-btns button {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    padding: 0.42rem 0.45rem !important;
+    min-height: 34px !important;
+    font-size: 0.72rem !important;
+    border-radius: 999px !important;
+    gap: 0.24rem !important;
+    white-space: nowrap !important;
+    justify-content: center !important;
+  }
+
+  .customer-order-actions-btns button .material-symbols-rounded {
+    font-size: 0.96rem !important;
+  }
+
+  /* Recibo Térmico sin desbordamiento en pantallas estrechas */
+  .emulated-thermal-receipt {
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .thermal-receipt-body {
+    padding: 0.85rem 0.68rem 1rem !important;
+    font-size: 0.7rem !important;
+  }
+
+  .thermal-brand-title {
+    font-size: 0.96rem !important;
+  }
+
+  .thermal-items-header,
+  .thermal-item-row {
+    grid-template-columns: 28px minmax(0, 1fr) 62px 68px !important;
+    gap: 4px !important;
+    font-size: 0.66rem !important;
+  }
+
+  .thermal-simulated-barcode {
+    width: min(200px, 85%) !important;
+    height: 32px !important;
+  }
+
+  /* Tarjetas de Mi Cuenta (Información Comercial + Seguridad + Direcciones) */
+  .company-card-header {
+    gap: 0.6rem !important;
+    align-items: center !important;
+  }
+
+  .company-card-title {
+    font-size: 0.94rem !important;
+  }
+
+  .company-card-actions {
+    gap: 0.4rem !important;
+  }
+
+  .btn-add-addr-toggle {
+    padding: 0.38rem 0.72rem !important;
+    min-height: 34px !important;
+    font-size: 0.75rem !important;
+    gap: 0.28rem !important;
+  }
+
+  .btn-add-addr-toggle .material-symbols-rounded {
+    font-size: 0.98rem !important;
+  }
+
+  .btn-profile-pencil-round {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+  }
+
+  .btn-profile-pencil-round.is-editing {
+    width: auto !important;
+    min-width: 124px !important;
+    padding: 0 0.75rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  .btn-profile-cancel-edit {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+  }
+
+  .company-static-label {
+    font-size: 0.66rem !important;
+  }
+
+  .company-static-value {
+    font-size: 0.82rem !important;
+  }
+
+  .security-card-inner {
+    gap: 0.7rem !important;
+  }
+
+  .security-card-icon-badge {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    border-radius: 10px !important;
+  }
+
+  .security-card-icon-badge .material-symbols-rounded {
+    font-size: 1.15rem !important;
+  }
+
+  .security-card-title {
+    font-size: 0.9rem !important;
+  }
+
+  .security-card-desc {
+    font-size: 0.74rem !important;
+  }
+
+  .security-card-actions {
+    width: 100%;
+  }
+
+  .security-pwd-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 0.46rem 0.85rem !important;
+    min-height: 36px !important;
+    font-size: 0.78rem !important;
+  }
+
+  /* Pasarela de Pagos (pagos.html): fila de dirección sin salirse y píldoras deslizables */
+  .address-select-row {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+  }
+
+  .address-select-row .custom-select-wrapper {
+    flex: 1 1 0% !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: calc(100% - 46px) !important;
+  }
+
+  .address-select-row .custom-select-trigger {
+    min-height: 40px !important;
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.8rem !important;
+  }
+
+  .btn-icon-manage {
+    flex: 0 0 40px !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+  }
+
+  .meta-municipalities-bar {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    gap: 0.38rem !important;
+    padding-bottom: 0.35rem !important;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .meta-municipalities-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .municipality-pill {
+    flex-shrink: 0 !important;
+    padding: 0.34rem 0.7rem !important;
+    font-size: 0.73rem !important;
+  }
+
+  .wizard-footer-actions button,
+  .wizard-footer-actions a {
+    padding: 0.52rem 0.9rem !important;
+    font-size: 0.8rem !important;
+    min-height: 38px !important;
+  }
+
+  /* Soporte y Tickets en Móvil */
+  .support-card-header-bar {
+    gap: 0.7rem !important;
+    padding-bottom: 0.85rem !important;
+  }
+
+  .support-card-title {
+    font-size: 1.05rem !important;
+  }
+
+  .btn-toggle-new-ticket {
+    padding: 0.48rem 0.9rem !important;
+    font-size: 0.78rem !important;
+    border-radius: 999px !important;
+  }
+
+  /* Modales y Pop-ups proporcionados en Móvil */
+  .modal-card {
+    padding: 1.15rem 1rem !important;
+    border-radius: 18px !important;
+    width: calc(100vw - 1.5rem) !important;
+    max-width: 420px !important;
+  }
+
+  .modal-footer-btns,
+  .modal-actions {
+    gap: 0.5rem !important;
+  }
+
+  .modal-footer-btns button,
+  .modal-actions button {
+    padding: 0.52rem 0.85rem !important;
+    font-size: 0.8rem !important;
+    min-height: 38px !important;
+  }
+
+  /* Panel Operativo (panel.html) en Móvil: KPIs en 2 columnas y filas limpias */
+  .admin-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.55rem !important;
+  }
+
+  .kpi-card {
+    padding: 0.8rem 0.75rem !important;
+    border-radius: 14px !important;
+  }
+
+  .kpi-value {
+    font-size: 1.18rem !important;
+  }
+
+  .admin-user-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.65rem !important;
+    padding: 0.85rem !important;
+  }
+
+  .admin-user-row .custom-select-wrapper {
+    width: 100% !important;
+  }
+}
+
+/* 4. Teléfonos Compactos (<= 480px): Botón de carrito icónico para que "- 1 +" y Carrito quepan en 1 fila */
+@media (max-width: 480px) {
+  .btn-add-product .btn-add-label {
+    display: none !important;
+  }
+
+  .btn-add-product {
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 30px !important;
+    padding: 0 !important;
+    justify-content: center !important;
+  }
+}
