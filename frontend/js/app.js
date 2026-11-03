@@ -477,6 +477,10 @@
       localStorage.setItem('danillanos_user', JSON.stringify(normalizedUser));
       localStorage.setItem('danillanos_dirs', JSON.stringify(state.direcciones));
     } else {
+      state.customerOrders = [];
+      state.customerTickets = [];
+      state.staffOrders = [];
+      state.staffTickets = [];
       sessionStorage.removeItem('danillanos_token');
       sessionStorage.removeItem('danillanos_user');
       sessionStorage.removeItem('danillanos_dirs');
@@ -489,6 +493,7 @@
     renderSharedHeaderAuthUI();
     renderMobileHamburgerMenuContent();
     renderCartLiveAddressManager();
+    syncUserNotificationDots();
   }
 
   // ==========================================================================
@@ -4086,31 +4091,15 @@
     });
 
     /**
-     * Despliega un diálogo asistido de contingencia si el SDK de Google es bloqueado por extensiones del navegador.
+     * Informa en línea cuando el SDK de Google es bloqueado por extensiones o falta de red.
      */
-    async function fallbackManualGooglePrompt() {
-      const googleEmail = prompt(
-        'Acceso con Google:\nIngresa tu correo de Gmail:',
-        'cliente.danillanos@gmail.com'
+    function fallbackManualGooglePrompt() {
+      showAuthInlineFeedback(
+        'login',
+        'No se pudo abrir el servicio de Google. Verifica tu conexión o desactiva bloqueadores de ventanas emergentes.',
+        'error'
       );
-      if (!googleEmail) return;
-      const cleanName = googleEmail.split('@')[0].replace(/[._]/g, ' ');
-      handleGoogleLoginSuccess({
-        email: googleEmail,
-        nombre_completo: cleanName.charAt(0).toUpperCase() + cleanName.slice(1),
-        google_id: `google_${Date.now()}`
-      });
     }
-
-    document.querySelectorAll('[data-demo-email]').forEach((chip) => {
-      chip.addEventListener('click', () => {
-        const email = chip.getAttribute('data-demo-email');
-        tabLoginBtn?.click();
-        document.getElementById('loginEmail').value = email;
-        document.getElementById('loginPassword').value = 'Danillanos2026*';
-        loginForm?.requestSubmit();
-      });
-    });
 
     document.getElementById('btnLogoutProfile')?.addEventListener('click', () => {
       attemptUserLogout(() => {
@@ -4467,7 +4456,6 @@
     const supImageInput = document.getElementById('supImageInput');
     const supPreviewWrap = document.getElementById('supImagePreviewWrap');
     const supPreviewImg = document.getElementById('supImagePreview');
-    const btnSimulateSupImage = document.getElementById('btnSimulateSupImage');
     const btnClearSupImage = document.getElementById('btnClearSupImage');
 
     /**
@@ -4493,11 +4481,6 @@
       const reader = new FileReader();
       reader.onload = () => setSupportCustomerPhoto(reader.result);
       reader.readAsDataURL(supImageInput.files[0]);
-    });
-
-    btnSimulateSupImage?.addEventListener('click', () => {
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="300" viewBox="0 0 480 300"><rect width="480" height="300" fill="#141821"/><rect x="20" y="20" width="440" height="260" rx="16" fill="#1f2533" stroke="#f59e0b" stroke-width="3"/><text x="240" y="105" fill="#ffffff" font-family="sans-serif" font-size="19" font-weight="bold" text-anchor="middle">EVIDENCIA DEL CLIENTE</text><text x="240" y="145" fill="#fbbf24" font-family="sans-serif" font-size="15" font-weight="bold" text-anchor="middle">Consulta de Lote / Producto</text><text x="240" y="185" fill="#cbd5e1" font-family="sans-serif" font-size="13" text-anchor="middle">${new Date().toLocaleString('es-CO')}</text></svg>`;
-      setSupportCustomerPhoto('data:image/svg+xml;utf8,' + encodeURIComponent(svg));
     });
 
     btnClearSupImage?.addEventListener('click', () => setSupportCustomerPhoto(null));
@@ -4616,6 +4599,15 @@
       navOrds?.classList.add('hidden');
       navSoporte?.classList.add('hidden');
       document.querySelectorAll('[data-profile-window]').forEach((sec) => sec.classList.add('hidden'));
+      const tabActiveBadge = document.getElementById('tabActiveOrdersCount');
+      const tabAddrBadge = document.getElementById('addressCountBadge');
+      const tabHistBadge = document.getElementById('tabHistoryOrdersCount');
+      const tabTicketsBadge = document.getElementById('tabTicketsCount');
+      if (tabActiveBadge) tabActiveBadge.textContent = '0';
+      if (tabAddrBadge) tabAddrBadge.textContent = '0/5';
+      if (tabHistBadge) tabHistBadge.textContent = '0';
+      if (tabTicketsBadge) tabTicketsBadge.textContent = '0';
+      syncUserNotificationDots();
     } else {
       guestBox.classList.add('hidden');
       loggedBanner.classList.remove('hidden');
@@ -6522,16 +6514,6 @@
         return;
       }
 
-      // Generación de comprobante fotográfico simulado de entrega
-      const simPhotoBtn = e.target.closest('[data-driver-simulate-photo]');
-      if (simPhotoBtn) {
-        const id = Number(simPhotoBtn.getAttribute('data-driver-simulate-photo'));
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320" viewBox="0 0 480 320"><rect width="480" height="320" fill="#10131a"/><rect x="20" y="20" width="440" height="280" rx="18" fill="#191e2b" stroke="#22c55e" stroke-width="3"/><text x="240" y="115" fill="#ffffff" font-family="sans-serif" font-size="21" font-weight="bold" text-anchor="middle">ENTREGA PEDIDO #${id}</text><text x="240" y="155" fill="#cbd5e1" font-family="sans-serif" font-size="14" text-anchor="middle">${new Date().toLocaleString('es-CO')}</text><text x="240" y="195" fill="#4ade80" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">✔ Entregado Conforme</text></svg>`;
-        state.driverPhotosDraft[id] = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
-        renderEntregadorPanel();
-        return;
-      }
-
       // Registro de entrega finalizada con comprobante de recepción
       const completeBtn = e.target.closest('[data-driver-complete]');
       if (completeBtn) {
@@ -7966,10 +7948,6 @@
                       <span>Tomar Foto</span>
                       <input type="file" accept="image/*" capture="environment" class="hidden" data-driver-photo-input="${ord.id}" />
                     </label>
-                    <button type="button" class="btn-secondary" data-driver-simulate-photo="${ord.id}">
-                      <span class="material-symbols-rounded">add_a_photo</span>
-                      <span>Foto Instantánea</span>
-                    </button>
                     <a href="${singleGmapsUrl}" target="_blank" rel="noopener noreferrer" class="btn-secondary">
                       <span class="material-symbols-rounded">location_on</span>
                       <span>Maps</span>

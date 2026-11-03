@@ -8969,3 +8969,16 @@ body[data-page="perfil"] [data-profile-window] .block-header .section-title {
     justify-content: center !important;
   }
 }
+
+
+/* Garantía global de ocultación: ningún selector responsivo con !important debe mostrar nodos .hidden */
+.hidden,
+[hidden],
+body[data-page="perfil"] .customer-profile-tabs.hidden,
+body[data-page="perfil"] .logged-profile-banner.hidden,
+body[data-page="perfil"] [data-profile-window].hidden,
+.btn-label-desktop.hidden,
+.btn-label-mobile.hidden,
+.tab-notification-dot.hidden {
+  display: none !important;
+}
