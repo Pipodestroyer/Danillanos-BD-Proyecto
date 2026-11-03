@@ -17,6 +17,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 require('dotenv').config();
 
 const { pool, checkDatabaseConnection, dbConfig } = require('./config/db');
+const { hashLookup, hashPassword, encryptData } = require('./utils/security');
 const apiRouter = require('./routes/api');
 
 const app = express();
@@ -237,6 +238,64 @@ app.use((err, req, res, next) => {
 });
 
 /**
+ * Asegura que la cuenta de administrador principal exista en MySQL con el correo
+ * y la contraseña configurados en las variables de entorno o valores predeterminados.
+ *
+ * @async
+ * @function syncAdminAccountInDatabase
+ * @param {import('mysql2/promise').Pool} dbPool - Pool de conexiones MySQL.
+ * @returns {Promise<void>}
+ */
+async function syncAdminAccountInDatabase(dbPool) {
+  try {
+    const adminEmail = (process.env.ADMIN_EMAIL || 'admin@danillanos.com').trim().toLowerCase();
+    const adminPassword = (process.env.ADMIN_DEFAULT_PASSWORD || process.env.ADMIN_PASSWORD || process.env.ADMIN_SEED_PASSWORD || 'Danillanos2026*').trim();
+
+    const emailHash = hashLookup(adminEmail);
+    const emailEnc = encryptData(adminEmail);
+    const passHash = hashPassword(adminPassword);
+
+    const [adminRows] = await dbPool.query(
+      "SELECT id, rol, activo FROM usuarios WHERE id = 1 OR rol = 'admin' OR email_hash = ? LIMIT 1",
+      [emailHash]
+    );
+
+    if (adminRows && adminRows.length > 0) {
+      await dbPool.query(
+        `UPDATE usuarios 
+         SET email_hash = ?, email_enc = ?, password_hash = ?, rol = 'admin', activo = 1
+         WHERE id = ?`,
+        [emailHash, emailEnc, passHash, adminRows[0].id]
+      );
+      console.log(`🔐 Cuenta administradora sincronizada en MySQL (${adminEmail}) con contraseña de entorno.`);
+    } else {
+      await dbPool.query(
+        `INSERT INTO usuarios (
+          id, username, nombre_completo_enc, nombres_enc, apellidos_enc, empresa_enc,
+          tipo_documento, numero_documento_enc, email_hash, email_enc, password_hash, telefono_enc, rol, activo
+        ) VALUES (
+          1, 'Administrador Danillanos', ?, ?, ?, ?, 'NIT', ?, ?, ?, ?, ?, 'admin', 1
+        )`,
+        [
+          encryptData('Administrador Danillanos'),
+          encryptData('Administrador'),
+          encryptData('Danillanos'),
+          encryptData('Danillanos Cárnicos y Congelados S.A.S.'),
+          encryptData('900000000-1'),
+          emailHash,
+          emailEnc,
+          passHash,
+          encryptData('3109998877')
+        ]
+      );
+      console.log(`🎉 Cuenta administradora creada en MySQL (${adminEmail}) con contraseña de entorno.`);
+    }
+  } catch (err) {
+    console.error('⚠️ Advertencia al sincronizar cuenta de administrador en MySQL:', err.message);
+  }
+}
+
+/**
  * Verifica la disponibilidad de la base de datos MySQL e inicializa automáticamente
  * el esquema DDL y los datos semilla si detecta que la base de datos se encuentra vacía.
  *
@@ -268,6 +327,7 @@ async function autoInitializeDatabaseIfEmpty() {
     } else {
       console.log('✅ Tablas verificadas en MySQL (usuarios, productos, etc. activos).');
     }
+    await syncAdminAccountInDatabase(pool);
     return true;
   } catch (initErr) {
     console.error('\n🚨 ============================================================');

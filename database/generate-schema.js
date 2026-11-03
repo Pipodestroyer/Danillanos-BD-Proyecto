@@ -371,7 +371,7 @@ DELIMITER ;\n`);
   lines.push(`-- ============================================================================`);
   lines.push(`-- INSERCIÓN DE DATOS SEMILLA: USUARIO ADMINISTRADOR PRINCIPAL`);
   lines.push(`-- ============================================================================`);
-  const defaultPassHash = hashPassword(process.env.ADMIN_SEED_PASSWORD || 'Admin123456*');
+  const defaultPassHash = hashPassword(process.env.ADMIN_DEFAULT_PASSWORD || process.env.ADMIN_PASSWORD || process.env.ADMIN_SEED_PASSWORD || 'Danillanos2026*');
   const seedUsers = [
     {
       id: 1,

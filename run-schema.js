@@ -120,6 +120,39 @@ async function runSchema() {
     const [carousel] = await connection.query('SELECT COUNT(*) AS total FROM carrusel_promociones');
     console.log(`🎠 Total de promociones en carrusel: ${carousel[0].total}`);
 
+    // Sincronización de la cuenta de administrador con la clave y contraseña de entorno actuales
+    try {
+      const { hashLookup, hashPassword, encryptData } = require('./backend/utils/security');
+      const adminEmail = (process.env.ADMIN_EMAIL || 'admin@danillanos.com').trim().toLowerCase();
+      const adminPassword = (process.env.ADMIN_DEFAULT_PASSWORD || process.env.ADMIN_PASSWORD || process.env.ADMIN_SEED_PASSWORD || 'Danillanos2026*').trim();
+      const emailHash = hashLookup(adminEmail);
+      const emailEnc = encryptData(adminEmail);
+      const passHash = hashPassword(adminPassword);
+
+      await connection.query(
+        `INSERT INTO usuarios (
+          id, username, nombre_completo_enc, nombres_enc, apellidos_enc, empresa_enc,
+          tipo_documento, numero_documento_enc, email_hash, email_enc, password_hash, telefono_enc, rol, activo
+        ) VALUES (
+          1, 'Administrador Danillanos', ?, ?, ?, ?, 'NIT', ?, ?, ?, ?, ?, 'admin', 1
+        ) ON DUPLICATE KEY UPDATE email_hash = VALUES(email_hash), email_enc = VALUES(email_enc), password_hash = VALUES(password_hash), rol = 'admin', activo = 1`,
+        [
+          encryptData('Administrador Danillanos'),
+          encryptData('Administrador'),
+          encryptData('Danillanos'),
+          encryptData('Danillanos Cárnicos y Congelados S.A.S.'),
+          encryptData('900000000-1'),
+          emailHash,
+          emailEnc,
+          passHash,
+          encryptData('3109998877')
+        ]
+      );
+      console.log(`👤 Usuario Administrador (#1): ${adminEmail} configurado con contraseña de entorno.`);
+    } catch (adminSyncErr) {
+      console.warn(`   ⚠️ Advertencia al sincronizar admin en schema: ${adminSyncErr.message}`);
+    }
+
     console.log('\n============================================================');
     console.log('✨ Base de datos lista.');
     console.log('============================================================\n');

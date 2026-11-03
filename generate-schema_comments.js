@@ -366,7 +366,7 @@ DELIMITER ;\n`);
   lines.push(`-- ============================================================================`);
   lines.push(`-- INSERCIÓN DEL USUARIO ADMINISTRADOR INICIAL ENCRIPTADO`);
   lines.push(`-- ============================================================================`);
-  const defaultPassHash = hashPassword(process.env.ADMIN_SEED_PASSWORD || 'Admin123456*');
+  const defaultPassHash = hashPassword(process.env.ADMIN_DEFAULT_PASSWORD || process.env.ADMIN_PASSWORD || process.env.ADMIN_SEED_PASSWORD || 'Danillanos2026*');
   const seedUsers = [
     {
       id: 1,
