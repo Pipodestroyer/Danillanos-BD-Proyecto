@@ -1,11 +1,6 @@
 /**
  * @fileoverview Servicio centralizado de correos transaccionales con Resend y generación de facturas PDF.
- * Provee plantillas HTML alineadas con la identidad visual de Danillanos (#e01a2c, bordes redondeados,
- * sombras suaves) y generación de comprobantes PDF en memoria para:
- * 1. Código de verificación de 6 dígitos al crear cuenta (válido por 10 minutos).
- * 2. Enlace de recuperación de contraseña (válido por 10 minutos).
- * 3. Confirmación de pedido y factura adjunta en PDF con enlace directo al pedido en el perfil.
- * 4. Confirmación de pedido entregado con evidencia fotográfica incrustada.
+ * Diseño limpio, plano, blanco y amigable consistente con la interfaz de Danillanos.
  *
  * @module backend/utils/mailer
  */
@@ -60,22 +55,11 @@ function resolveAppBaseUrl(req) {
  */
 function formatCop(value) {
   const num = Math.round(Number(value) || 0);
-  return `$ ${num.toLocaleString('es-CO')}`;
+  return `$${num.toLocaleString('es-CO')}`;
 }
 
 /**
- * Genera el código consecutivo de factura electrónica interna `FAC-DN-000XX`.
- *
- * @function getInvoiceCode
- * @param {number|string} orderId
- * @returns {string}
- */
-function getInvoiceCode(orderId) {
-  return `FAC-DN-${String(Number(orderId) || 1).padStart(5, '0')}`;
-}
-
-/**
- * Escapa caracteres HTML especiales para prevenir inyección en plantillas de correo.
+ * Escapa caracteres especiales HTML para prevenir inyección en plantillas de correo.
  *
  * @function escapeHtml
  * @param {string} str
@@ -91,37 +75,214 @@ function escapeHtml(str) {
 }
 
 /**
- * Construye la estructura HTML envolvente con el lenguaje de diseño de Danillanos
- * (encabezado corporativo, acento rojo #e01a2c, tarjetas redondeadas de 22px y sombras suaves).
+ * Genera en memoria un archivo PDF limpio y minimalista con la factura electrónica del pedido.
+ *
+ * @function generateInvoicePdfBuffer
+ * @param {object} order - Datos completos del pedido e ítems.
+ * @returns {Promise<Buffer>} Buffer con el documento PDF generado.
+ */
+function generateInvoicePdfBuffer(order) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: 'A4',
+        margin: 48,
+        info: {
+          Title: `Factura Danillanos #${order.id}`,
+          Author: 'Danillanos Cárnicos, Congelados e Insumos'
+        }
+      });
+
+      const chunks = [];
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const invoiceCode = `FAC-DN-${String(order.id).padStart(5, '0')}`;
+      const fechaStr = new Date(order.creado_en || Date.now()).toLocaleString('es-CO', {
+        timeZone: 'America/Bogota',
+        dateStyle: 'medium',
+        timeStyle: 'short'
+      });
+
+      // Encabezado limpio sobre fondo blanco
+      doc
+        .fillColor('#111827')
+        .font('Helvetica-Bold')
+        .fontSize(20)
+        .text('DANILLANOS', 48, 48, { continued: true })
+        .fillColor('#e01a2c')
+        .text('.', { continued: false });
+
+      doc
+        .fillColor('#6b7280')
+        .font('Helvetica')
+        .fontSize(9)
+        .text('DISTRIBUIMOS CALIDAD • NIT 900.842.190-4', 48, 72)
+        .text('Clle 15 # 12-91 Av. Los Maracos • Villavicencio, Meta', 48, 85);
+
+      doc
+        .fillColor('#111827')
+        .font('Helvetica-Bold')
+        .fontSize(12)
+        .text(`Factura ${invoiceCode}`, 340, 48, { width: 207, align: 'right' });
+
+      doc
+        .fillColor('#6b7280')
+        .font('Helvetica')
+        .fontSize(9)
+        .text(`Pedido #${order.id}`, 340, 66, { width: 207, align: 'right' })
+        .text(fechaStr, 340, 80, { width: 207, align: 'right' });
+
+      // Línea divisoria sutil
+      doc
+        .moveTo(48, 110)
+        .lineTo(547, 110)
+        .lineWidth(1)
+        .strokeColor('#e5e7eb')
+        .stroke();
+
+      // Bloque de información del cliente y entrega
+      const infoTop = 126;
+      doc.roundedRect(48, infoTop, 499, 78, 10).fillAndStroke('#f8fafc', '#e5e7eb');
+
+      doc
+        .fillColor('#6b7280')
+        .font('Helvetica-Bold')
+        .fontSize(8)
+        .text('CLIENTE / DESTINATARIO', 64, infoTop + 14)
+        .text('DETALLES DE ENTREGA Y PAGO', 310, infoTop + 14);
+
+      doc
+        .fillColor('#111827')
+        .font('Helvetica-Bold')
+        .fontSize(10)
+        .text(String(order.nombre_recibe || 'Cliente Danillanos'), 64, infoTop + 28, { width: 225 });
+
+      doc
+        .fillColor('#4b5563')
+        .font('Helvetica')
+        .fontSize(9)
+        .text(`Tel: ${order.telefono_cliente || 'N/A'}`, 64, infoTop + 44)
+        .text(`${order.direccion_entrega || ''} (${order.municipio || 'Villavicencio'})`, 64, infoTop + 58, {
+          width: 230
+        });
+
+      const metodoLabel = String(order.metodo_pago || 'bancolombia').toUpperCase();
+      doc
+        .fillColor('#111827')
+        .font('Helvetica-Bold')
+        .fontSize(9.5)
+        .text(`${order.tiempo_entrega_estimado || 'Envío programado'}`, 310, infoTop + 28, { width: 220 });
+
+      doc
+        .fillColor('#4b5563')
+        .font('Helvetica')
+        .fontSize(9)
+        .text(`Método de pago: ${metodoLabel}`, 310, infoTop + 44)
+        .text(`Referencia: ${order.referencia_pago || 'N/A'}`, 310, infoTop + 58);
+
+      // Tabla de productos
+      let y = infoTop + 98;
+      doc.roundedRect(48, y, 499, 26, 6).fill('#f1f5f9');
+      doc
+        .fillColor('#374151')
+        .font('Helvetica-Bold')
+        .fontSize(8.5)
+        .text('PRODUCTO', 62, y + 8)
+        .text('CANT.', 330, y + 8, { width: 45, align: 'center' })
+        .text('PRECIO UNIT.', 385, y + 8, { width: 70, align: 'right' })
+        .text('SUBTOTAL', 465, y + 8, { width: 70, align: 'right' });
+
+      y += 32;
+      const items = Array.isArray(order.items) ? order.items : [];
+
+      items.forEach((item) => {
+        if (y > 700) {
+          doc.addPage();
+          y = 50;
+        }
+        const nombreProd = String(item.nombre_producto || item.nombre || 'Producto Danillanos');
+        const cant = Number(item.cantidad) || 1;
+        const unit = Number(item.precio_unitario ?? item.precio) || 0;
+        const sub = Number(item.subtotal) || unit * cant;
+
+        doc
+          .fillColor('#111827')
+          .font('Helvetica')
+          .fontSize(9.5)
+          .text(nombreProd, 62, y + 4, { width: 260 })
+          .text(String(cant), 330, y + 4, { width: 45, align: 'center' })
+          .fillColor('#4b5563')
+          .text(formatCop(unit), 385, y + 4, { width: 70, align: 'right' })
+          .fillColor('#111827')
+          .font('Helvetica-Bold')
+          .text(formatCop(sub), 465, y + 4, { width: 70, align: 'right' });
+
+        y += 24;
+        doc
+          .moveTo(48, y)
+          .lineTo(547, y)
+          .lineWidth(0.5)
+          .strokeColor('#f1f5f9')
+          .stroke();
+        y += 4;
+      });
+
+      // Caja de Total
+      y += 12;
+      doc.roundedRect(335, y, 212, 38, 8).fillAndStroke('#f8fafc', '#e5e7eb');
+      doc
+        .fillColor('#4b5563')
+        .font('Helvetica-Bold')
+        .fontSize(9.5)
+        .text('TOTAL', 350, y + 13)
+        .fillColor('#111827')
+        .font('Helvetica-Bold')
+        .fontSize(13)
+        .text(formatCop(order.total), 410, y + 11, { width: 125, align: 'right' });
+
+      // Pie de página
+      doc
+        .fillColor('#9ca3af')
+        .font('Helvetica')
+        .fontSize(8.5)
+        .text(
+          'Gracias por tu compra en Danillanos. Conserva este comprobante para cualquier consulta.',
+          48,
+          760,
+          { width: 499, align: 'center' }
+        );
+
+      doc.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+/**
+ * Construye la estructura HTML base de todos los correos de Danillanos:
+ * Diseño limpio, plano, blanco y directo, consistente con la interfaz del sitio web.
  *
  * @function buildDanillanosEmailLayout
- * @param {object} params
- * @param {string} params.badgeText - Texto de la píldora superior.
- * @param {string} params.title - Título principal del correo.
- * @param {string} params.subtitle - Subtítulo o saludo introductorio.
- * @param {string} params.bodyHtml - Contenido central en HTML.
- * @param {string} [params.ctaText] - Texto del botón de acción principal.
- * @param {string} [params.ctaUrl] - Enlace del botón de acción principal.
- * @param {string} [params.footerNote] - Nota aclaratoria inferior.
- * @returns {string} Documento HTML completo listo para enviar.
+ * @param {object} options
+ * @param {string} options.title - Título principal del correo.
+ * @param {string} options.subtitle - Subtítulo o saludo directo.
+ * @param {string} options.bodyHtml - Contenido central del correo.
+ * @param {string} [options.ctaText] - Texto del botón de acción principal.
+ * @param {string} [options.ctaUrl] - Enlace del botón de acción principal.
+ * @param {string} [options.footerNote] - Nota aclaratoria inferior.
+ * @returns {string} Documento HTML completo listo para envío.
  */
-function buildDanillanosEmailLayout({
-  badgeText,
-  title,
-  subtitle,
-  bodyHtml,
-  ctaText,
-  ctaUrl,
-  footerNote
-}) {
+function buildDanillanosEmailLayout({ title, subtitle, bodyHtml, ctaText, ctaUrl, footerNote }) {
   const ctaBlock =
     ctaText && ctaUrl
       ? `
-        <div style="text-align: center; margin: 28px 0 10px;">
+        <div style="text-align: center; margin: 24px 0 8px;">
           <a href="${escapeHtml(ctaUrl)}"
              target="_blank"
-             rel="noopener noreferrer"
-             style="display: inline-block; background: linear-gradient(135deg, #e01a2c 0%, #b91222 100%); color: #ffffff; text-decoration: none; font-weight: 800; font-size: 15px; padding: 14px 32px; border-radius: 999px; box-shadow: 0 10px 24px rgba(224, 26, 44, 0.28); letter-spacing: 0.01em;">
+             style="display: inline-block; background-color: #e01a2c; color: #ffffff; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 700; text-decoration: none; padding: 13px 28px; border-radius: 999px;">
             ${escapeHtml(ctaText)}
           </a>
         </div>
@@ -133,45 +294,34 @@ function buildDanillanosEmailLayout({
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${escapeHtml(title)} | Danillanos</title>
+  <title>${escapeHtml(title)}</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f4f5f8; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #111827; -webkit-font-smoothing: antialiased;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4f5f8; padding: 32px 14px;">
+<body style="margin: 0; padding: 0; background-color: #f4f5f7; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #111827; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4f5f7; padding: 32px 16px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 580px; background-color: #ffffff; border-radius: 24px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);">
-          <!-- Barra superior de acento rojo Danillanos -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 520px; background-color: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e5e7eb;">
+          
+          <!-- Encabezado limpio y plano idéntico a la barra superior de la página -->
           <tr>
-            <td style="height: 6px; background: linear-gradient(90deg, #e01a2c 0%, #ff3b4e 50%, #b91222 100%);"></td>
-          </tr>
-
-          <!-- Cabecera de marca -->
-          <tr>
-            <td style="padding: 28px 32px 18px; text-align: center; border-bottom: 1px solid #f1f5f9;">
-              <div style="font-size: 24px; font-weight: 900; letter-spacing: 0.08em; color: #0f172a; line-height: 1.1;">
+            <td style="padding: 24px 32px 18px; border-bottom: 1px solid #f1f5f9; text-align: left;">
+              <div style="font-size: 19px; font-weight: 900; letter-spacing: 0.04em; color: #111827;">
                 DANILLANOS<span style="color: #e01a2c;">.</span>
               </div>
-              <div style="font-size: 10px; font-weight: 800; letter-spacing: 0.22em; color: #64748b; margin-top: 4px;">
-                DISTRIBUIMOS CALIDAD • VILLAVICENCIO Y META
+              <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.12em; color: #9ca3af; text-transform: uppercase; margin-top: 2px;">
+                Distribuimos Calidad
               </div>
             </td>
           </tr>
 
           <!-- Cuerpo principal -->
           <tr>
-            <td style="padding: 30px 32px 26px;">
-              <div style="text-align: center; margin-bottom: 18px;">
-                <span style="display: inline-block; background-color: rgba(224, 26, 44, 0.1); color: #e01a2c; border: 1px solid rgba(224, 26, 44, 0.24); font-size: 11px; font-weight: 800; letter-spacing: 0.1em; padding: 5px 14px; border-radius: 999px; text-transform: uppercase;">
-                  ${escapeHtml(badgeText)}
-                </span>
-              </div>
-
-              <h1 style="margin: 0 0 10px; font-size: 22px; font-weight: 800; color: #0f172a; text-align: center; line-height: 1.3;">
+            <td style="padding: 28px 32px 24px;">
+              <h1 style="margin: 0 0 8px; font-size: 20px; font-weight: 800; color: #111827; line-height: 1.3;">
                 ${escapeHtml(title)}
               </h1>
-
-              <p style="margin: 0 0 22px; font-size: 14.5px; color: #475569; text-align: center; line-height: 1.6;">
-                ${subtitle}
+              <p style="margin: 0 0 20px; font-size: 14px; color: #6b7280; line-height: 1.55;">
+                ${escapeHtml(subtitle)}
               </p>
 
               ${bodyHtml}
@@ -180,25 +330,23 @@ function buildDanillanosEmailLayout({
 
               ${
                 footerNote
-                  ? `<p style="margin: 22px 0 0; font-size: 12.5px; color: #64748b; text-align: center; line-height: 1.55;">
-                       ${footerNote}
+                  ? `<p style="margin: 20px 0 0; font-size: 12px; color: #9ca3af; line-height: 1.5; text-align: center;">
+                       ${escapeHtml(footerNote)}
                      </p>`
                   : ''
               }
             </td>
           </tr>
 
-          <!-- Pie institucional -->
+          <!-- Pie de página limpio -->
           <tr>
-            <td style="background-color: #f8fafc; padding: 20px 32px; border-top: 1px solid #e2e8f0; text-align: center;">
-              <p style="margin: 0; font-size: 12px; font-weight: 700; color: #334155;">
-                Danillanos Cárnicos, Congelados e Insumos S.A.S. • NIT 901.452.889-1
-              </p>
-              <p style="margin: 4px 0 0; font-size: 11.5px; color: #64748b;">
-                Av. Los Maracos, Villavicencio — Meta, Colombia
+            <td style="background-color: #fafafa; padding: 16px 32px; border-top: 1px solid #f1f5f9; text-align: center;">
+              <p style="margin: 0; font-size: 11.5px; color: #9ca3af;">
+                Danillanos S.A.S. • Clle 15 # 12-91 Av. Los Maracos, Villavicencio — Meta
               </p>
             </td>
           </tr>
+
         </table>
       </td>
     </tr>
@@ -239,7 +387,6 @@ async function sendViaResend(payload) {
       return { sent: true, id: data.id };
     }
 
-    // Si falla por dominio aún no verificado en Resend, reintentar con onboarding@resend.dev
     if (error && configuredFrom !== FALLBACK_RESEND_FROM) {
       console.warn(`[Mailer] Reintentando con ${FALLBACK_RESEND_FROM} (${error.message || 'dominio no verificado'})`);
       const retry = await resend.emails.send({
@@ -252,12 +399,10 @@ async function sendViaResend(payload) {
       if (!retry.error && retry.data && retry.data.id) {
         return { sent: true, id: retry.data.id };
       }
-      console.error('[Mailer] Error al enviar correo con Resend:', retry.error);
-      return { sent: false, error: retry.error?.message || error.message || 'No fue posible enviar el correo.' };
+      return { sent: false, error: retry.error?.message || error.message || 'Error al enviar correo con Resend.' };
     }
 
-    console.error('[Mailer] Error al enviar correo con Resend:', error);
-    return { sent: false, error: error?.message || 'No fue posible enviar el correo.' };
+    return { sent: false, error: error?.message || 'No se pudo enviar el correo.' };
   } catch (err) {
     console.error('[Mailer] Excepción al enviar correo con Resend:', err.message);
     return { sent: false, error: err.message };
@@ -265,49 +410,36 @@ async function sendViaResend(payload) {
 }
 
 /**
- * 1. Envía el código único de 6 dígitos para verificar la titularidad del correo al crear una cuenta.
+ * 1. Envía el código de verificación de 6 dígitos (válido por 10 minutos) al crear una cuenta.
  *
  * @async
  * @function sendRegistrationVerificationEmail
  * @param {object} params
- * @param {string} params.to - Correo electrónico del usuario.
+ * @param {string} params.to - Correo del usuario.
  * @param {string} params.nombre - Nombre del usuario.
  * @param {string} params.codigo - Código único de 6 dígitos.
  * @returns {Promise<{sent: boolean, id?: string, error?: string}>}
  */
 async function sendRegistrationVerificationEmail({ to, nombre, codigo }) {
-  const digits = String(codigo || '').trim().split('');
-  const digitsBoxesHtml = digits
-    .map(
-      (d) => `
-        <span style="display: inline-block; width: 44px; height: 54px; line-height: 54px; margin: 0 4px; background-color: #fff1f2; border: 2px solid #e01a2c; border-radius: 14px; font-size: 24px; font-weight: 900; color: #e01a2c; text-align: center; box-shadow: 0 4px 12px rgba(224, 26, 44, 0.12);">
-          ${escapeHtml(d)}
-        </span>
-      `
-    )
-    .join('');
-
   const bodyHtml = `
-    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 20px; padding: 24px 16px; text-align: center; margin: 12px 0 18px;">
-      <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; margin-bottom: 14px;">
-        Tu código de verificación de 6 dígitos
+    <div style="background-color: #f8fafc; border: 1px solid #e5e7eb; border-radius: 14px; padding: 20px; text-align: center; margin: 8px 0 16px;">
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; margin-bottom: 8px;">
+        Código de verificación
       </div>
-      <div style="white-space: nowrap;">
-        ${digitsBoxesHtml}
+      <div style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #111827; font-family: 'Inter', monospace;">
+        ${escapeHtml(codigo)}
       </div>
-      <div style="margin-top: 16px; font-size: 12.5px; font-weight: 700; color: #e01a2c;">
-        ⏱ Válido únicamente durante los próximos 10 minutos
+      <div style="margin-top: 8px; font-size: 12px; color: #6b7280;">
+        Válido por 10 minutos
       </div>
     </div>
   `;
 
   const html = buildDanillanosEmailLayout({
-    badgeText: 'Verificación de Seguridad',
-    title: 'Confirma tu correo electrónico',
-    subtitle: `Hola <strong>${escapeHtml(nombre || 'Cliente')}</strong>, ingresa el siguiente código de seguridad en la ventana de registro de Danillanos para activar tu cuenta.`,
+    title: 'Verifica tu correo electrónico',
+    subtitle: `Hola ${nombre || 'Cliente'}, ingresa este código de 6 dígitos en la página para completar la creación de tu cuenta.`,
     bodyHtml,
-    footerNote:
-      'Este código es de un solo uso y expirará en 10 minutos. Si no solicitaste crear una cuenta en Danillanos, puedes ignorar este mensaje de forma segura.'
+    footerNote: 'Si no solicitaste crear una cuenta en Danillanos, puedes ignorar este mensaje.'
   });
 
   return sendViaResend({
@@ -318,223 +450,74 @@ async function sendRegistrationVerificationEmail({ to, nombre, codigo }) {
 }
 
 /**
- * 2. Envía el correo con el enlace seguro para restablecer la contraseña (válido por 10 minutos).
+ * 2. Envía el enlace para restablecer la contraseña (válido por máximo 10 minutos).
  *
  * @async
  * @function sendPasswordResetEmail
  * @param {object} params
- * @param {string} params.to - Correo electrónico del usuario.
+ * @param {string} params.to - Correo del usuario.
  * @param {string} params.nombre - Nombre del usuario.
- * @param {string} params.resetUrl - Enlace directo con token criptográfico.
+ * @param {string} params.resetUrl - URL directa con el token de recuperación.
  * @returns {Promise<{sent: boolean, id?: string, error?: string}>}
  */
 async function sendPasswordResetEmail({ to, nombre, resetUrl }) {
   const bodyHtml = `
-    <div style="background-color: #fff1f2; border: 1px solid rgba(224, 26, 44, 0.25); border-radius: 18px; padding: 18px 20px; text-align: center; margin-bottom: 8px;">
-      <div style="font-size: 13.5px; color: #881337; font-weight: 700; line-height: 1.5;">
-        Recibimos una solicitud para cambiar la contraseña de tu cuenta asociada a <strong>${escapeHtml(to)}</strong>.
-      </div>
-      <div style="font-size: 12px; color: #e01a2c; font-weight: 800; margin-top: 8px;">
-        ⏱ Por seguridad, este enlace caduca exactamente en 10 minutos.
-      </div>
+    <div style="background-color: #f8fafc; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px 18px; margin-bottom: 8px;">
+      <p style="margin: 0; font-size: 13.5px; color: #4b5563; line-height: 1.55;">
+        Haz clic en el botón de abajo para elegir una nueva contraseña. Por seguridad, este enlace es válido únicamente por <strong>10 minutos</strong>.
+      </p>
     </div>
   `;
 
   const html = buildDanillanosEmailLayout({
-    badgeText: 'Recuperación de Contraseña',
-    title: 'Restablece tu contraseña en Danillanos',
-    subtitle: `Hola <strong>${escapeHtml(nombre || 'Cliente')}</strong>, haz clic en el botón inferior para elegir una nueva contraseña segura.`,
+    title: 'Restablecer tu contraseña',
+    subtitle: `Hola ${nombre || 'Cliente'}, recibimos una solicitud para cambiar la contraseña de tu cuenta en Danillanos.`,
     bodyHtml,
-    ctaText: 'Restablecer mi Contraseña',
+    ctaText: 'Cambiar mi contraseña',
     ctaUrl: resetUrl,
-    footerNote: `Si el botón no se abre automáticamente, copia y pega este enlace en tu navegador:<br/><a href="${escapeHtml(resetUrl)}" style="color: #e01a2c; word-break: break-all;">${escapeHtml(resetUrl)}</a>`
+    footerNote: 'Si no solicitaste este cambio, tu contraseña actual seguirá siendo la misma.'
   });
 
   return sendViaResend({
     to,
-    subject: 'Recuperación de contraseña — Danillanos',
+    subject: 'Restablecer tu contraseña — Danillanos',
     html
   });
 }
 
 /**
- * Genera en memoria un archivo PDF con el diseño oficial de la factura electrónica interna de Danillanos.
- *
- * @function generateInvoicePdfBuffer
- * @param {object} order - Objeto con los datos del pedido e ítems.
- * @returns {Promise<Buffer>} Buffer del archivo PDF generado.
- */
-function generateInvoicePdfBuffer(order) {
-  return new Promise((resolve, reject) => {
-    try {
-      const doc = new PDFDocument({ size: 'A4', margin: 45 });
-      const chunks = [];
-      doc.on('data', (chunk) => chunks.push(chunk));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
-      doc.on('error', reject);
-
-      const invCode = getInvoiceCode(order.id);
-      const fechaStr = new Date(order.creado_en || Date.now()).toLocaleString('es-CO', {
-        dateStyle: 'medium',
-        timeStyle: 'short'
-      });
-
-      // Encabezado rojo corporativo
-      doc.roundedRect(45, 40, 505, 78, 14).fill('#e01a2c');
-      doc
-        .fillColor('#ffffff')
-        .font('Helvetica-Bold')
-        .fontSize(22)
-        .text('DANILLANOS', 65, 56);
-      doc
-        .font('Helvetica')
-        .fontSize(9.5)
-        .fillColor('#ffe4e6')
-        .text('DISTRIBUIMOS CALIDAD • CÁRNICOS, CONGELADOS E INSUMOS S.A.S.', 65, 82)
-        .text('NIT: 901.452.889-1 • Av. Los Maracos, Villavicencio - Meta', 65, 96);
-
-      doc
-        .fillColor('#ffffff')
-        .font('Helvetica-Bold')
-        .fontSize(13)
-        .text(invCode, 370, 58, { width: 160, align: 'right' });
-      doc
-        .font('Helvetica')
-        .fontSize(9.5)
-        .fillColor('#ffe4e6')
-        .text(`Pedido #${order.id}`, 370, 77, { width: 160, align: 'right' })
-        .text(fechaStr, 370, 92, { width: 160, align: 'right' });
-
-      // Bloque de información del cliente y entrega
-      doc.roundedRect(45, 134, 505, 94, 12).fillAndStroke('#f8fafc', '#e2e8f0');
-      doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(10.5).text('DATOS DE ENTREGA Y FACTURACIÓN', 62, 148);
-
-      doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#475569').text('Destinatario:', 62, 168);
-      doc.font('Helvetica').fillColor('#0f172a').text(String(order.nombre_recibe || 'Cliente Danillanos'), 135, 168);
-
-      doc.font('Helvetica-Bold').fillColor('#475569').text('Teléfono:', 62, 185);
-      doc.font('Helvetica').fillColor('#0f172a').text(String(order.telefono_cliente || 'N/A'), 135, 185);
-
-      doc.font('Helvetica-Bold').fillColor('#475569').text('Dirección:', 62, 202);
-      doc
-        .font('Helvetica')
-        .fillColor('#0f172a')
-        .text(`${order.direccion_entrega || 'Villavicencio'} (${order.municipio || 'Villavicencio'})`, 135, 202, {
-          width: 205
-        });
-
-      doc.font('Helvetica-Bold').fillColor('#475569').text('Método de Pago:', 350, 168);
-      doc.font('Helvetica').fillColor('#0f172a').text(String(order.metodo_pago || 'Efectivo').toUpperCase(), 440, 168);
-
-      doc.font('Helvetica-Bold').fillColor('#475569').text('Referencia:', 350, 185);
-      doc.font('Helvetica').fillColor('#0f172a').text(String(order.referencia_pago || invCode), 440, 185);
-
-      doc.font('Helvetica-Bold').fillColor('#475569').text('Llegada Estimada:', 350, 202);
-      doc
-        .font('Helvetica-Bold')
-        .fillColor('#e01a2c')
-        .text(String(order.tiempo_entrega_estimado || 'Mismo día'), 440, 202, { width: 100 });
-
-      // Cabecera de tabla de productos
-      let y = 248;
-      doc.roundedRect(45, y, 505, 26, 8).fill('#0f172a');
-      doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(9.5);
-      doc.text('CANT.', 58, y + 8, { width: 45 });
-      doc.text('DESCRIPCIÓN DEL PRODUCTO', 110, y + 8, { width: 235 });
-      doc.text('V. UNITARIO', 350, y + 8, { width: 85, align: 'right' });
-      doc.text('SUBTOTAL', 445, y + 8, { width: 90, align: 'right' });
-
-      y += 34;
-      const items = Array.isArray(order.items) ? order.items : [];
-      items.forEach((item, idx) => {
-        if (y > 700) {
-          doc.addPage();
-          y = 50;
-        }
-        const qty = Number(item.cantidad) || 1;
-        const unit = Number(item.precio_unitario ?? item.precio ?? 0);
-        const sub = Number(item.subtotal ?? unit * qty);
-        const name = String(item.nombre_producto || item.nombre || 'Producto Danillanos');
-
-        if (idx % 2 === 1) {
-          doc.roundedRect(45, y - 4, 505, 24, 5).fill('#f8fafc');
-        }
-        doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(9.5).text(`${qty}x`, 58, y + 2, { width: 45 });
-        doc.font('Helvetica').fillColor('#1e293b').text(name, 110, y + 2, { width: 235 });
-        doc.fillColor('#475569').text(formatCop(unit), 350, y + 2, { width: 85, align: 'right' });
-        doc.font('Helvetica-Bold').fillColor('#0f172a').text(formatCop(sub), 445, y + 2, { width: 90, align: 'right' });
-        y += 24;
-      });
-
-      // Línea divisoria y caja de Total
-      y += 12;
-      doc.moveTo(45, y).lineTo(550, y).strokeColor('#e2e8f0').stroke();
-      y += 14;
-
-      doc.roundedRect(320, y, 230, 42, 10).fill('#fff1f2');
-      doc
-        .fillColor('#881337')
-        .font('Helvetica-Bold')
-        .fontSize(11)
-        .text('TOTAL FACTURA:', 335, y + 14);
-      doc
-        .fillColor('#e01a2c')
-        .font('Helvetica-Bold')
-        .fontSize(14)
-        .text(formatCop(order.total), 430, y + 12, { width: 105, align: 'right' });
-
-      y += 66;
-      doc
-        .font('Helvetica')
-        .fontSize(9)
-        .fillColor('#64748b')
-        .text(
-          'Gracias por tu compra en Danillanos. Conservamos estricta cadena de frío desde nuestra planta en Av. Los Maracos hasta la puerta de tu negocio u hogar.',
-          45,
-          y,
-          { width: 505, align: 'center' }
-        );
-
-      doc.end();
-    } catch (err) {
-      reject(err);
-    }
-  });
-}
-
-/**
- * 3. Envía el correo de confirmación de pedido y factura electrónica adjunta en PDF,
- * detallando qué productos pidió, cuándo le llegan y un botón con enlace directo al pedido en su perfil.
+ * 3. Envía confirmación de pedido con resumen de productos, fecha estimada de llegada,
+ *    factura PDF adjunta y botón directo que abre el pedido en la página de perfil.
  *
  * @async
  * @function sendOrderConfirmationEmail
  * @param {object} params
  * @param {string} params.to - Correo del cliente.
- * @param {object} params.order - Datos del pedido (`id`, `total`, `tiempo_entrega_estimado`, `direccion_entrega`, `municipio`, `metodo_pago`, `items`, etc.).
- * @param {string} [params.baseUrl] - URL base de la plataforma.
+ * @param {object} params.order - Objeto con los datos del pedido e ítems.
+ * @param {string} params.baseUrl - URL base pública de la tienda.
  * @returns {Promise<{sent: boolean, id?: string, error?: string}>}
  */
-async function sendOrderConfirmationEmail({ to, order, baseUrl = DEFAULT_BASE_URL }) {
-  const invCode = getInvoiceCode(order.id);
-  const directOrderUrl = `${baseUrl.replace(/\/+$/, '')}/perfil?pedido=${encodeURIComponent(order.id)}#mis-pedidos-section`;
+async function sendOrderConfirmationEmail({ to, order, baseUrl }) {
+  const cleanBase = (baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+  const deepLinkUrl = `${cleanBase}/perfil?pedido=${encodeURIComponent(order.id)}#mis-pedidos-section`;
+  const invoiceCode = `FAC-DN-${String(order.id).padStart(5, '0')}`;
   const items = Array.isArray(order.items) ? order.items : [];
 
   const itemsRowsHtml = items
-    .map((item) => {
-      const qty = Number(item.cantidad) || 1;
-      const unit = Number(item.precio_unitario ?? item.precio ?? 0);
-      const sub = Number(item.subtotal ?? unit * qty);
-      const prodName = item.nombre_producto || item.nombre || 'Producto Danillanos';
+    .map((it) => {
+      const nombre = escapeHtml(it.nombre_producto || it.nombre || 'Producto');
+      const cant = Number(it.cantidad) || 1;
+      const sub = Number(it.subtotal) || (Number(it.precio_unitario ?? it.precio) || 0) * cant;
       return `
         <tr>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 13.5px; font-weight: 800; color: #e01a2c; width: 42px;">
-            ${qty}x
+          <td style="padding: 9px 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #111827;">
+            ${nombre}
           </td>
-          <td style="padding: 10px 8px; border-bottom: 1px solid #f1f5f9; font-size: 13.5px; font-weight: 600; color: #1e293b;">
-            ${escapeHtml(prodName)}
+          <td style="padding: 9px 8px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #6b7280; text-align: center;">
+            x${cant}
           </td>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 13.5px; font-weight: 800; color: #0f172a; text-align: right; white-space: nowrap;">
-            ${escapeHtml(formatCop(sub))}
+          <td style="padding: 9px 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #111827; font-weight: 700; text-align: right;">
+            ${formatCop(sub)}
           </td>
         </tr>
       `;
@@ -542,155 +525,154 @@ async function sendOrderConfirmationEmail({ to, order, baseUrl = DEFAULT_BASE_UR
     .join('');
 
   const bodyHtml = `
-    <!-- Tarjeta destacada de llegada estimada y factura -->
-    <div style="background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); border: 1px solid rgba(224, 26, 44, 0.25); border-radius: 18px; padding: 18px 20px; margin-bottom: 20px;">
-      <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #e01a2c;">
-        🚚 Tiempo estimado de llegada
+    <div style="background-color: #f8fafc; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px 18px; margin-bottom: 16px;">
+      <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+        Tiempo estimado de entrega
       </div>
-      <div style="font-size: 18px; font-weight: 900; color: #0f172a; margin-top: 4px;">
-        ${escapeHtml(order.tiempo_entrega_estimado || 'Entrega programada el mismo día')}
+      <div style="font-size: 15px; font-weight: 800; color: #111827; margin-bottom: 8px;">
+        ${escapeHtml(order.tiempo_entrega_estimado || 'Envío programado')}
       </div>
-      <div style="font-size: 13px; color: #475569; margin-top: 6px;">
-        <strong>Dirección:</strong> ${escapeHtml(order.direccion_entrega || '')} (${escapeHtml(order.municipio || 'Villavicencio')})<br/>
-        <strong>Recibe:</strong> ${escapeHtml(order.nombre_recibe || 'Cliente')} • <strong>Factura:</strong> ${escapeHtml(invCode)}
+      <div style="font-size: 13px; color: #4b5563;">
+        <strong>Dirección:</strong> ${escapeHtml(order.direccion_entrega || '')} (${escapeHtml(order.municipio || 'Villavicencio')})
       </div>
     </div>
 
-    <!-- Tabla de productos solicitados -->
-    <div style="border: 1px solid #e2e8f0; border-radius: 18px; overflow: hidden; margin-bottom: 18px;">
-      <div style="background-color: #0f172a; color: #ffffff; padding: 11px 16px; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;">
-        Resumen de Productos Solicitados
-      </div>
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #ffffff;">
-        ${itemsRowsHtml}
-        <tr>
-          <td colspan="2" style="padding: 14px 12px; font-size: 14px; font-weight: 800; color: #0f172a; text-align: right;">
-            Total Pagado / Facturado (${escapeHtml(String(order.metodo_pago || 'efectivo').toUpperCase())}):
-          </td>
-          <td style="padding: 14px 12px; font-size: 16px; font-weight: 900; color: #e01a2c; text-align: right; white-space: nowrap;">
-            ${escapeHtml(formatCop(order.total))}
-          </td>
-        </tr>
+    <div style="border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; margin-bottom: 12px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+        <thead>
+          <tr style="background-color: #f8fafc;">
+            <th style="padding: 9px 12px; font-size: 11px; font-weight: 700; color: #6b7280; text-align: left; text-transform: uppercase;">Producto</th>
+            <th style="padding: 9px 8px; font-size: 11px; font-weight: 700; color: #6b7280; text-align: center; text-transform: uppercase;">Cant.</th>
+            <th style="padding: 9px 12px; font-size: 11px; font-weight: 700; color: #6b7280; text-align: right; text-transform: uppercase;">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsRowsHtml}
+        </tbody>
+        <tfoot>
+          <tr style="background-color: #f8fafc;">
+            <td colspan="2" style="padding: 11px 12px; font-size: 13px; font-weight: 700; color: #4b5563;">
+              Total (${escapeHtml(invoiceCode)})
+            </td>
+            <td style="padding: 11px 12px; font-size: 15px; font-weight: 800; color: #111827; text-align: right;">
+              ${formatCop(order.total)}
+            </td>
+          </tr>
+        </tfoot>
       </table>
-    </div>
-
-    <div style="background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 14px; padding: 12px 16px; text-align: center; font-size: 12.5px; color: #334155;">
-      📎 <strong>Factura PDF adjunta:</strong> Hemos adjuntado tu factura oficial <strong>${escapeHtml(invCode)}.pdf</strong> a este correo para tu contabilidad.
     </div>
   `;
 
-  const html = buildDanillanosEmailLayout({
-    badgeText: `Pedido #${order.id} Confirmado • ${invCode}`,
-    title: '¡Hemos recibido tu pedido!',
-    subtitle: `Hola <strong>${escapeHtml(order.nombre_recibe || 'Cliente')}</strong>, tu pedido ya está en manos de nuestro equipo y adjuntamos tu factura en formato PDF.`,
-    bodyHtml,
-    ctaText: `Ver Pedido #${order.id} en Tiempo Real`,
-    ctaUrl: directOrderUrl,
-    footerNote:
-      'Al pulsar el botón se abrirá tu perfil directamente en la pestaña de Pedidos en Curso con el detalle de tu orden desplegado.'
-  });
-
-  let attachments = [];
+  let pdfBuffer = null;
   try {
-    const pdfBuffer = await generateInvoicePdfBuffer(order);
-    attachments = [
-      {
-        filename: `Factura-${invCode}.pdf`,
-        content: pdfBuffer
-      }
-    ];
+    pdfBuffer = await generateInvoicePdfBuffer(order);
   } catch (pdfErr) {
-    console.error('[Mailer] Error generando PDF de factura:', pdfErr.message);
+    console.error('[Mailer] Error al generar PDF de factura:', pdfErr.message);
   }
+
+  const attachments = pdfBuffer
+    ? [
+        {
+          filename: `Factura-${invoiceCode}.pdf`,
+          content: pdfBuffer
+        }
+      ]
+    : undefined;
+
+  const html = buildDanillanosEmailLayout({
+    title: `Pedido #${order.id} confirmado`,
+    subtitle: `Hola ${order.nombre_recibe || 'Cliente'}, recibimos tu pedido y adjuntamos tu factura en PDF (${invoiceCode}).`,
+    bodyHtml,
+    ctaText: 'Ver seguimiento de mi pedido',
+    ctaUrl: deepLinkUrl,
+    footerNote: 'El botón abrirá tu perfil directamente en la pestaña de este pedido.'
+  });
 
   return sendViaResend({
     to,
-    subject: `Confirmación de Pedido #${order.id} y Factura ${invCode} — Danillanos`,
+    subject: `Pedido #${order.id} confirmado — Factura ${invoiceCode}`,
     html,
     attachments
   });
 }
 
 /**
- * 4. Envía el correo de notificación cuando el pedido ha sido entregado junto con la fotografía de evidencia.
+ * 4. Envía correo notificando que el pedido fue entregado junto con la foto de evidencia de entrega.
  *
  * @async
  * @function sendOrderDeliveredEmail
  * @param {object} params
  * @param {string} params.to - Correo del cliente.
- * @param {object} params.order - Datos del pedido entregado (`id`, `nombre_recibe`, `direccion_entrega`, `total`, `foto_entrega_url`, `observaciones_entregador`).
- * @param {string} [params.baseUrl] - URL base de la plataforma.
+ * @param {object} params.order - Datos del pedido incluyendo `foto_entrega_url`.
+ * @param {string} params.baseUrl - URL base pública de la tienda.
  * @returns {Promise<{sent: boolean, id?: string, error?: string}>}
  */
-async function sendOrderDeliveredEmail({ to, order, baseUrl = DEFAULT_BASE_URL }) {
-  const invCode = getInvoiceCode(order.id);
-  const directHistoryUrl = `${baseUrl.replace(/\/+$/, '')}/perfil?pedido=${encodeURIComponent(order.id)}#historial-compras-section`;
+async function sendOrderDeliveredEmail({ to, order, baseUrl }) {
+  const cleanBase = (baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+  const deepLinkUrl = `${cleanBase}/perfil?pedido=${encodeURIComponent(order.id)}#historial-compras-section`;
   const rawPhoto = String(order.foto_entrega_url || '').trim();
 
-  let photoImgSrc = '';
+  let photoHtml = '';
   const attachments = [];
 
-  if (rawPhoto.startsWith('data:image/')) {
-    const match = rawPhoto.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
-    if (match) {
-      const mimeType = match[1];
-      const base64Data = match[2];
-      const ext = mimeType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
-      attachments.push({
-        filename: `evidencia-entrega-pedido-${order.id}.${ext}`,
-        content: Buffer.from(base64Data, 'base64'),
-        contentType: mimeType,
-        contentId: 'evidencia-entrega-danillanos'
-      });
-      photoImgSrc = 'cid:evidencia-entrega-danillanos';
-    }
+  const dataUriMatch = rawPhoto.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (dataUriMatch) {
+    const mimeType = dataUriMatch[1];
+    const base64Data = dataUriMatch[2];
+    const ext = mimeType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+    const cidName = `entrega-pedido-${order.id}@danillanos`;
+
+    attachments.push({
+      filename: `entrega-pedido-${order.id}.${ext}`,
+      content: Buffer.from(base64Data, 'base64'),
+      contentType: mimeType,
+      contentId: cidName
+    });
+
+    photoHtml = `
+      <div style="margin: 14px 0; text-align: center;">
+        <img src="cid:${cidName}"
+             alt="Foto de entrega del Pedido #${escapeHtml(order.id)}"
+             style="max-width: 100%; max-height: 320px; border-radius: 14px; border: 1px solid #e5e7eb; display: inline-block; object-fit: cover;" />
+      </div>
+    `;
   } else if (/^https?:\/\//i.test(rawPhoto)) {
-    photoImgSrc = rawPhoto;
+    photoHtml = `
+      <div style="margin: 14px 0; text-align: center;">
+        <img src="${escapeHtml(rawPhoto)}"
+             alt="Foto de entrega del Pedido #${escapeHtml(order.id)}"
+             style="max-width: 100%; max-height: 320px; border-radius: 14px; border: 1px solid #e5e7eb; display: inline-block; object-fit: cover;" />
+      </div>
+    `;
   }
 
-  const photoSectionHtml = photoImgSrc
-    ? `
-      <div style="margin: 18px 0; text-align: center;">
-        <div style="font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 10px;">
-          📸 Registro Fotográfico de tu Entrega
-        </div>
-        <div style="border-radius: 20px; overflow: hidden; border: 2px solid rgba(224, 26, 44, 0.25); box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1); display: inline-block; max-width: 100%;">
-          <img src="${escapeHtml(photoImgSrc)}" alt="Evidencia de entrega Pedido #${escapeHtml(order.id)}" style="display: block; width: 100%; max-width: 460px; height: auto; object-fit: cover;" />
-        </div>
-      </div>
-    `
-    : '';
-
   const bodyHtml = `
-    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 18px; padding: 18px 20px; margin-bottom: 16px;">
-      <div style="font-size: 13.5px; color: #1e293b; line-height: 1.65;">
-        <strong>Pedido:</strong> #${escapeHtml(order.id)} (${escapeHtml(invCode)})<br/>
-        <strong>Recibido en:</strong> ${escapeHtml(order.direccion_entrega || 'Dirección registrada')} (${escapeHtml(order.municipio || 'Villavicencio')})<br/>
-        <strong>Total:</strong> <span style="color: #e01a2c; font-weight: 800;">${escapeHtml(formatCop(order.total))}</span>
+    <div style="background-color: #f8fafc; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px 18px; margin-bottom: 12px;">
+      <div style="font-size: 13px; color: #4b5563; line-height: 1.6;">
+        <div><strong>Dirección:</strong> ${escapeHtml(order.direccion_entrega || '')} (${escapeHtml(order.municipio || 'Villavicencio')})</div>
+        <div><strong>Total:</strong> ${formatCop(order.total)}</div>
         ${
           order.observaciones_entregador
-            ? `<br/><strong>Nota del entregador:</strong> ${escapeHtml(order.observaciones_entregador)}`
+            ? `<div><strong>Nota de entrega:</strong> ${escapeHtml(order.observaciones_entregador)}</div>`
             : ''
         }
       </div>
     </div>
-    ${photoSectionHtml}
+    ${photoHtml}
   `;
 
   const html = buildDanillanosEmailLayout({
-    badgeText: `Pedido #${order.id} Entregado`,
-    title: '¡Tu pedido fue entregado con éxito!',
-    subtitle: `Hola <strong>${escapeHtml(order.nombre_recibe || 'Cliente')}</strong>, nuestro repartidor ha finalizado la entrega de tu pedido. Aquí tienes el comprobante fotográfico.`,
+    title: `Tu pedido #${order.id} fue entregado`,
+    subtitle: `Hola ${order.nombre_recibe || 'Cliente'}, tu pedido ha sido entregado exitosamente. Adjuntamos el registro fotográfico de la entrega.`,
     bodyHtml,
-    ctaText: 'Ver Pedido en mi Historial',
-    ctaUrl: directHistoryUrl,
-    footerNote:
-      'Gracias por confiar en Danillanos. Si tienes alguna inquietud sobre tu entrega, puedes abrir un ticket de soporte desde tu perfil.'
+    ctaText: 'Ver pedido en mi cuenta',
+    ctaUrl: deepLinkUrl,
+    footerNote: 'Gracias por confiar en Danillanos.'
   });
 
   return sendViaResend({
     to,
-    subject: `¡Tu pedido #${order.id} fue entregado! — Danillanos`,
+    subject: `Tu pedido #${order.id} fue entregado — Danillanos`,
     html,
     attachments: attachments.length > 0 ? attachments : undefined
   });

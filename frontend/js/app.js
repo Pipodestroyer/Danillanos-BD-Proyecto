@@ -461,96 +461,33 @@
   }
 
   /**
-   * Despliega un error crítico mediante alerta nativa emergente (window.alert) y una ventana modal
-   * persistente con diagnóstico técnico detallado para el desarrollador.
+   * Despliega un aviso de error utilizando el mismo diálogo modal limpio y centrado del sistema (#danillanosAppDialogModal).
    *
    * @param {Object} options
-   * @param {string} [options.title='Error Crítico del Sistema'] - Título del error.
-   * @param {string} [options.userMessage=''] - Instrucción para el usuario final.
-   * @param {Object|string} [options.devDetails=null] - Diagnóstico técnico para el desarrollador.
-   * @param {string} [options.action=''] - Acción u operación que detonó el error.
+   * @param {string} [options.title='Atención'] - Título del error.
+   * @param {string} [options.userMessage=''] - Mensaje para el usuario.
+   * @param {Object|string} [options.devDetails=null] - Detalle adicional.
    */
-  function showDeveloperErrorAlert({ title = 'Error Crítico del Sistema', userMessage = '', devDetails = null, action = '' } = {}) {
-    const detailsStr = typeof devDetails === 'object' && devDetails !== null
-      ? JSON.stringify(devDetails, null, 2)
-      : String(devDetails || 'Sin detalles adicionales');
+  function showDeveloperErrorAlert({ title = 'Atención', userMessage = '', devDetails = null } = {}) {
+    const detailMsg =
+      typeof devDetails === 'object' && devDetails !== null
+        ? devDetails.message || devDetails.error || ''
+        : String(devDetails || '');
+    const cleanMessage =
+      userMessage && detailMsg && !userMessage.includes(detailMsg)
+        ? `${userMessage} (${detailMsg})`
+        : userMessage || detailMsg || 'Ocurrió un inconveniente al procesar tu solicitud. Intenta nuevamente.';
 
-    const nativeMsg =
-      `🚨 AVISO DEL SISTEMA - ERROR TÉCNICO\n` +
-      `--------------------------------------------------\n` +
-      `Estimado usuario:\n` +
-      `${userMessage || 'Ha ocurrido un problema de comunicación con la base de datos o el servidor.'}\n\n` +
-      `👉 POR FAVOR MUESTRE ESTE MENSAJE AL DESARROLLADOR O ADMINISTRADOR.\n` +
-      `--------------------------------------------------\n` +
-      `INFORMACIÓN PARA EL DESARROLLADOR:\n` +
-      `• Operación: ${action || 'Operación no especificada'}\n` +
-      `• Código: ${typeof devDetails === 'object' && devDetails?.code ? devDetails.code : 'ERROR'}\n` +
-      `• Detalle: ${typeof devDetails === 'object' && devDetails?.message ? devDetails.message : detailsStr}\n` +
-      (typeof devDetails === 'object' && devDetails?.hint ? `• Sugerencia: ${devDetails.hint}\n` : '') +
-      `--------------------------------------------------`;
-
-    // 1. Pop-up nativo directo
-    try {
-      window.alert(nativeMsg);
-    } catch (_) {}
-
-    // 2. Modal persistente en DOM con opción de copiar diagnóstico
-    let modal = document.getElementById('danillanosDeveloperErrorModal');
-    if (!modal) {
-      const wrap = document.createElement('div');
-      wrap.innerHTML = `
-        <div id="danillanosDeveloperErrorModal" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.85);z-index:999999;display:flex;align-items:center;justify-content:center;padding:1rem;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-          <div style="background:#1e1e24;color:#f3f4f6;max-width:620px;width:100%;border-radius:16px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.7);border:2px solid #ef4444;overflow:hidden;display:flex;flex-direction:column;max-height:90vh;">
-            <div style="background:#7f1d1d;padding:1.2rem 1.5rem;display:flex;align-items:center;gap:0.75rem;">
-              <span style="font-size:1.8rem;">🚨</span>
-              <div style="flex:1;">
-                <h3 id="devModalTitle" style="margin:0;font-size:1.15rem;font-weight:800;color:#fff;"></h3>
-                <span style="font-size:0.8rem;color:#fecaca;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Alerta Técnica del Sistema</span>
-              </div>
-              <button id="devModalCloseX" type="button" style="background:transparent;border:none;color:#fff;font-size:1.5rem;cursor:pointer;padding:0.2rem 0.5rem;border-radius:4px;">&times;</button>
-            </div>
-            <div style="padding:1.4rem 1.5rem;overflow-y:auto;flex:1;">
-              <div style="background:#26262b;border-left:4px solid #ef4444;padding:0.9rem 1rem;border-radius:6px;margin-bottom:1.2rem;">
-                <p style="margin:0;font-size:0.95rem;font-weight:700;color:#fca5a5;">Mensaje para el usuario:</p>
-                <p id="devModalUserMessage" style="margin:0.4rem 0 0;font-size:0.9rem;line-height:1.45;color:#e5e7eb;"></p>
-                <p style="margin:0.5rem 0 0;font-size:0.82rem;font-weight:600;color:#fbbf24;">⚠️ Por favor toma captura de pantalla de este diagnóstico y muéstraselo al desarrollador.</p>
-              </div>
-              <div>
-                <p style="margin:0 0 0.4rem;font-size:0.85rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;">Diagnóstico técnico para el desarrollador:</p>
-                <pre id="devModalDetails" style="background:#0d0d11;color:#38bdf8;padding:1rem;border-radius:8px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:0.82rem;overflow-x:auto;max-height:220px;border:1px solid #374151;white-space:pre-wrap;word-break:break-word;margin:0;"></pre>
-              </div>
-            </div>
-            <div style="padding:1rem 1.5rem;background:#18181b;border-top:1px solid #27272a;display:flex;gap:0.75rem;justify-content:flex-end;">
-              <button id="devModalCopyBtn" type="button" style="background:#374151;color:#fff;border:none;padding:0.6rem 1.1rem;border-radius:8px;font-weight:600;font-size:0.88rem;cursor:pointer;">📋 Copiar Diagnóstico</button>
-              <button id="devModalCloseBtn" type="button" style="background:#ef4444;color:#fff;border:none;padding:0.6rem 1.3rem;border-radius:8px;font-weight:700;font-size:0.88rem;cursor:pointer;">Entendido</button>
-            </div>
-          </div>
-        </div>
-      `;
-      modal = wrap.firstElementChild;
-      document.body.appendChild(modal);
-
-      modal.querySelector('#devModalCloseX')?.addEventListener('click', () => { modal.style.display = 'none'; });
-      modal.querySelector('#devModalCloseBtn')?.addEventListener('click', () => { modal.style.display = 'none'; });
-      modal.querySelector('#devModalCopyBtn')?.addEventListener('click', (e) => {
-        const textToCopy = `[DIAGNÓSTICO TÉCNICO DANILLANOS]\nOperación: ${action}\n${detailsStr}`;
-        if (navigator.clipboard) {
-          navigator.clipboard.writeText(textToCopy).then(() => {
-            e.target.textContent = '✅ ¡Copiado!';
-            setTimeout(() => { e.target.textContent = '📋 Copiar Diagnóstico'; }, 2000);
-          }).catch(() => {});
-        }
-      });
-    }
-
-    modal.querySelector('#devModalTitle').textContent = title;
-    modal.querySelector('#devModalUserMessage').textContent = userMessage;
-    modal.querySelector('#devModalDetails').textContent = detailsStr;
-    modal.style.display = 'flex';
+    showAppDialog({
+      title: title || 'Atención',
+      message: cleanMessage,
+      type: 'error',
+      confirmText: 'Entendido'
+    });
   }
 
   /**
-   * Despliega un modal interactivo de confirmación o entrada de texto sin utilizar diálogos nativos del navegador.
+   * Despliega un modal interactivo de confirmación o entrada de texto con el mismo diseño limpio y centrado.
    * @param {Object} options
    * @returns {Promise<boolean|string|null>}
    */
@@ -569,13 +506,16 @@
         const wrap = document.createElement('div');
         wrap.innerHTML = `
           <div class="modal-backdrop hidden" id="danillanosAppActionModal" style="z-index: 9998;">
-            <div class="modal-card" style="max-width: 440px; padding: 1.85rem 1.55rem; border-radius: var(--radius-xl, 20px);">
-              <h3 id="danillanosActionTitle" style="font-size: 1.15rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--text-primary);"></h3>
-              <p id="danillanosActionMessage" style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.45; margin-bottom: 1rem;"></p>
-              <input type="text" id="danillanosActionInput" class="modal-input hidden" style="margin-bottom: 1.1rem;" />
-              <div style="display: flex; justify-content: flex-end; gap: 0.65rem;">
-                <button type="button" class="btn-secondary" id="danillanosActionCancelBtn"></button>
-                <button type="button" class="btn-primary" id="danillanosActionConfirmBtn"></button>
+            <div class="modal-card" style="max-width: 440px; text-align: center; padding: 2rem 1.6rem; border-radius: var(--radius-xl, 20px);">
+              <div style="width: 56px; height: 56px; border-radius: 50%; background-color: rgba(224, 26, 44, 0.1); color: var(--brand-red, #e01a2c); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+                <span class="material-symbols-rounded" style="font-size: 2rem;">help</span>
+              </div>
+              <h3 id="danillanosActionTitle" style="font-size: 1.22rem; font-weight: 800; margin-bottom: 0.55rem; color: var(--text-primary);"></h3>
+              <p id="danillanosActionMessage" style="font-size: 0.92rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 1.25rem;"></p>
+              <input type="text" id="danillanosActionInput" class="modal-input hidden" style="margin-bottom: 1.15rem; text-align: left;" />
+              <div style="display: flex; justify-content: stretch; gap: 0.65rem;">
+                <button type="button" class="btn-secondary" id="danillanosActionCancelBtn" style="flex: 1; justify-content: center; font-weight: 700; padding: 0.78rem 1rem;"></button>
+                <button type="button" class="btn-primary" id="danillanosActionConfirmBtn" style="flex: 1; justify-content: center; font-weight: 700; padding: 0.78rem 1rem;"></button>
               </div>
             </div>
           </div>
@@ -645,10 +585,10 @@
   }
 
   /**
-   * Muestra u oculta mensajes de validación y retroalimentación en línea dentro de los formularios de acceso.
-   * @param {('login'|'register')} formType - Formulario destino.
+   * Muestra avisos de validación de autenticación empleando el diálogo modal limpio del sistema (#danillanosAppDialogModal).
+   * @param {('login'|'register'|'registerOtp'|'forgotPassword'|'resetToken')} formType - Formulario destino.
    * @param {string} message - Mensaje descriptivo (cadena vacía para limpiar).
-   * @param {('error'|'success')} [type='error'] - Estilo visual del mensaje.
+   * @param {('error'|'success'|'info')} [type='error'] - Estilo visual del mensaje.
    */
   function showAuthInlineFeedback(formType, message, type = 'error') {
     const idMap = {
@@ -659,102 +599,47 @@
       resetToken: 'resetTokenModalFeedback'
     };
     const targetId = idMap[formType] || 'registerInlineFeedback';
-    let el = document.getElementById(targetId);
-    if (!el && (formType === 'login' || formType === 'register')) {
-      const form = document.getElementById(formType === 'login' ? 'loginForm' : 'registerForm');
-      if (form) {
-        el = document.createElement('div');
-        el.id = targetId;
-        el.className = 'auth-inline-feedback';
-        const submitBtn = form.querySelector('button[type="submit"]');
-        if (submitBtn) {
-          form.insertBefore(el, submitBtn);
-        } else {
-          form.appendChild(el);
-        }
-      }
-    }
-    if (!el) return;
-
-    if (!message) {
+    const el = document.getElementById(targetId);
+    if (el) {
       el.classList.add('hidden');
       el.textContent = '';
+    }
+
+    if (!message || !String(message).trim()) {
       syncAuthViewportHeightGlobal();
       return;
     }
 
-    const isError = type === 'error';
-    el.style.backgroundColor = isError ? 'rgba(224, 26, 44, 0.1)' : 'rgba(16, 185, 129, 0.1)';
-    el.style.color = isError ? 'var(--brand-red, #e01a2c)' : '#10b981';
-    el.style.border = isError ? '1px solid rgba(224, 26, 44, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)';
-    el.style.borderRadius = '12px';
-    el.style.padding = '0.65rem 0.95rem';
-    el.style.fontSize = '0.85rem';
-    el.style.fontWeight = '600';
-    el.style.marginTop = '0.35rem';
-    el.style.marginBottom = '0.85rem';
-    el.style.display = 'flex';
-    el.style.alignItems = 'center';
-    el.style.gap = '0.5rem';
-    el.innerHTML = '<span class="material-symbols-rounded" style="font-size: 1.15rem; flex-shrink: 0;">' + (isError ? 'error' : 'check_circle') + '</span><span>' + message + '</span>';
-    el.classList.remove('hidden');
-
+    if (type === 'error' || type === 'info') {
+      showAppDialog({
+        title: type === 'error' ? 'Atención' : 'Información',
+        message: String(message).trim(),
+        type: type === 'error' ? 'error' : 'info',
+        confirmText: 'Entendido'
+      });
+    }
     syncAuthViewportHeightGlobal(formType);
-    setTimeout(() => syncAuthViewportHeightGlobal(formType), 60);
-    setTimeout(() => syncAuthViewportHeightGlobal(formType), 250);
   }
 
   /**
-   * Muestra u oculta mensajes de validación en línea en los pasos de la pasarela de pagos.
+   * Muestra avisos de validación en los pasos de la pasarela de pagos empleando el diálogo modal limpio del sistema.
    * @param {number} stepNum - Número del paso activo en el checkout (1, 2 o 3).
    * @param {string} message - Mensaje descriptivo (cadena vacía para limpiar).
    * @param {('error'|'success')} [type='error'] - Estilo visual del mensaje.
    */
   function showCheckoutInlineFeedback(stepNum, message, type = 'error') {
-    if (!message || !String(message).trim()) {
-      const existing = document.getElementById('checkoutInlineFeedbackStep' + stepNum);
-      if (existing) {
-        existing.classList.add('hidden');
-        existing.textContent = '';
-      }
-      return;
+    const existing = document.getElementById('checkoutInlineFeedbackStep' + stepNum);
+    if (existing) {
+      existing.classList.add('hidden');
+      existing.textContent = '';
     }
-
-    let el = document.getElementById('checkoutInlineFeedbackStep' + stepNum);
-    if (!el) {
-      const slide = document.querySelector('[data-wizard-slide="' + stepNum + '"]');
-      if (slide) {
-        const actionsRow = slide.querySelector('.wizard-step-actions');
-        el = document.createElement('div');
-        el.id = 'checkoutInlineFeedbackStep' + stepNum;
-        el.className = 'auth-inline-feedback';
-        if (actionsRow && actionsRow.parentNode) {
-          actionsRow.parentNode.insertBefore(el, actionsRow);
-        } else {
-          slide.appendChild(el);
-        }
-      }
-    }
-
-    if (!el) {
-      showAppDialog({ title: 'Atención', message, type, confirmText: 'Entendido' });
-      return;
-    }
-
-    const isError = type === 'error';
-    el.style.backgroundColor = isError ? 'rgba(224, 26, 44, 0.1)' : 'rgba(16, 185, 129, 0.1)';
-    el.style.color = isError ? 'var(--brand-red, #e01a2c)' : '#10b981';
-    el.style.border = isError ? '1px solid rgba(224, 26, 44, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)';
-    el.style.borderRadius = '12px';
-    el.style.padding = '0.75rem 1rem';
-    el.style.fontSize = '0.88rem';
-    el.style.fontWeight = '600';
-    el.style.margin = '1rem 0';
-    el.style.display = 'flex';
-    el.style.alignItems = 'center';
-    el.style.gap = '0.55rem';
-    el.innerHTML = '<span class="material-symbols-rounded" style="font-size: 1.25rem; flex-shrink: 0;">' + (isError ? 'error' : 'check_circle') + '</span><span>' + message + '</span>';
-    el.classList.remove('hidden');
+    if (!message || !String(message).trim()) return;
+    showAppDialog({
+      title: type === 'error' ? 'Atención' : 'Confirmación',
+      message: String(message).trim(),
+      type,
+      confirmText: 'Entendido'
+    });
   }
 
   /**
@@ -4770,11 +4655,12 @@
           showAuthInlineFeedback('forgotPassword', data.message || data.error || 'No se pudo enviar el enlace de recuperación.', 'error');
           return;
         }
-        showAuthInlineFeedback(
-          'forgotPassword',
-          data.message || `Enviamos un enlace de recuperación a ${email}. Tienes 10 minutos para usarlo.`,
-          'success'
-        );
+        closeForgotPasswordModal();
+        showAppDialog({
+          title: 'Enlace de Recuperación Enviado',
+          message: data.message || `Enviamos un enlace de recuperación a ${email}. Tienes 10 minutos para usarlo.`,
+          type: 'success'
+        });
       } catch (err) {
         showAuthInlineFeedback('forgotPassword', 'Error de conexión al solicitar el enlace de recuperación.', 'error');
       } finally {

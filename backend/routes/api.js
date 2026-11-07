@@ -1283,7 +1283,9 @@ router.post('/auth/register', async (req, res) => {
       email: cleanEmail,
       telefono: cleanTelefono,
       avatar_url: null,
-      rol: 'cliente'
+      rol: 'cliente',
+      has_password: true,
+      is_google_account: false
     };
 
     const token = signToken({ id: newUser.id, rol: newUser.rol, username: newUser.username });

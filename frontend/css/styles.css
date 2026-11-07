@@ -9686,156 +9686,89 @@ body[data-page="perfil"] [data-profile-window].hidden,
   margin-left: auto;
   background: transparent;
   border: none;
-  padding: 0.15rem 0.55rem;
-  border-radius: var(--radius-pill);
+  padding: 0;
   font-family: inherit;
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--brand-red, #e01a2c);
   cursor: pointer;
   text-align: right;
-  transition: background-color 0.2s ease, color 0.2s ease, transform 0.18s ease, box-shadow 0.2s ease;
+  transition: color 0.18s ease, opacity 0.18s ease;
 }
 
 .forgot-password-link-btn:hover,
 .forgot-password-link-btn:focus-visible {
-  background-color: rgba(224, 26, 44, 0.1);
   color: var(--brand-red-hover, #c41424);
-  transform: translateY(-1px);
+  text-decoration: underline;
   outline: none;
 }
 
 .register-otp-card {
-  background: var(--bg-elevated);
-  border: 1px solid rgba(224, 26, 44, 0.24);
-  border-radius: var(--radius-lg, 20px);
-  padding: 1.35rem 1.25rem;
-  box-shadow: var(--shadow-md);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0.15rem 0;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  animation: scaleUpModalCard 0.24s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.register-otp-header {
-  display: flex;
-  align-items: center;
   gap: 0.9rem;
 }
 
-.register-otp-icon-circle {
-  width: 46px;
-  height: 46px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(224, 26, 44, 0.16), rgba(224, 26, 44, 0.06));
-  border: 1px solid rgba(224, 26, 44, 0.28);
-  color: var(--brand-red, #e01a2c);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 6px 16px rgba(224, 26, 44, 0.14);
-}
-
-.register-otp-icon-circle .material-symbols-rounded {
-  font-size: 1.5rem;
-}
-
 .register-otp-header-text h4 {
-  margin: 0 0 0.2rem;
+  margin: 0 0 0.25rem;
   font-family: 'Outfit', sans-serif;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 800;
   color: var(--text-primary);
 }
 
 .register-otp-header-text p {
   margin: 0;
-  font-size: 0.82rem;
-  line-height: 1.45;
+  font-size: 0.84rem;
+  line-height: 1.5;
   color: var(--text-secondary);
 }
 
-.register-otp-email-pill {
-  display: inline-block;
-  margin-top: 0.15rem;
-  padding: 0.1rem 0.55rem;
-  border-radius: var(--radius-pill);
-  background: rgba(224, 26, 44, 0.1);
-  border: 1px solid rgba(224, 26, 44, 0.24);
-  color: var(--brand-red, #e01a2c);
-  font-weight: 700;
-  font-size: 0.78rem;
-  word-break: break-all;
-}
-
-.register-otp-timer-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.55rem 0.85rem;
-  border-radius: var(--radius-md, 14px);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-}
-
 .register-otp-timer-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.8rem;
-  font-weight: 800;
-  color: var(--brand-red, #e01a2c);
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 .register-otp-timer-badge.is-expired {
-  color: var(--text-muted);
-}
-
-.register-otp-timer-badge .material-symbols-rounded {
-  font-size: 1.05rem;
-}
-
-.register-otp-security-hint {
-  font-size: 0.74rem;
-  font-weight: 600;
-  color: var(--text-muted);
+  color: var(--brand-red, #e01a2c);
 }
 
 .otp-code-inputs-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0.55rem;
-  margin: 0.25rem 0 0.35rem;
+  gap: 0.5rem;
+  margin: 0.15rem 0 0.25rem;
 }
 
 .otp-digit-input {
   width: 100%;
-  height: 54px;
-  border-radius: 16px;
-  border: 1.5px solid var(--border-strong);
-  background: var(--bg-surface);
+  height: 48px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-elevated);
   color: var(--text-primary);
-  font-family: 'Outfit', sans-serif;
-  font-size: 1.35rem;
-  font-weight: 800;
+  font-family: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
   text-align: center;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.16s ease, background-color 0.2s ease;
+  box-shadow: none;
+  transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .otp-digit-input:focus {
   outline: none;
   border-color: var(--brand-red, #e01a2c);
-  box-shadow: 0 0 0 4px rgba(224, 26, 44, 0.16), 0 8px 18px rgba(224, 26, 44, 0.12);
-  transform: translateY(-2px);
+  background-color: var(--bg-surface);
+  box-shadow: 0 0 0 3px rgba(224, 26, 44, 0.1);
 }
 
 .otp-digit-input.is-filled {
-  border-color: rgba(224, 26, 44, 0.55);
-  background: rgba(224, 26, 44, 0.05);
+  border-color: var(--border-strong);
+  background-color: var(--bg-surface);
 }
 
 .register-otp-footer-actions {
@@ -9843,7 +9776,7 @@ body[data-page="perfil"] [data-profile-window].hidden,
   align-items: center;
   justify-content: space-between;
   gap: 0.65rem;
-  margin-top: 0.25rem;
+  margin-top: 0.1rem;
   flex-wrap: wrap;
 }
 
@@ -9855,82 +9788,69 @@ body[data-page="perfil"] [data-profile-window].hidden,
   padding: 0.55rem 0.85rem;
 }
 
-.auth-security-modal-dialog {
-  max-width: 470px !important;
+/* Pop-ups limpios y centrados (idénticos al diálogo de cuenta verificada #danillanosAppDialogModal) */
+.auth-clean-popup-card {
+  max-width: 440px !important;
   width: 100%;
-  border-radius: 26px !important;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
-  border: 1px solid var(--border-strong);
+  text-align: center;
+  padding: 2rem 1.6rem !important;
+  border-radius: var(--radius-xl, 20px) !important;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.18);
 }
 
-.auth-security-modal-title {
-  display: inline-flex;
+.auth-clean-popup-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: rgba(224, 26, 44, 0.1);
+  color: var(--brand-red, #e01a2c);
+  display: flex;
   align-items: center;
-  gap: 0.55rem;
+  justify-content: center;
+  margin: 0 auto 1rem;
 }
 
-.auth-security-modal-title .material-symbols-rounded {
-  color: var(--brand-red, #e01a2c);
-  font-size: 1.35rem;
+.auth-clean-popup-icon .material-symbols-rounded {
+  font-size: 2rem;
 }
 
-.auth-security-modal-body {
-  padding: 1.35rem 1.5rem 1.5rem !important;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.auth-security-modal-desc {
-  margin: 0;
-  font-size: 0.86rem;
-  line-height: 1.55;
-  color: var(--text-secondary);
-}
-
-.auth-security-modal-actions {
-  margin-top: 0.35rem;
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.7rem;
-  flex-wrap: wrap;
-}
-
-.reset-token-info-banner {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.85rem 1rem;
-  border-radius: 16px;
-  background: rgba(224, 26, 44, 0.08);
-  border: 1px solid rgba(224, 26, 44, 0.24);
-}
-
-.reset-token-info-banner .material-symbols-rounded {
-  color: var(--brand-red, #e01a2c);
-  font-size: 1.35rem;
-  margin-top: 1px;
-}
-
-.reset-token-info-banner strong {
-  display: block;
-  font-size: 0.85rem;
+.auth-clean-popup-title {
+  font-size: 1.22rem;
+  font-weight: 800;
+  margin: 0 0 0.5rem;
   color: var(--text-primary);
-  margin-bottom: 2px;
 }
 
-.reset-token-info-banner p {
-  margin: 0;
-  font-size: 0.78rem;
+.auth-clean-popup-desc {
+  font-size: 0.9rem;
   color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0 0 1.25rem;
+}
+
+.auth-clean-popup-actions {
+  display: flex;
+  gap: 0.65rem;
+  justify-content: stretch;
+  margin-top: 0.5rem;
+}
+
+.auth-clean-popup-actions .btn-primary,
+.auth-clean-popup-actions .btn-secondary {
+  flex: 1 1 0;
+  justify-content: center;
+  font-weight: 700;
+  padding: 0.78rem 1rem;
 }
 
 /* Destacado suave en tarjeta de pedido abierta mediante enlace directo desde el correo */
 .customer-order-accordion.order-deep-link-highlight,
 .my-order-card.order-deep-link-highlight {
   border-color: var(--brand-red, #e01a2c) !important;
-  box-shadow: 0 0 0 4px rgba(224, 26, 44, 0.18), 0 18px 38px rgba(224, 26, 44, 0.14) !important;
-  transition: box-shadow 0.35s ease, border-color 0.35s ease;
+  box-shadow: 0 0 0 3px rgba(224, 26, 44, 0.14) !important;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 @media (max-width: 480px) {
@@ -9938,8 +9858,8 @@ body[data-page="perfil"] [data-profile-window].hidden,
     gap: 0.38rem;
   }
   .otp-digit-input {
-    height: 46px;
-    font-size: 1.15rem;
-    border-radius: 12px;
+    height: 44px;
+    font-size: 1.05rem;
+    border-radius: 10px;
   }
 }
