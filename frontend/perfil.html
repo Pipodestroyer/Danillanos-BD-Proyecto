@@ -154,7 +154,12 @@
                     <input type="email" id="loginEmail" class="modal-input" placeholder="tucorreo@ejemplo.com" required />
                   </div>
                   <div class="form-group">
-                    <label for="loginPassword">Contraseña</label>
+                    <div class="login-password-label-row">
+                      <label for="loginPassword">Contraseña</label>
+                      <button type="button" class="forgot-password-link-btn" id="btnOpenForgotPassword">
+                        ¿Olvidaste tu contraseña?
+                      </button>
+                    </div>
                     <input type="password" id="loginPassword" class="modal-input" placeholder="••••••••" required />
                   </div>
                   <div id="loginInlineFeedback" class="hidden auth-inline-feedback" role="alert"></div>
@@ -217,11 +222,64 @@
                   </div>
 
                   <div id="registerInlineFeedback" class="hidden auth-inline-feedback" role="alert"></div>
-                  <button type="submit" class="btn-primary btn-full">
-                    <span class="material-symbols-rounded">person_add</span>
-                    <span>Crear Cuenta</span>
+                  <button type="submit" class="btn-primary btn-full" id="btnRegisterRequestOtp">
+                    <span class="material-symbols-rounded">mark_email_read</span>
+                    <span>Continuar y Verificar Correo</span>
                   </button>
                 </form>
+
+                <!-- Paso 2 de Creación de Cuenta: Verificación de código de 6 dígitos (10 minutos) -->
+                <div id="registerVerifyStepPanel" class="register-otp-card hidden">
+                  <div class="register-otp-header">
+                    <div class="register-otp-icon-circle">
+                      <span class="material-symbols-rounded">verified_user</span>
+                    </div>
+                    <div class="register-otp-header-text">
+                      <h4>Verifica tu Correo Electrónico</h4>
+                      <p>
+                        Enviamos un código único de <strong>6 dígitos</strong> a
+                        <span class="register-otp-email-pill" id="regOtpTargetEmail">tucorreo@ejemplo.com</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="register-otp-timer-row">
+                    <span class="register-otp-timer-badge" id="regOtpTimerBadge">
+                      <span class="material-symbols-rounded">schedule</span>
+                      <span id="regOtpCountdownText">Válido por 10:00</span>
+                    </span>
+                    <span class="register-otp-security-hint">Código irrepetible de un solo uso</span>
+                  </div>
+
+                  <form id="registerVerifyOtpForm" class="modal-form" autocomplete="off">
+                    <div class="otp-code-inputs-grid" id="regOtpInputsContainer" role="group" aria-label="Código de verificación de 6 dígitos">
+                      <input type="text" inputmode="numeric" maxlength="1" class="otp-digit-input" data-otp-index="0" aria-label="Dígito 1" required />
+                      <input type="text" inputmode="numeric" maxlength="1" class="otp-digit-input" data-otp-index="1" aria-label="Dígito 2" required />
+                      <input type="text" inputmode="numeric" maxlength="1" class="otp-digit-input" data-otp-index="2" aria-label="Dígito 3" required />
+                      <input type="text" inputmode="numeric" maxlength="1" class="otp-digit-input" data-otp-index="3" aria-label="Dígito 4" required />
+                      <input type="text" inputmode="numeric" maxlength="1" class="otp-digit-input" data-otp-index="4" aria-label="Dígito 5" required />
+                      <input type="text" inputmode="numeric" maxlength="1" class="otp-digit-input" data-otp-index="5" aria-label="Dígito 6" required />
+                    </div>
+
+                    <div id="registerOtpInlineFeedback" class="hidden auth-inline-feedback" role="alert"></div>
+
+                    <button type="submit" class="btn-primary btn-full" id="btnConfirmRegisterOtp">
+                      <span class="material-symbols-rounded">check_circle</span>
+                      <span>Verificar Código y Crear Cuenta</span>
+                    </button>
+
+                    <div class="register-otp-footer-actions">
+                      <button type="button" class="btn-secondary btn-sm" id="btnBackToRegisterFields">
+                        <span class="material-symbols-rounded">arrow_back</span>
+                        <span>Modificar datos</span>
+                      </button>
+                      <button type="button" class="btn-secondary btn-sm" id="btnResendRegisterOtp">
+                        <span class="material-symbols-rounded">forward_to_inbox</span>
+                        <span>Enviar nuevo código</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
             </div>
           </div>
@@ -701,6 +759,136 @@
           </button>
         </div>
 
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal para solicitar enlace de recuperación de contraseña por correo (10 minutos) -->
+  <div class="invoice-modal-backdrop hidden" id="forgotPasswordModal">
+    <div class="invoice-modal-dialog auth-security-modal-dialog">
+      <div class="invoice-modal-top">
+        <div class="auth-security-modal-title">
+          <span class="material-symbols-rounded">lock_reset</span>
+          <strong>Recuperar Contraseña</strong>
+        </div>
+        <button type="button" class="icon-close-btn" id="btnCloseForgotPasswordModal" aria-label="Cerrar ventana">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <form id="forgotPasswordForm" class="invoice-modal-body auth-security-modal-body">
+        <p class="auth-security-modal-desc">
+          Ingresa el correo electrónico asociado a tu cuenta Danillanos. Te enviaremos un enlace seguro válido por <strong>máximo 10 minutos</strong> para restablecer tu contraseña.
+        </p>
+
+        <div class="form-group">
+          <label for="forgotPasswordEmail">Correo Electrónico Registrado *</label>
+          <input
+            type="email"
+            id="forgotPasswordEmail"
+            class="modal-input"
+            placeholder="tucorreo@ejemplo.com"
+            autocomplete="email"
+            required
+          />
+        </div>
+
+        <div id="forgotPasswordFeedback" class="hidden auth-inline-feedback" role="alert"></div>
+
+        <div class="modal-actions-row auth-security-modal-actions">
+          <button type="button" class="btn-secondary" id="btnCancelForgotPasswordModal">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-primary" id="btnSubmitForgotPassword">
+            <span class="material-symbols-rounded">send</span>
+            <span>Enviar Enlace de Recuperación</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal para restablecer contraseña al abrir el link del correo (?reset_token=...) -->
+  <div class="invoice-modal-backdrop hidden" id="resetPasswordTokenModal">
+    <div class="invoice-modal-dialog auth-security-modal-dialog">
+      <div class="invoice-modal-top">
+        <div class="auth-security-modal-title">
+          <span class="material-symbols-rounded">key</span>
+          <strong>Restablecer tu Contraseña</strong>
+        </div>
+        <button type="button" class="icon-close-btn" id="btnCloseResetTokenModal" aria-label="Cerrar ventana">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <form id="resetPasswordTokenForm" class="invoice-modal-body auth-security-modal-body">
+        <div class="reset-token-info-banner">
+          <span class="material-symbols-rounded">verified_user</span>
+          <div>
+            <strong>Enlace de recuperación verificado</strong>
+            <p id="resetTokenAccountLabel">Crea una nueva contraseña segura para tu cuenta.</p>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="resetTokenNewPassword">Nueva Contraseña * (Mínimo 6 caracteres)</label>
+          <div style="position: relative;">
+            <input
+              type="password"
+              id="resetTokenNewPassword"
+              class="modal-input"
+              placeholder="Escribe tu nueva contraseña"
+              minlength="6"
+              autocomplete="new-password"
+              required
+              style="width: 100%; padding-right: 2.75rem; box-sizing: border-box;"
+            />
+            <button
+              type="button"
+              class="pwd-toggle-visibility-btn"
+              data-target="resetTokenNewPassword"
+              style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 4px; display: flex; align-items: center;"
+              aria-label="Ver u ocultar contraseña"
+            >
+              <span class="material-symbols-rounded" style="font-size: 1.25rem;">visibility</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="resetTokenConfirmPassword">Confirmar Nueva Contraseña *</label>
+          <div style="position: relative;">
+            <input
+              type="password"
+              id="resetTokenConfirmPassword"
+              class="modal-input"
+              placeholder="Repite tu nueva contraseña"
+              minlength="6"
+              autocomplete="new-password"
+              required
+              style="width: 100%; padding-right: 2.75rem; box-sizing: border-box;"
+            />
+            <button
+              type="button"
+              class="pwd-toggle-visibility-btn"
+              data-target="resetTokenConfirmPassword"
+              style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 4px; display: flex; align-items: center;"
+              aria-label="Ver u ocultar contraseña"
+            >
+              <span class="material-symbols-rounded" style="font-size: 1.25rem;">visibility</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="resetTokenModalFeedback" class="hidden auth-inline-feedback" role="alert"></div>
+
+        <div class="modal-actions-row auth-security-modal-actions">
+          <button type="button" class="btn-secondary" id="btnCancelResetTokenModal">
+            Cerrar
+          </button>
+          <button type="submit" class="btn-primary" id="btnSubmitResetToken">
+            <span class="material-symbols-rounded">check_circle</span>
+            <span>Guardar y Entrar a mi Cuenta</span>
+          </button>
+        </div>
       </form>
     </div>
   </div>

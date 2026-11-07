@@ -10,7 +10,15 @@
 
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
+const {
+  resolveAppBaseUrl,
+  sendRegistrationVerificationEmail,
+  sendPasswordResetEmail,
+  sendOrderConfirmationEmail,
+  sendOrderDeliveredEmail
+} = require('../utils/mailer');
 const { pool, checkDatabaseConnection } = require('../config/db');
 const {
   hashPassword,
@@ -674,7 +682,27 @@ async function ensureProductDiscountColumns() {
     'ALTER TABLE productos ADD COLUMN descuento_expira_ms BIGINT DEFAULT NULL',
     'ALTER TABLE productos ADD COLUMN descuento_unidades_limite INT DEFAULT NULL',
     'ALTER TABLE productos ADD COLUMN descuento_unidades_vendidas INT NOT NULL DEFAULT 0',
-    "ALTER TABLE usuarios MODIFY COLUMN rol ENUM('cliente', 'empleado', 'bodega', 'entregador', 'soporte', 'admin') NOT NULL DEFAULT 'cliente'"
+    "ALTER TABLE usuarios MODIFY COLUMN rol ENUM('cliente', 'empleado', 'bodega', 'entregador', 'soporte', 'admin') NOT NULL DEFAULT 'cliente'",
+    `CREATE TABLE IF NOT EXISTS verificaciones_correo (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      email_hash VARCHAR(128) NOT NULL,
+      codigo_hash VARCHAR(128) NOT NULL UNIQUE,
+      expira_ms BIGINT NOT NULL,
+      intentos INT NOT NULL DEFAULT 0,
+      usado TINYINT(1) NOT NULL DEFAULT 0,
+      creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_verif_email (email_hash)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+    `CREATE TABLE IF NOT EXISTS recuperaciones_password (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      usuario_id INT NOT NULL,
+      email_hash VARCHAR(128) NOT NULL,
+      token_hash VARCHAR(128) NOT NULL UNIQUE,
+      expira_ms BIGINT NOT NULL,
+      usado TINYINT(1) NOT NULL DEFAULT 0,
+      creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_reset_token (token_hash)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   ];
   try {
     for (const stmt of alterStatements) {
@@ -974,6 +1002,133 @@ router.get('/productos', async (req, res) => {
 // 2. AUTENTICACIÓN ENCRIPTADA (CORREO + GOOGLE OAUTH)
 // ============================================================================
 
+const issuedOtpCodeHashesMemory = new Set();
+
+/**
+ * Genera un código criptográfico de 6 dígitos (100000 - 999999) garantizando que nunca se haya emitido antes
+ * ni en memoria ni en la tabla `verificaciones_correo` (índice UNIQUE en `codigo_hash`).
+ *
+ * @async
+ * @function generateUniqueSixDigitCode
+ * @returns {Promise<{codigo: string, codigoHash: string}>}
+ */
+async function generateUniqueSixDigitCode() {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const rawNum = crypto.randomInt(100000, 1000000);
+    const codigo = String(rawNum).padStart(6, '0');
+    const codigoHash = hashLookup(`otp_reg_${codigo}`);
+    if (issuedOtpCodeHashesMemory.has(codigoHash)) continue;
+    const [existingCode] = await pool.query(
+      'SELECT id FROM verificaciones_correo WHERE codigo_hash = ? LIMIT 1',
+      [codigoHash]
+    );
+    if (!existingCode || existingCode.length === 0) {
+      issuedOtpCodeHashesMemory.add(codigoHash);
+      return { codigo, codigoHash };
+    }
+  }
+  const fallbackNum = crypto.randomInt(100000, 1000000);
+  const fallbackCode = String(fallbackNum).padStart(6, '0');
+  const fallbackHash = hashLookup(`otp_reg_${fallbackCode}_${Date.now()}`);
+  return { codigo: fallbackCode, codigoHash: fallbackHash };
+}
+
+/**
+ * @route POST /api/auth/register/solicitar-codigo
+ * @desc Valida los datos de creación de cuenta y envía al correo un código único de 6 dígitos válido por 10 minutos.
+ * @access Público
+ */
+router.post('/auth/register/solicitar-codigo', async (req, res) => {
+  const {
+    nombres,
+    apellidos,
+    numero_documento,
+    nombre_completo,
+    email,
+    password,
+    telefono
+  } = req.body || {};
+
+  const cleanNombres = String(nombres || nombre_completo || '').trim();
+  const cleanApellidos = String(apellidos || '').trim();
+  const cleanNumDoc = String(numero_documento || '').trim();
+  const cleanTelefono = String(telefono || '').trim();
+  const cleanEmail = String(email || '').trim().toLowerCase();
+
+  if (!cleanEmail || !password || !cleanNombres || !cleanApellidos || !cleanNumDoc || !cleanTelefono) {
+    return res.status(400).json({
+      ok: false,
+      message: 'Completa nombre, apellidos, tipo y número de documento, celular, correo y contraseña.'
+    });
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+    return res.status(400).json({
+      ok: false,
+      message: 'Ingresa una dirección de correo electrónico válida.'
+    });
+  }
+
+  if (String(password).length < 6) {
+    return res.status(400).json({
+      ok: false,
+      message: 'La contraseña debe tener al menos 6 caracteres por seguridad.'
+    });
+  }
+
+  const emailHash = hashLookup(cleanEmail);
+
+  try {
+    await ensureProductDiscountColumns();
+    const [existing] = await pool.query('SELECT id FROM usuarios WHERE email_hash = ? LIMIT 1', [emailHash]);
+    if (existing.length > 0) {
+      return res.status(409).json({
+        ok: false,
+        message: 'Ya existe una cuenta registrada con este correo electrónico.'
+      });
+    }
+
+    // Invalidar códigos previos sin usar para este correo
+    await pool.query(
+      'UPDATE verificaciones_correo SET usado = 1 WHERE email_hash = ? AND usado = 0',
+      [emailHash]
+    );
+
+    const { codigo, codigoHash } = await generateUniqueSixDigitCode();
+    const expiraMs = Date.now() + 10 * 60 * 1000; // 10 minutos exactos
+
+    await pool.query(
+      `INSERT INTO verificaciones_correo (email_hash, codigo_hash, expira_ms, intentos, usado)
+       VALUES (?, ?, ?, 0, 0)`,
+      [emailHash, codigoHash, expiraMs]
+    );
+
+    const mailRes = await sendRegistrationVerificationEmail({
+      to: cleanEmail,
+      nombre: cleanNombres,
+      codigo
+    });
+
+    if (!mailRes.sent) {
+      return res.status(503).json({
+        ok: false,
+        message: 'No pudimos enviar el código de verificación a tu correo en este momento. Verifica que la dirección exista o revisa la configuración del servidor de correo.',
+        reason: mailRes.reason || 'email_send_failed'
+      });
+    }
+
+    return res.json({
+      ok: true,
+      expiresInSeconds: 600,
+      expira_ms: expiraMs,
+      message: `Enviamos un código de 6 dígitos a ${cleanEmail}. Tienes 10 minutos para ingresarlo.`
+    });
+  } catch (error) {
+    return sendDatabaseError(res, error, 'Solicitud de código de verificación de correo');
+  }
+});
+// ============================================================================
+
 /**
  * @route POST /api/auth/register
  * @desc Registra un nuevo usuario cliente con cifrado AES-256-GCM para PII y Scrypt para contraseñas.
@@ -1028,6 +1183,7 @@ router.post('/auth/register', async (req, res) => {
   const displayUsername = (cleanEmpresa || username || fullDisplayName).trim();
 
   try {
+    await ensureProductDiscountColumns();
     const [existing] = await pool.query('SELECT id FROM usuarios WHERE email_hash = ? LIMIT 1', [emailHash]);
     if (existing.length > 0) {
       return res.status(409).json({
@@ -1035,6 +1191,65 @@ router.post('/auth/register', async (req, res) => {
         message: 'Ya existe una cuenta registrada con este correo electrónico.'
       });
     }
+
+    const rawOtpCode = String(req.body.codigo_verificacion || req.body.codigo || '').replace(/\D/g, '').trim();
+    if (!/^\d{6}$/.test(rawOtpCode)) {
+      return res.status(400).json({
+        ok: false,
+        requiresVerification: true,
+        message: 'Ingresa el código de verificación de 6 dígitos enviado a tu correo electrónico.'
+      });
+    }
+
+    const [verifRows] = await pool.query(
+      `SELECT id, codigo_hash, expira_ms, intentos, usado
+       FROM verificaciones_correo
+       WHERE email_hash = ? AND usado = 0
+       ORDER BY id DESC
+       LIMIT 1`,
+      [emailHash]
+    );
+
+    if (!verifRows || verifRows.length === 0) {
+      return res.status(400).json({
+        ok: false,
+        requiresVerification: true,
+        message: 'No hay un código de verificación activo para este correo. Solicita un nuevo código.'
+      });
+    }
+
+    const verifRecord = verifRows[0];
+    if (Date.now() > Number(verifRecord.expira_ms)) {
+      await pool.query('UPDATE verificaciones_correo SET usado = 1 WHERE id = ?', [verifRecord.id]);
+      return res.status(400).json({
+        ok: false,
+        codeExpired: true,
+        message: 'El código de verificación ha expirado (validez máxima de 10 minutos). Solicita uno nuevo.'
+      });
+    }
+
+    if (Number(verifRecord.intentos) >= 5) {
+      await pool.query('UPDATE verificaciones_correo SET usado = 1 WHERE id = ?', [verifRecord.id]);
+      return res.status(429).json({
+        ok: false,
+        codeExpired: true,
+        message: 'Superaste el número máximo de intentos para este código. Solicita un código nuevo.'
+      });
+    }
+
+    const candidateHash = hashLookup(`otp_reg_${rawOtpCode}`);
+    if (candidateHash !== verifRecord.codigo_hash) {
+      await pool.query(
+        'UPDATE verificaciones_correo SET intentos = intentos + 1 WHERE id = ?',
+        [verifRecord.id]
+      );
+      return res.status(400).json({
+        ok: false,
+        message: 'El código de verificación ingresado no es correcto. Revisa tu bandeja de entrada e inténtalo de nuevo.'
+      });
+    }
+
+    await pool.query('UPDATE verificaciones_correo SET usado = 1 WHERE id = ?', [verifRecord.id]);
 
     const [result] = await pool.query(
       `INSERT INTO usuarios (
@@ -1542,6 +1757,230 @@ router.post('/auth/cambiar-password', async (req, res) => {
   }
 });
 
+/**
+ * @route POST /api/auth/recuperar-password/solicitar
+ * @desc Envía un enlace único de restablecimiento de contraseña válido por 10 minutos al correo registrado.
+ * @access Público
+ */
+router.post('/auth/recuperar-password/solicitar', async (req, res) => {
+  const { email } = req.body || {};
+  const cleanEmail = String(email || '').trim().toLowerCase();
+
+  if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+    return res.status(400).json({
+      ok: false,
+      message: 'Ingresa una dirección de correo electrónico válida.'
+    });
+  }
+
+  const emailHash = hashLookup(cleanEmail);
+
+  try {
+    await ensureProductDiscountColumns();
+    const [rows] = await pool.query(
+      'SELECT * FROM usuarios WHERE email_hash = ? AND activo = 1 LIMIT 1',
+      [emailHash]
+    );
+    const userRow = rows && rows[0] ? rows[0] : null;
+
+    if (!userRow) {
+      return res.status(404).json({
+        ok: false,
+        message: 'No encontramos ninguna cuenta activa asociada a ese correo electrónico.'
+      });
+    }
+
+    // Invalidar tokens de recuperación previos para este usuario
+    await pool.query(
+      'UPDATE recuperaciones_password SET usado = 1 WHERE usuario_id = ? AND usado = 0',
+      [userRow.id]
+    );
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = hashLookup(`pwd_reset_${rawToken}`);
+    const expiraMs = Date.now() + 10 * 60 * 1000; // Máximo 10 minutos
+
+    await pool.query(
+      `INSERT INTO recuperaciones_password (usuario_id, email_hash, token_hash, expira_ms, usado)
+       VALUES (?, ?, ?, ?, 0)`,
+      [userRow.id, emailHash, tokenHash, expiraMs]
+    );
+
+    const safeUser = formatSafeUser(userRow);
+    const baseUrl = resolveAppBaseUrl(req);
+    const resetUrl = `${baseUrl}/perfil?reset_token=${encodeURIComponent(rawToken)}#cuenta-section`;
+
+    const mailRes = await sendPasswordResetEmail({
+      to: cleanEmail,
+      nombre: safeUser.nombres || safeUser.nombre_completo || safeUser.username,
+      resetUrl
+    });
+
+    if (!mailRes.sent) {
+      return res.status(503).json({
+        ok: false,
+        message: 'No fue posible enviar el correo de recuperación en este momento. Intenta de nuevo en unos instantes.',
+        reason: mailRes.reason || 'email_send_failed'
+      });
+    }
+
+    return res.json({
+      ok: true,
+      expiresInSeconds: 600,
+      message: `Enviamos un enlace de recuperación a ${cleanEmail}. El enlace es válido por 10 minutos.`
+    });
+  } catch (error) {
+    return sendDatabaseError(res, error, 'Solicitud de recuperación de contraseña');
+  }
+});
+
+/**
+ * @route GET /api/auth/recuperar-password/validar
+ * @desc Verifica si un token de restablecimiento de contraseña sigue vigente (dentro de los 10 minutos) y no ha sido usado.
+ * @access Público
+ */
+router.get('/auth/recuperar-password/validar', async (req, res) => {
+  const rawToken = String(req.query.token || '').trim();
+  if (!rawToken || rawToken.length < 32) {
+    return res.status(400).json({
+      ok: false,
+      message: 'El enlace de recuperación no es válido.'
+    });
+  }
+
+  const tokenHash = hashLookup(`pwd_reset_${rawToken}`);
+
+  try {
+    await ensureProductDiscountColumns();
+    const [rows] = await pool.query(
+      `SELECT r.id, r.usuario_id, r.expira_ms, r.usado, u.email_enc, u.nombre_completo_enc, u.username
+       FROM recuperaciones_password r
+       INNER JOIN usuarios u ON u.id = r.usuario_id
+       WHERE r.token_hash = ?
+       LIMIT 1`,
+      [tokenHash]
+    );
+
+    const rec = rows && rows[0] ? rows[0] : null;
+    if (!rec || Number(rec.usado) === 1) {
+      return res.status(400).json({
+        ok: false,
+        expired: true,
+        message: 'Este enlace de recuperación ya fue utilizado o no es válido.'
+      });
+    }
+
+    const now = Date.now();
+    if (now > Number(rec.expira_ms)) {
+      await pool.query('UPDATE recuperaciones_password SET usado = 1 WHERE id = ?', [rec.id]);
+      return res.status(400).json({
+        ok: false,
+        expired: true,
+        message: 'El enlace para restablecer tu contraseña expiró (vigencia máxima de 10 minutos). Solicita uno nuevo.'
+      });
+    }
+
+    const emailDec = decryptData(rec.email_enc) || '';
+    const remainingSeconds = Math.max(1, Math.floor((Number(rec.expira_ms) - now) / 1000));
+
+    return res.json({
+      ok: true,
+      email: emailDec,
+      remainingSeconds
+    });
+  } catch (error) {
+    return sendDatabaseError(res, error, 'Validación de enlace de recuperación');
+  }
+});
+
+/**
+ * @route POST /api/auth/recuperar-password/confirmar
+ * @desc Restablece la contraseña usando un token válido (máximo 10 minutos), lo invalida e inicia sesión automáticamente.
+ * @access Público
+ */
+router.post('/auth/recuperar-password/confirmar', async (req, res) => {
+  const { token, nueva_password } = req.body || {};
+  const rawToken = String(token || '').trim();
+  const cleanNewPass = String(nueva_password || '').trim();
+
+  if (!rawToken || rawToken.length < 32) {
+    return res.status(400).json({
+      ok: false,
+      message: 'El enlace de recuperación es inválido.'
+    });
+  }
+
+  if (cleanNewPass.length < 6) {
+    return res.status(400).json({
+      ok: false,
+      message: 'La nueva contraseña debe tener al menos 6 caracteres por seguridad.'
+    });
+  }
+
+  const tokenHash = hashLookup(`pwd_reset_${rawToken}`);
+
+  try {
+    await ensureProductDiscountColumns();
+    const [rows] = await pool.query(
+      'SELECT * FROM recuperaciones_password WHERE token_hash = ? LIMIT 1',
+      [tokenHash]
+    );
+    const rec = rows && rows[0] ? rows[0] : null;
+
+    if (!rec || Number(rec.usado) === 1) {
+      return res.status(400).json({
+        ok: false,
+        expired: true,
+        message: 'Este enlace de recuperación ya fue utilizado o no es válido.'
+      });
+    }
+
+    if (Date.now() > Number(rec.expira_ms)) {
+      await pool.query('UPDATE recuperaciones_password SET usado = 1 WHERE id = ?', [rec.id]);
+      return res.status(400).json({
+        ok: false,
+        expired: true,
+        message: 'El enlace de recuperación ha expirado (límite de 10 minutos). Solicita uno nuevo.'
+      });
+    }
+
+    const newPassHash = hashPassword(cleanNewPass);
+    await pool.query('UPDATE usuarios SET password_hash = ? WHERE id = ?', [newPassHash, rec.usuario_id]);
+    await pool.query('UPDATE recuperaciones_password SET usado = 1 WHERE id = ?', [rec.id]);
+
+    const [uRows] = await pool.query('SELECT * FROM usuarios WHERE id = ? LIMIT 1', [rec.usuario_id]);
+    const userRow = uRows && uRows[0] ? uRows[0] : null;
+    if (!userRow) {
+      return res.status(404).json({ ok: false, message: 'Cuenta de usuario no encontrada.' });
+    }
+
+    const [dirRows] = await pool.query(
+      'SELECT * FROM usuario_direcciones WHERE usuario_id = ? ORDER BY es_principal DESC, id ASC',
+      [userRow.id]
+    );
+
+    const safeUser = formatSafeUser(userRow);
+    const jwtToken = signToken({
+      id: safeUser.id,
+      rol: safeUser.rol,
+      username: safeUser.username,
+      email: safeUser.email,
+      avatar_url: safeUser.avatar_url,
+      is_google: Boolean(safeUser.is_google_account)
+    });
+
+    return res.json({
+      ok: true,
+      message: '¡Tu contraseña ha sido restablecida con éxito!',
+      token: jwtToken,
+      user: safeUser,
+      direcciones: dirRows.map(formatSafeAddress)
+    });
+  } catch (error) {
+    return sendDatabaseError(res, error, 'Confirmación de restablecimiento de contraseña');
+  }
+});
+
 // ============================================================================
 // 3. SISTEMA DE DIRECCIONES (MÁXIMO 5 POR CUENTA + RADIO VILLAVICENCIO / META)
 // ============================================================================
@@ -1919,6 +2358,49 @@ router.post('/pedidos', async (req, res) => {
     await connection.commit();
     connection.release();
 
+    // Envío asíncrono del correo de confirmación de pedido con Factura PDF adjunta y enlace profundo
+    const orderBaseUrl = resolveAppBaseUrl(req);
+    const orderRefFinal = referencia_pago || `DAN-${Date.now().toString().slice(-6)}`;
+    (async () => {
+      try {
+        let customerEmail = authUser?.email || '';
+        let customerName = nombre_recibe || authUser?.username || 'Cliente Danillanos';
+        if (authUser && authUser.id) {
+          const [uRows] = await pool.query(
+            'SELECT email_enc, nombre_completo_enc, username FROM usuarios WHERE id = ? LIMIT 1',
+            [authUser.id]
+          );
+          if (uRows && uRows[0]) {
+            customerEmail = decryptData(uRows[0].email_enc) || customerEmail;
+            if (!nombre_recibe) {
+              customerName = decryptData(uRows[0].nombre_completo_enc) || uRows[0].username || customerName;
+            }
+          }
+        }
+        if (customerEmail) {
+          await sendOrderConfirmationEmail({
+            to: customerEmail,
+            baseUrl: orderBaseUrl,
+            order: {
+              id: pedidoId,
+              nombre_recibe: customerName,
+              telefono_cliente: telefono_cliente || '3100000000',
+              direccion_entrega: direccion_entrega || 'Villavicencio, Meta',
+              municipio: zone.municipio,
+              tiempo_entrega_estimado: zone.tiempo_entrega_estimado,
+              metodo_pago: validMethod,
+              referencia_pago: orderRefFinal,
+              total: finalOrderTotal,
+              items: resolvedItems,
+              creado_en: new Date().toISOString()
+            }
+          });
+        }
+      } catch (mailErr) {
+        console.error('[OrderConfirmationEmail] Error al enviar correo de pedido:', mailErr.message);
+      }
+    })();
+
     return res.status(201).json({
       ok: true,
       pedido_id: pedidoId,
@@ -2276,6 +2758,39 @@ router.patch(
          WHERE id = ? AND estado = 'en_camino'`,
         [req.user.id, foto_entrega_url, observaciones_entregador || 'Entrega completada.', pedidoId]
       );
+
+      // Envío asíncrono del correo de confirmación de entrega con la fotografía de evidencia embebida
+      const deliveryBaseUrl = resolveAppBaseUrl(req);
+      (async () => {
+        try {
+          const [ordRows] = await pool.query(
+            `SELECT p.*, u.email_enc, u.nombre_completo_enc, u.username
+             FROM pedidos p
+             LEFT JOIN usuarios u ON u.id = p.usuario_id
+             WHERE p.id = ?
+             LIMIT 1`,
+            [pedidoId]
+          );
+          if (ordRows && ordRows[0]) {
+            const ord = ordRows[0];
+            const customerEmail = ord.email_enc ? decryptData(ord.email_enc) : '';
+            if (customerEmail) {
+              const safeOrd = formatSafeOrder(ord, []);
+              await sendOrderDeliveredEmail({
+                to: customerEmail,
+                baseUrl: deliveryBaseUrl,
+                order: {
+                  ...safeOrd,
+                  foto_entrega_url: foto_entrega_url || safeOrd.foto_entrega_url,
+                  observaciones_entregador: observaciones_entregador || safeOrd.observaciones_entregador
+                }
+              });
+            }
+          }
+        } catch (mailErr) {
+          console.error('[OrderDeliveredEmail] Error al enviar correo de entrega:', mailErr.message);
+        }
+      })();
 
       return res.json({
         ok: true,

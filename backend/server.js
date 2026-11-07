@@ -145,6 +145,7 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/google', authLimiter);
 app.use('/api/auth/cambiar-password', authLimiter);
+app.use('/api/auth/recuperar-password', authLimiter);
 app.post('/api/pedidos', publicWriteLimiter);
 app.post('/api/soporte/crear', publicWriteLimiter);
 app.use('/api', generalApiLimiter, apiRouter);

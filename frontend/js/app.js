@@ -651,12 +651,20 @@
    * @param {('error'|'success')} [type='error'] - Estilo visual del mensaje.
    */
   function showAuthInlineFeedback(formType, message, type = 'error') {
-    let el = document.getElementById(formType === 'login' ? 'loginInlineFeedback' : 'registerInlineFeedback');
-    if (!el) {
+    const idMap = {
+      login: 'loginInlineFeedback',
+      register: 'registerInlineFeedback',
+      registerOtp: 'registerOtpInlineFeedback',
+      forgotPassword: 'forgotPasswordFeedback',
+      resetToken: 'resetTokenModalFeedback'
+    };
+    const targetId = idMap[formType] || 'registerInlineFeedback';
+    let el = document.getElementById(targetId);
+    if (!el && (formType === 'login' || formType === 'register')) {
       const form = document.getElementById(formType === 'login' ? 'loginForm' : 'registerForm');
       if (form) {
         el = document.createElement('div');
-        el.id = formType === 'login' ? 'loginInlineFeedback' : 'registerInlineFeedback';
+        el.id = targetId;
         el.className = 'auth-inline-feedback';
         const submitBtn = form.querySelector('button[type="submit"]');
         if (submitBtn) {
@@ -4282,9 +4290,22 @@
   function initPerfilPage() {
     initSharedInvoiceModalEvents();
     initAccountPasswordModal();
+
+    // Detectar enlaces profundos provenientes de correos transaccionales (?pedido=ID o ?reset_token=TOKEN)
+    const initialSearchParams = new URLSearchParams(window.location.search);
+    const urlDeepLinkOrderId = Number(initialSearchParams.get('pedido') || 0);
+    if (urlDeepLinkOrderId > 0) {
+      state.pendingDeepLinkOrderId = urlDeepLinkOrderId;
+      try {
+        sessionStorage.setItem('danillanos_deeplink_order_id', String(urlDeepLinkOrderId));
+      } catch (_) {}
+    }
+
     renderPerfilPageAuthState();
     const savedActiveTab = (!window.location.hash) ? sessionStorage.getItem('danillanos_active_profile_tab') : null;
-    if (savedActiveTab && ['pedidos', 'direcciones', 'historial', 'soporte'].includes(savedActiveTab)) {
+    if (urlDeepLinkOrderId > 0) {
+      switchCustomerProfileTab(window.location.hash === '#historial-compras-section' ? 'historial' : 'pedidos');
+    } else if (savedActiveTab && ['pedidos', 'direcciones', 'historial', 'soporte'].includes(savedActiveTab)) {
       switchCustomerProfileTab(savedActiveTab);
     } else {
       syncProfileTabFromHash();
@@ -4415,6 +4436,170 @@
       }
     });
 
+    // =========================================================================
+    // 1. REGISTRO EN 2 PASOS CON CÓDIGO DE VERIFICACIÓN DE 6 DÍGITOS (10 MINUTOS)
+    // =========================================================================
+    const registerVerifyStepPanel = document.getElementById('registerVerifyStepPanel');
+    const registerVerifyOtpForm = document.getElementById('registerVerifyOtpForm');
+    const regOtpTargetEmail = document.getElementById('regOtpTargetEmail');
+    const regOtpTimerBadge = document.getElementById('regOtpTimerBadge');
+    const regOtpCountdownText = document.getElementById('regOtpCountdownText');
+    const btnRegisterRequestOtp = document.getElementById('btnRegisterRequestOtp');
+    const btnConfirmRegisterOtp = document.getElementById('btnConfirmRegisterOtp');
+    const btnBackToRegisterFields = document.getElementById('btnBackToRegisterFields');
+    const btnResendRegisterOtp = document.getElementById('btnResendRegisterOtp');
+    const otpDigitInputs = Array.from(document.querySelectorAll('#regOtpInputsContainer .otp-digit-input'));
+
+    let pendingRegisterPayload = null;
+    let regOtpTimerId = null;
+    let regOtpExpiresAtMs = 0;
+
+    function stopRegisterOtpTimer() {
+      if (regOtpTimerId) {
+        clearInterval(regOtpTimerId);
+        regOtpTimerId = null;
+      }
+    }
+
+    function startRegisterOtpTimer(expiresAtMs) {
+      stopRegisterOtpTimer();
+      regOtpExpiresAtMs = Number(expiresAtMs) || (Date.now() + 10 * 60 * 1000);
+      regOtpTimerBadge?.classList.remove('is-expired');
+
+      const tickOtp = () => {
+        const remainingSec = Math.max(0, Math.ceil((regOtpExpiresAtMs - Date.now()) / 1000));
+        const mins = String(Math.floor(remainingSec / 60)).padStart(2, '0');
+        const secs = String(remainingSec % 60).padStart(2, '0');
+        if (regOtpCountdownText) {
+          if (remainingSec > 0) {
+            regOtpCountdownText.textContent = `Válido por ${mins}:${secs}`;
+          } else {
+            regOtpCountdownText.textContent = 'Código expirado (10:00 agotados)';
+          }
+        }
+        if (remainingSec <= 0) {
+          regOtpTimerBadge?.classList.add('is-expired');
+          stopRegisterOtpTimer();
+        }
+      };
+
+      tickOtp();
+      regOtpTimerId = setInterval(tickOtp, 1000);
+    }
+
+    function clearOtpDigitInputs() {
+      otpDigitInputs.forEach((inp) => {
+        inp.value = '';
+        inp.classList.remove('is-filled');
+      });
+    }
+
+    function getEnteredOtpCode() {
+      return otpDigitInputs.map((inp) => String(inp.value || '').replace(/\D/g, '')).join('');
+    }
+
+    function showRegisterStep(step) {
+      const isOtpStep = step === 'otp';
+      registerForm?.classList.toggle('hidden', isOtpStep);
+      registerVerifyStepPanel?.classList.toggle('hidden', !isOtpStep);
+      syncAuthViewportHeight('register');
+      setTimeout(() => syncAuthViewportHeight('register'), 60);
+    }
+
+    // Navegación automática, pegado inteligente y retroceso en las 6 casillas del código OTP
+    otpDigitInputs.forEach((inp, idx) => {
+      inp.addEventListener('input', (e) => {
+        showAuthInlineFeedback('registerOtp', '');
+        const cleanVal = String(e.target.value || '').replace(/\D/g, '');
+        if (!cleanVal) {
+          inp.value = '';
+          inp.classList.remove('is-filled');
+          return;
+        }
+        inp.value = cleanVal.slice(-1);
+        inp.classList.add('is-filled');
+        if (idx < otpDigitInputs.length - 1) {
+          otpDigitInputs[idx + 1].focus();
+          otpDigitInputs[idx + 1].select();
+        }
+      });
+
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !inp.value && idx > 0) {
+          otpDigitInputs[idx - 1].value = '';
+          otpDigitInputs[idx - 1].classList.remove('is-filled');
+          otpDigitInputs[idx - 1].focus();
+        } else if (e.key === 'ArrowLeft' && idx > 0) {
+          otpDigitInputs[idx - 1].focus();
+        } else if (e.key === 'ArrowRight' && idx < otpDigitInputs.length - 1) {
+          otpDigitInputs[idx + 1].focus();
+        }
+      });
+
+      inp.addEventListener('paste', (e) => {
+        const pasted = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+        const digits = pasted.replace(/\D/g, '').slice(0, 6);
+        if (!digits) return;
+        e.preventDefault();
+        showAuthInlineFeedback('registerOtp', '');
+        digits.split('').forEach((d, i) => {
+          if (otpDigitInputs[i]) {
+            otpDigitInputs[i].value = d;
+            otpDigitInputs[i].classList.add('is-filled');
+          }
+        });
+        const focusIdx = Math.min(digits.length, otpDigitInputs.length - 1);
+        otpDigitInputs[focusIdx]?.focus();
+      });
+    });
+
+    async function requestRegistrationOtpCode(payload, triggerBtn) {
+      const originalHtml = triggerBtn ? triggerBtn.innerHTML : '';
+      if (triggerBtn) {
+        triggerBtn.disabled = true;
+        triggerBtn.innerHTML = '<span class="material-symbols-rounded">hourglass_top</span><span>Enviando código a tu correo...</span>';
+      }
+
+      try {
+        const res = await fetch(`${CONFIG.api.baseUrl}/auth/register/solicitar-codigo`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          if (data.devDetails) {
+            showDeveloperErrorAlert({
+              title: 'Error de Base de Datos al Generar Código de Verificación',
+              userMessage: 'No fue posible generar el código de verificación en la base de datos MySQL.',
+              devDetails: data.devDetails,
+              action: 'Solicitud de Código OTP (POST /api/auth/register/solicitar-codigo)'
+            });
+          }
+          const targetFeedback = !registerVerifyStepPanel?.classList.contains('hidden') ? 'registerOtp' : 'register';
+          showAuthInlineFeedback(targetFeedback, data.message || data.error || 'No se pudo enviar el código de verificación.', 'error');
+          return false;
+        }
+
+        if (regOtpTargetEmail) regOtpTargetEmail.textContent = payload.email;
+        clearOtpDigitInputs();
+        showRegisterStep('otp');
+        startRegisterOtpTimer(data.expira_ms || (Date.now() + 10 * 60 * 1000));
+        showAuthInlineFeedback('registerOtp', data.message || `Enviamos un código de 6 dígitos a ${payload.email}.`, 'success');
+        setTimeout(() => otpDigitInputs[0]?.focus(), 80);
+        return true;
+      } catch (err) {
+        const targetFeedback = !registerVerifyStepPanel?.classList.contains('hidden') ? 'registerOtp' : 'register';
+        showAuthInlineFeedback(targetFeedback, 'Error de conexión con el servidor al solicitar el código.', 'error');
+        return false;
+      } finally {
+        if (triggerBtn) {
+          triggerBtn.disabled = false;
+          triggerBtn.innerHTML = originalHtml;
+        }
+      }
+    }
+
     registerForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
       showAuthInlineFeedback('register', '');
@@ -4427,46 +4612,307 @@
       const email = document.getElementById('regEmail')?.value.trim() || '';
       const password = document.getElementById('regPassword')?.value || '';
 
+      pendingRegisterPayload = {
+        nombres,
+        apellidos,
+        empresa,
+        tipo_documento,
+        numero_documento,
+        nombre_completo: `${nombres} ${apellidos}`.trim(),
+        username: empresa || `${nombres} ${apellidos}`.trim(),
+        email,
+        telefono,
+        password
+      };
+
+      await requestRegistrationOtpCode(pendingRegisterPayload, btnRegisterRequestOtp);
+    });
+
+    btnBackToRegisterFields?.addEventListener('click', () => {
+      stopRegisterOtpTimer();
+      showAuthInlineFeedback('registerOtp', '');
+      showRegisterStep('fields');
+    });
+
+    btnResendRegisterOtp?.addEventListener('click', async () => {
+      if (!pendingRegisterPayload) {
+        showRegisterStep('fields');
+        return;
+      }
+      showAuthInlineFeedback('registerOtp', '');
+      await requestRegistrationOtpCode(pendingRegisterPayload, btnResendRegisterOtp);
+    });
+
+    registerVerifyOtpForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      showAuthInlineFeedback('registerOtp', '');
+
+      if (!pendingRegisterPayload) {
+        showRegisterStep('fields');
+        return;
+      }
+
+      const codigo_verificacion = getEnteredOtpCode();
+      if (codigo_verificacion.length !== 6) {
+        showAuthInlineFeedback('registerOtp', 'Completa los 6 dígitos del código enviado a tu correo electrónico.', 'error');
+        const firstEmpty = otpDigitInputs.find((inp) => !inp.value);
+        firstEmpty?.focus();
+        return;
+      }
+
+      const originalBtnHtml = btnConfirmRegisterOtp ? btnConfirmRegisterOtp.innerHTML : '';
+      if (btnConfirmRegisterOtp) {
+        btnConfirmRegisterOtp.disabled = true;
+        btnConfirmRegisterOtp.innerHTML = '<span class="material-symbols-rounded">hourglass_top</span><span>Verificando código...</span>';
+      }
+
       try {
         const res = await fetch(`${CONFIG.api.baseUrl}/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            nombres,
-            apellidos,
-            empresa,
-            tipo_documento,
-            numero_documento,
-            nombre_completo: `${nombres} ${apellidos}`.trim(),
-            username: empresa || `${nombres} ${apellidos}`.trim(),
-            email,
-            telefono,
-            password
+            ...pendingRegisterPayload,
+            codigo_verificacion
           })
         });
         const data = await res.json();
         if (!res.ok || !data.ok) {
-          if (data.devDetails || res.status === 503 || res.status >= 500) {
+          if (data.devDetails) {
             showDeveloperErrorAlert({
               title: 'Error de Servidor / Base de Datos al Registrar Usuario',
               userMessage: 'No fue posible registrar tu cuenta en la base de datos MySQL.',
-              devDetails: data.devDetails || { status: res.status, error: data.error || data.message },
+              devDetails: data.devDetails,
               action: 'Registro de Usuario (POST /api/auth/register)'
             });
           }
-          showAuthInlineFeedback('register', data.message || data.error || 'Error al registrar usuario', 'error');
+          showAuthInlineFeedback('registerOtp', data.message || data.error || 'Código inválido o expirado.', 'error');
           return;
         }
+
+        stopRegisterOtpTimer();
+        pendingRegisterPayload = null;
+        showRegisterStep('fields');
+        registerForm?.reset();
         setSession(data.token, data.user, data.direcciones);
         renderPerfilPageAuthState();
-      } catch (err) {
-        showDeveloperErrorAlert({
-          title: 'Error de Red / Servidor No Disponible al Registrarse',
-          userMessage: 'No se pudo conectar con el servidor backend para registrar tu cuenta.',
-          devDetails: { message: err.message, endpoint: `${CONFIG.api.baseUrl}/auth/register` },
-          action: 'Registro de Usuario (POST /api/auth/register)'
+        showAppDialog({
+          title: '¡Correo Verificado y Cuenta Creada!',
+          message: `Bienvenido(a) a Danillanos, ${data.user.nombre_completo}. Tu correo ha sido verificado con éxito.`,
+          type: 'success'
         });
-        showAuthInlineFeedback('register', 'Error de conexión con el servidor. Muestra este error al desarrollador.', 'error');
+      } catch (err) {
+        showAuthInlineFeedback('registerOtp', 'Error de conexión con el servidor al verificar el código.', 'error');
+      } finally {
+        if (btnConfirmRegisterOtp) {
+          btnConfirmRegisterOtp.disabled = false;
+          btnConfirmRegisterOtp.innerHTML = originalBtnHtml;
+        }
+      }
+    });
+
+    // =========================================================================
+    // 2. RECUPERACIÓN DE CONTRASEÑA POR CORREO (ENLACE VÁLIDO POR 10 MINUTOS)
+    // =========================================================================
+    const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+    const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+    const forgotPasswordEmail = document.getElementById('forgotPasswordEmail');
+    const btnOpenForgotPassword = document.getElementById('btnOpenForgotPassword');
+    const btnCloseForgotPasswordModal = document.getElementById('btnCloseForgotPasswordModal');
+    const btnCancelForgotPasswordModal = document.getElementById('btnCancelForgotPasswordModal');
+    const btnSubmitForgotPassword = document.getElementById('btnSubmitForgotPassword');
+
+    function openForgotPasswordModal() {
+      if (!forgotPasswordModal) return;
+      showAuthInlineFeedback('forgotPassword', '');
+      const currentLoginEmail = document.getElementById('loginEmail')?.value.trim() || '';
+      if (forgotPasswordEmail) {
+        forgotPasswordEmail.value = currentLoginEmail;
+      }
+      forgotPasswordModal.classList.remove('hidden');
+      setTimeout(() => forgotPasswordEmail?.focus(), 80);
+    }
+
+    function closeForgotPasswordModal() {
+      if (!forgotPasswordModal) return;
+      closeModalWithAnimation(forgotPasswordModal);
+    }
+
+    btnOpenForgotPassword?.addEventListener('click', openForgotPasswordModal);
+    btnCloseForgotPasswordModal?.addEventListener('click', closeForgotPasswordModal);
+    btnCancelForgotPasswordModal?.addEventListener('click', closeForgotPasswordModal);
+    forgotPasswordModal?.addEventListener('click', (e) => {
+      if (e.target === forgotPasswordModal) closeForgotPasswordModal();
+    });
+
+    forgotPasswordForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      showAuthInlineFeedback('forgotPassword', '');
+      const email = forgotPasswordEmail?.value.trim() || '';
+      if (!email) {
+        showAuthInlineFeedback('forgotPassword', 'Ingresa tu correo electrónico registrado.', 'error');
+        return;
+      }
+
+      const origHtml = btnSubmitForgotPassword ? btnSubmitForgotPassword.innerHTML : '';
+      if (btnSubmitForgotPassword) {
+        btnSubmitForgotPassword.disabled = true;
+        btnSubmitForgotPassword.innerHTML = '<span class="material-symbols-rounded">hourglass_top</span><span>Enviando enlace...</span>';
+      }
+
+      try {
+        const res = await fetch(`${CONFIG.api.baseUrl}/auth/recuperar-password/solicitar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          showAuthInlineFeedback('forgotPassword', data.message || data.error || 'No se pudo enviar el enlace de recuperación.', 'error');
+          return;
+        }
+        showAuthInlineFeedback(
+          'forgotPassword',
+          data.message || `Enviamos un enlace de recuperación a ${email}. Tienes 10 minutos para usarlo.`,
+          'success'
+        );
+      } catch (err) {
+        showAuthInlineFeedback('forgotPassword', 'Error de conexión al solicitar el enlace de recuperación.', 'error');
+      } finally {
+        if (btnSubmitForgotPassword) {
+          btnSubmitForgotPassword.disabled = false;
+          btnSubmitForgotPassword.innerHTML = origHtml;
+        }
+      }
+    });
+
+    // Modal de restablecimiento cuando el usuario abre el enlace del correo (/perfil?reset_token=...)
+    const resetPasswordTokenModal = document.getElementById('resetPasswordTokenModal');
+    const resetPasswordTokenForm = document.getElementById('resetPasswordTokenForm');
+    const resetTokenAccountLabel = document.getElementById('resetTokenAccountLabel');
+    const resetTokenNewPassword = document.getElementById('resetTokenNewPassword');
+    const resetTokenConfirmPassword = document.getElementById('resetTokenConfirmPassword');
+    const btnCloseResetTokenModal = document.getElementById('btnCloseResetTokenModal');
+    const btnCancelResetTokenModal = document.getElementById('btnCancelResetTokenModal');
+    const btnSubmitResetToken = document.getElementById('btnSubmitResetToken');
+
+    let activeResetToken = initialSearchParams.get('reset_token') || '';
+
+    function closeResetTokenModal() {
+      if (!resetPasswordTokenModal) return;
+      closeModalWithAnimation(resetPasswordTokenModal);
+      if (window.location.search.includes('reset_token=')) {
+        const cleanSearch = new URLSearchParams(window.location.search);
+        cleanSearch.delete('reset_token');
+        const nextQuery = cleanSearch.toString();
+        window.history.replaceState({}, '', `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`);
+      }
+    }
+
+    btnCloseResetTokenModal?.addEventListener('click', closeResetTokenModal);
+    btnCancelResetTokenModal?.addEventListener('click', closeResetTokenModal);
+    resetPasswordTokenModal?.addEventListener('click', (e) => {
+      if (e.target === resetPasswordTokenModal) closeResetTokenModal();
+    });
+
+    // Alternar visibilidad de contraseñas en el modal de restablecimiento por token
+    resetPasswordTokenModal?.querySelectorAll('.pwd-toggle-visibility-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.getAttribute('data-target');
+        const input = document.getElementById(targetId);
+        const icon = btn.querySelector('.material-symbols-rounded');
+        if (!input) return;
+        const isPwd = input.type === 'password';
+        input.type = isPwd ? 'text' : 'password';
+        if (icon) icon.textContent = isPwd ? 'visibility_off' : 'visibility';
+      });
+    });
+
+    if (activeResetToken && resetPasswordTokenModal) {
+      resetPasswordTokenModal.classList.remove('hidden');
+      showAuthInlineFeedback('resetToken', '');
+      if (resetTokenAccountLabel) {
+        resetTokenAccountLabel.textContent = 'Verificando vigencia del enlace de seguridad...';
+      }
+
+      fetch(`${CONFIG.api.baseUrl}/auth/recuperar-password/validar?token=${encodeURIComponent(activeResetToken)}`)
+        .then((r) => r.json().then((d) => ({ okHttp: r.ok, data: d })))
+        .then(({ okHttp, data }) => {
+          if (!okHttp || !data.ok) {
+            if (resetTokenAccountLabel) {
+              resetTokenAccountLabel.textContent = 'Enlace expirado o ya utilizado.';
+            }
+            showAuthInlineFeedback('resetToken', data.message || 'Este enlace de recuperación expiró (máximo 10 minutos). Solicita uno nuevo.', 'error');
+            if (btnSubmitResetToken) btnSubmitResetToken.disabled = true;
+            return;
+          }
+          const minsLeft = Math.max(1, Math.ceil(Number(data.remainingSeconds || 600) / 60));
+          if (resetTokenAccountLabel) {
+            resetTokenAccountLabel.textContent = `Cuenta: ${data.email} • Enlace válido por ${minsLeft} min.`;
+          }
+          if (btnSubmitResetToken) btnSubmitResetToken.disabled = false;
+          setTimeout(() => resetTokenNewPassword?.focus(), 90);
+        })
+        .catch(() => {
+          showAuthInlineFeedback('resetToken', 'No se pudo validar el enlace con el servidor.', 'error');
+        });
+    }
+
+    resetPasswordTokenForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      showAuthInlineFeedback('resetToken', '');
+      const nueva_password = resetTokenNewPassword?.value.trim() || '';
+      const confirmar_password = resetTokenConfirmPassword?.value.trim() || '';
+
+      if (nueva_password.length < 6) {
+        showAuthInlineFeedback('resetToken', 'La nueva contraseña debe tener al menos 6 caracteres.', 'error');
+        resetTokenNewPassword?.focus();
+        return;
+      }
+
+      if (nueva_password !== confirmar_password) {
+        showAuthInlineFeedback('resetToken', 'Las contraseñas ingresadas no coinciden.', 'error');
+        resetTokenConfirmPassword?.focus();
+        return;
+      }
+
+      const origHtml = btnSubmitResetToken ? btnSubmitResetToken.innerHTML : '';
+      if (btnSubmitResetToken) {
+        btnSubmitResetToken.disabled = true;
+        btnSubmitResetToken.innerHTML = '<span class="material-symbols-rounded">hourglass_top</span><span>Actualizando contraseña...</span>';
+      }
+
+      try {
+        const res = await fetch(`${CONFIG.api.baseUrl}/auth/recuperar-password/confirmar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: activeResetToken,
+            nueva_password
+          })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          showAuthInlineFeedback('resetToken', data.message || data.error || 'No fue posible restablecer la contraseña.', 'error');
+          return;
+        }
+
+        activeResetToken = '';
+        resetPasswordTokenForm.reset();
+        closeResetTokenModal();
+        setSession(data.token, data.user, data.direcciones || []);
+        renderPerfilPageAuthState();
+        showAppDialog({
+          title: 'Contraseña Restablecida',
+          message: 'Tu contraseña se ha actualizado exitosamente y hemos iniciado tu sesión.',
+          type: 'success'
+        });
+      } catch (err) {
+        showAuthInlineFeedback('resetToken', 'Error de conexión al guardar tu nueva contraseña.', 'error');
+      } finally {
+        if (btnSubmitResetToken) {
+          btnSubmitResetToken.disabled = false;
+          btnSubmitResetToken.innerHTML = origHtml;
+        }
       }
     });
 
@@ -5501,6 +5947,34 @@
       if (activeOrders.length > 0) state.customerExpandedOrderIds.add(activeOrders[0].id);
     }
 
+    // Si el usuario abrió el enlace directo de un pedido desde su correo (?pedido=ID), abrir la pestaña correspondiente y desplegar el pedido
+    const rawDeepLinkOrderId = Number(
+      state.pendingDeepLinkOrderId || sessionStorage.getItem('danillanos_deeplink_order_id') || 0
+    );
+    let deepLinkedOrderTarget = null;
+    if (rawDeepLinkOrderId > 0 && orders.length > 0) {
+      deepLinkedOrderTarget = orders.find((o) => Number(o.id) === rawDeepLinkOrderId) || null;
+      state.pendingDeepLinkOrderId = null;
+      try {
+        sessionStorage.removeItem('danillanos_deeplink_order_id');
+      } catch (_) {}
+      if (deepLinkedOrderTarget) {
+        state.customerExpandedOrderIds.add(deepLinkedOrderTarget.id);
+        const targetTab = ['entregado', 'cancelado'].includes(deepLinkedOrderTarget.estado)
+          ? 'historial'
+          : 'pedidos';
+        if (state.activeProfileTab !== targetTab) {
+          switchCustomerProfileTab(targetTab);
+        }
+      }
+      if (window.location.search.includes('pedido=')) {
+        const cleanSearch = new URLSearchParams(window.location.search);
+        cleanSearch.delete('pedido');
+        const nextQuery = cleanSearch.toString();
+        window.history.replaceState({}, '', `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`);
+      }
+    }
+
     // Si estamos en perfil y el pedido está visible/expandido en la pestaña activa, marcarlo como visto automáticamente
     // (evita que el cliente tenga que colapsar y volver a desplegar su pedido al regresar de la pasarela de pagos)
     if (CURRENT_PAGE === 'perfil' && state.user) {
@@ -5757,6 +6231,19 @@
         'No se encontraron compras ni facturas con los filtros seleccionados.',
         false
       );
+    }
+
+    if (deepLinkedOrderTarget) {
+      setTimeout(() => {
+        const cardEl = document.querySelector(`[data-order-card-id="${deepLinkedOrderTarget.id}"]`);
+        if (cardEl) {
+          cardEl.classList.add('is-expanded', 'order-deep-link-highlight');
+          cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(() => {
+            cardEl.classList.remove('order-deep-link-highlight');
+          }, 4200);
+        }
+      }, 120);
     }
 
     const handleOrderContainerClick = async (e) => {

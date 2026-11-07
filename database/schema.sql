@@ -7,6 +7,8 @@ CREATE DATABASE IF NOT EXISTS danillanos_db CHARACTER SET utf8mb4 COLLATE utf8mb
 USE danillanos_db;
 
 SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS recuperaciones_password;
+DROP TABLE IF EXISTS verificaciones_correo;
 DROP TABLE IF EXISTS tickets_soporte;
 DROP TABLE IF EXISTS pedido_items;
 DROP TABLE IF EXISTS pedidos;
@@ -199,6 +201,38 @@ CREATE TABLE tickets_soporte (
   creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_ticket_pedido FOREIGN KEY (pedido_id) REFERENCES pedidos(id)
     ON UPDATE CASCADE ON DELETE SET NULL
+);
+
+-- ----------------------------------------------------------------------------
+-- Tabla: verificaciones_correo
+-- Almacena códigos criptográficos irrepetibles de 6 dígitos (vigencia 10 min) para verificar correo al crear cuenta.
+-- ----------------------------------------------------------------------------
+CREATE TABLE verificaciones_correo (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  email_hash VARCHAR(128) NOT NULL,
+  codigo_hash VARCHAR(128) NOT NULL UNIQUE,
+  expira_ms BIGINT NOT NULL,
+  intentos INT NOT NULL DEFAULT 0,
+  usado TINYINT(1) NOT NULL DEFAULT 0,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_verif_email (email_hash)
+);
+
+-- ----------------------------------------------------------------------------
+-- Tabla: recuperaciones_password
+-- Almacena tokens criptográficos de un solo uso (vigencia 10 min) para restablecer contraseñas por correo.
+-- ----------------------------------------------------------------------------
+CREATE TABLE recuperaciones_password (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  usuario_id INT NOT NULL,
+  email_hash VARCHAR(128) NOT NULL,
+  token_hash VARCHAR(128) NOT NULL UNIQUE,
+  expira_ms BIGINT NOT NULL,
+  usado TINYINT(1) NOT NULL DEFAULT 0,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_reset_token (token_hash),
+  CONSTRAINT fk_recuperacion_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+    ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 -- ============================================================================
