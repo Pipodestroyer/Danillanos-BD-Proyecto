@@ -119,6 +119,7 @@
     },
     maps: {
       mapApiKey: (CONFIG.map && CONFIG.map.apiKey) || '',
+      tileLayers: [],
       addressMap: null,
       addressMarker: null,
       driverMap: null,
@@ -126,13 +127,35 @@
     }
   };
 
+  /**
+   * Construye la URL de teselas de CARTO Positron Light inyectando MAP_API_KEY si está configurada en .env.
+   * @param {string} [explicitKey] - Clave API opcional.
+   * @returns {string} URL plantilla para L.tileLayer.
+   */
+  function buildCartoTileUrl(explicitKey) {
+    const apiKey = (explicitKey !== undefined ? explicitKey : (state.maps.mapApiKey || (CONFIG.map && CONFIG.map.apiKey) || '')).trim();
+    const keyQuery = apiKey ? `?api_key=${encodeURIComponent(apiKey)}` : '';
+    return `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png${keyQuery}`;
+  }
+
   // Sincroniza MAP_API_KEY desde variables de entorno (.env) expuestas por /api/health
   try {
     fetch(`${CONFIG.api.baseUrl}/health`)
       .then((r) => r.json())
       .then((data) => {
         if (data && data.mapApiKey) {
-          state.maps.mapApiKey = String(data.mapApiKey).trim();
+          const freshKey = String(data.mapApiKey).trim();
+          if (freshKey && freshKey !== state.maps.mapApiKey) {
+            state.maps.mapApiKey = freshKey;
+            if (Array.isArray(state.maps.tileLayers)) {
+              const updatedUrl = buildCartoTileUrl(freshKey);
+              state.maps.tileLayers.forEach((tl) => {
+                if (tl && typeof tl.setUrl === 'function') {
+                  tl.setUrl(updatedUrl);
+                }
+              });
+            }
+          }
         }
       })
       .catch(() => {});
@@ -2594,17 +2617,19 @@
   }
 
   /**
-   * Crea y adjunta la capa de teselas del mapa interactivo con acabado monocromático.
-   * Utiliza MAP_API_KEY de .env cuando está definida y opera sin marca de agua cuando no se especifica.
+   * Crea y adjunta la capa de teselas CARTO Positron Light utilizando MAP_API_KEY desde .env.
    * @param {Object} mapInstance - Instancia del mapa Leaflet.
    */
   function attachMonochromeMapTiles(mapInstance) {
-    const apiKey = (state.maps.mapApiKey || (CONFIG.map && CONFIG.map.apiKey) || '').trim();
-    const keyQuery = apiKey ? `&key=${encodeURIComponent(apiKey)}` : '';
-    return L.tileLayer(`https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}${keyQuery}`, {
+    const layer = L.tileLayer(buildCartoTileUrl(), {
       maxZoom: 20,
-      attribution: '&copy; Google Maps • Danillanos Meta'
+      subdomains: 'abcd',
+      attribution: '&copy; OpenStreetMap &copy; CARTO • Danillanos Meta'
     }).addTo(mapInstance);
+    if (Array.isArray(state.maps.tileLayers)) {
+      state.maps.tileLayers.push(layer);
+    }
+    return layer;
   }
 
   /**

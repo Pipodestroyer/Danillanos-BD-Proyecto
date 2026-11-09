@@ -7,6 +7,7 @@
  * @module backend/server
  */
 
+const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
@@ -196,6 +197,22 @@ app.use((req, res, next) => {
   }
 
   next();
+});
+
+// Inyección dinámica en tiempo de ejecución de MAP_API_KEY y GOOGLE_CLIENT_ID desde .env sin exponerlos en el repositorio
+app.get('/js/config.js', (req, res, next) => {
+  try {
+    const configFilePath = path.join(frontendPath, 'js', 'config.js');
+    const rawConfig = fs.readFileSync(configFilePath, 'utf8');
+    const runtimeMapKey = (process.env.MAP_API_KEY || '').trim();
+    const runtimeGoogleId = (process.env.GOOGLE_CLIENT_ID || '').trim();
+    const runtimeOverrides = `\n;(function(){\n  if (window.DANILLANOS_CONFIG) {\n    if (${JSON.stringify(runtimeMapKey)}) window.DANILLANOS_CONFIG.map.apiKey = ${JSON.stringify(runtimeMapKey)};\n    if (${JSON.stringify(runtimeGoogleId)}) window.DANILLANOS_CONFIG.auth.googleClientId = ${JSON.stringify(runtimeGoogleId)};\n  }\n})();\n`;
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    return res.send(rawConfig + runtimeOverrides);
+  } catch (_) {
+    return next();
+  }
 });
 
 // Servicio de recursos estáticos del frontend (imágenes, CSS, JS) sin servir index automático
