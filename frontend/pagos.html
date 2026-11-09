@@ -109,16 +109,9 @@
   </aside>
 
   <!-- Contenedor principal del proceso de pago asistido en 3 fases -->
-  <main class="main-content spacious-page">
-    <div class="page-top-intro">
-      <span class="section-eyebrow">
-        <span class="material-symbols-rounded">verified_user</span>
-        COMPRA SEGURA Y FACTURACIÓN ELECTRÓNICA
-      </span>
+  <main class="main-content spacious-page checkout-page-main">
+    <div class="page-top-intro checkout-top-intro">
       <h1 class="page-hero-title">Finalizar Pedido y Despacho</h1>
-      <p class="page-hero-desc">
-        Complete su orden de compra en tres pasos: confirme su dirección de destino, verifique el resumen de productos y seleccione su método de pago preferido.
-      </p>
     </div>
 
     <!-- Bloque restrictivo: requiere inicio de sesión para asociar la orden y facturación -->
@@ -140,310 +133,312 @@
       </div>
     </div>
 
-    <form id="checkoutGatewayForm" class="checkout-wizard-container">
+    <form id="checkoutGatewayForm" class="checkout-wizard-container checkout-two-col-layout">
 
-      <!-- Barra de progreso interactiva del proceso de compra -->
-      <div class="surface-card checkout-wizard-header-card">
-        <div class="checkout-wizard-steps" id="checkoutWizardStepsBar" aria-label="Progreso de compra en 3 pasos">
-          <div class="checkout-wizard-line-bg">
-            <div class="checkout-wizard-line-fill" id="checkoutWizardLineFill" style="width: 0%;"></div>
-          </div>
+      <!-- Columna izquierda: tarjeta principal de pasos con cabecera unificada y timeline compacto a la derecha -->
+      <div class="checkout-main-col">
+        <div class="surface-card wizard-main-surface-card">
 
-          <!-- Fase 1: Datos de Entrega y Destino -->
-          <button type="button" class="wizard-step-node is-current" data-wizard-goto="1" id="wizardNode1">
-            <div class="wizard-step-icon">
-              <span class="material-symbols-rounded">pin_drop</span>
+          <!-- Cabecera del paso actual + Timeline compacta en la misma línea justificada a la derecha -->
+          <div class="card-step-header wizard-inline-header" id="checkoutInlineHeaderBar">
+            <div class="wizard-inline-title-group">
+              <div class="wizard-inline-title-row">
+                <span class="step-circle" id="checkoutCurrentStepCircle">1</span>
+                <h3 id="checkoutCurrentStepTitle">Datos de Entrega y Destino</h3>
+              </div>
+              <p class="card-helper-text" id="checkoutCurrentStepDesc">
+                Seleccione una dirección guardada o interactúe con el mapa para fijar el pin exacto de entrega.
+              </p>
             </div>
-            <span class="wizard-step-title"><span class="step-text-desktop">1. Datos de Entrega</span><span class="step-text-mobile">1. Entrega</span></span>
-            <span class="wizard-step-sub">Destino y tiempo estimado</span>
-          </button>
 
-          <!-- Fase 2: Verificación y Cantidades de Productos -->
-          <button type="button" class="wizard-step-node" data-wizard-goto="2" id="wizardNode2">
-            <div class="wizard-step-icon">
-              <span class="material-symbols-rounded">inventory_2</span>
-            </div>
-            <span class="wizard-step-title"><span class="step-text-desktop">2. Resumen del Pedido</span><span class="step-text-mobile">2. Resumen</span></span>
-            <span class="wizard-step-sub">Cantidades y verificación</span>
-          </button>
+            <!-- Timeline compacta justificada a la derecha -->
+            <div class="checkout-wizard-steps" id="checkoutWizardStepsBar" aria-label="Progreso de compra en 3 pasos">
+              <div class="checkout-wizard-line-bg">
+                <div class="checkout-wizard-line-fill" id="checkoutWizardLineFill" style="width: 0%;"></div>
+              </div>
 
-          <!-- Fase 3: Pasarelas de Pago y Facturación Electrónica -->
-          <button type="button" class="wizard-step-node" data-wizard-goto="3" id="wizardNode3">
-            <div class="wizard-step-icon">
-              <span class="material-symbols-rounded">payments</span>
-            </div>
-            <span class="wizard-step-title"><span class="step-text-desktop">3. Método de Pago</span><span class="step-text-mobile">3. Pago</span></span>
-            <span class="wizard-step-sub">Bancolombia, Nequi, Tarjeta o Efectivo</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Contenedor animado de transiciones entre fases (Viewport) -->
-      <div class="checkout-wizard-viewport" id="checkoutWizardViewport">
-        <div class="checkout-wizard-track" id="checkoutWizardTrack">
-
-          <!-- Fase 1: Formulario de Destino y Selector Cartográfico -->
-          <div class="checkout-wizard-slide" data-wizard-slide="1">
-            <div class="surface-card wizard-step-card">
-              <div class="card-step-header">
-                <span class="step-circle">1</span>
-                <div>
-                  <h3>Datos de Entrega y Destino</h3>
-                  <p class="card-helper-text">
-                    Seleccione una dirección guardada o interactúe con el mapa para fijar el pin exacto de entrega.
-                  </p>
+              <button type="button" class="wizard-step-node is-current" data-wizard-goto="1" id="wizardNode1">
+                <div class="wizard-step-icon">
+                  <span class="material-symbols-rounded">pin_drop</span>
                 </div>
-              </div>
+                <span class="wizard-step-title">1. Entrega</span>
+              </button>
 
-              <div class="form-group" style="margin-bottom: 1rem;">
-                <label for="checkoutAddressSelect">Dirección de Entrega Registrada</label>
-                <div class="address-select-row">
-                  <select id="checkoutAddressSelect" class="modal-input"></select>
-                  <a
-                    href="/perfil#direcciones-mapa-section"
-                    class="btn-icon-manage"
-                    id="btnManageAddressesIcon"
-                    title="Gestionar y editar mis direcciones guardadas"
-                    aria-label="Gestionar direcciones"
-                  >
-                    <span class="material-symbols-rounded">edit_location_alt</span>
-                  </a>
+              <button type="button" class="wizard-step-node" data-wizard-goto="2" id="wizardNode2">
+                <div class="wizard-step-icon">
+                  <span class="material-symbols-rounded">inventory_2</span>
                 </div>
-              </div>
+                <span class="wizard-step-title">2. Resumen</span>
+              </button>
 
-              <!-- Módulo cartográfico interactivo con cálculo de cobertura -->
-              <div class="checkout-map-collapsible is-collapsed" id="checkoutMapCollapsible">
-                <div class="checkout-map-collapsible-inner">
-                  <div class="meta-municipalities-bar" id="metaMunicipalitiesBar"></div>
-                  <div class="address-map-canvas checkout-map-canvas" id="addressMapCanvas"></div>
+              <button type="button" class="wizard-step-node" data-wizard-goto="3" id="wizardNode3">
+                <div class="wizard-step-icon">
+                  <span class="material-symbols-rounded">payments</span>
                 </div>
-              </div>
-
-              <!-- Indicador de zona geográfica y promesa de entrega -->
-              <div class="zone-live-indicator is-villavicencio" id="zoneLiveIndicator" style="margin-bottom: 1.25rem;">
-                <span class="material-symbols-rounded" id="zoneLiveIcon">bolt</span>
-                <div>
-                  <strong id="zoneLiveTitle">Modalidad de Envío: Despacho el mismo día (Villavicencio)</strong>
-                  <p id="zoneLiveSubtitle">Ubicación dentro de la zona de cobertura prioritaria</p>
-                </div>
-              </div>
-
-              <div class="form-row-2">
-                <div class="form-group">
-                  <label for="checkoutRecipientName">Nombre y apellidos de quien recibe *</label>
-                  <input type="text" id="checkoutRecipientName" class="modal-input" placeholder="Ej: Carlos Andrés Méndez" required />
-                </div>
-                <div class="form-group">
-                  <label for="checkoutRecipientPhone">Número celular de contacto *</label>
-                  <input type="tel" id="checkoutRecipientPhone" class="modal-input" placeholder="310 000 0000" required />
-                </div>
-              </div>
-
-              <div class="form-row-2" style="margin-top: 0.85rem;">
-                <div class="form-group">
-                  <label for="addrMunicipio">Municipio (Departamento del Meta) *</label>
-                  <input type="text" id="addrMunicipio" class="modal-input" value="Villavicencio" required />
-                </div>
-                <div class="form-group">
-                  <label for="addrRef">Barrio o punto de referencia</label>
-                  <input type="text" id="addrRef" class="modal-input" placeholder="Ej: Frente al parque, local comercial portón negro" />
-                </div>
-              </div>
-
-              <div class="form-group" style="margin-top: 0.85rem;">
-                <label for="addrStreet">Dirección de Despacho *</label>
-                <input type="text" id="addrStreet" class="modal-input" placeholder="Indique la nomenclatura completa o selecciónela en el mapa..." required />
-              </div>
-
-              <div class="form-group" style="margin-top: 0.85rem;">
-                <label for="checkoutObservations">Instrucciones especiales para el personal de entrega (Opcional)</label>
-                <textarea
-                  id="checkoutObservations"
-                  class="modal-input"
-                  rows="2"
-                  placeholder="Ej: Entregar en área de recepción de cocina, timbrar en portería..."
-                ></textarea>
-              </div>
-
-              <input type="hidden" id="addrLat" value="4.1420" />
-              <input type="hidden" id="addrLng" value="-73.6266" />
-
-              <div id="checkoutInlineFeedbackStep1" class="hidden auth-inline-feedback" role="alert"></div>
-              <div class="wizard-step-actions">
-                <a href="/" class="btn-secondary">
-                  <span class="material-symbols-rounded">arrow_back</span>
-                  <span>Seguir Comprando</span>
-                </a>
-                <button type="button" class="btn-primary btn-pay-large" id="btnWizardToStep2">
-                  <span>Continuar al Resumen del Pedido</span>
-                  <span class="material-symbols-rounded">arrow_forward</span>
-                </button>
-              </div>
+                <span class="wizard-step-title">3. Pago</span>
+              </button>
             </div>
           </div>
 
-          <!-- Fase 2: Verificación de Artículos, Ajuste de Unidades y Subtotal -->
-          <div class="checkout-wizard-slide" data-wizard-slide="2">
-            <div class="surface-card wizard-step-card">
-              <div class="card-step-header">
-                <span class="step-circle">2</span>
-                <div>
-                  <h3>Resumen y Confirmación de Productos</h3>
-                  <p class="card-helper-text">
-                    Verifique los artículos y cantidades de su pedido. Puede ajustar las unidades directamente antes de proceder al pago.
-                  </p>
-                </div>
-              </div>
+          <!-- Contenedor animado de transiciones entre fases (Viewport) -->
+          <div class="checkout-wizard-viewport" id="checkoutWizardViewport">
+            <div class="checkout-wizard-track" id="checkoutWizardTrack">
 
-              <!-- Indicador condensado del destino de entrega validado en Fase 1 -->
-              <div class="wizard-step2-address-pill" id="wizardStep2AddressSummary"></div>
-
-              <div class="checkout-items-list" id="checkoutItemsListContainer"></div>
-
-              <div class="checkout-summary-breakdown" style="margin-top: 1.5rem;">
-                <div class="summary-line">
-                  <span>Total Unidades</span>
-                  <strong id="checkoutItemsCountText">0 unidades</strong>
-                </div>
-                <div class="summary-line">
-                  <span>Modalidad de Envío</span>
-                  <strong id="checkoutStep2EtaText">Despacho el mismo día (Villavicencio)</strong>
-                </div>
-                <div class="summary-line total-line">
-                  <span>Subtotal a Confirmar</span>
-                  <strong id="checkoutStep2TotalAmount">$0</strong>
-                </div>
-              </div>
-
-              <div id="checkoutInlineFeedbackStep2" class="hidden auth-inline-feedback" role="alert"></div>
-              <div class="wizard-step-actions">
-                <button type="button" class="btn-secondary" id="btnWizardBackToStep1">
-                  <span class="material-symbols-rounded">arrow_back</span>
-                  <span>Volver a Datos de Entrega</span>
-                </button>
-                <button type="button" class="btn-primary btn-pay-large" id="btnWizardToStep3">
-                  <span>Continuar al Método de Pago</span>
-                  <span class="material-symbols-rounded">arrow_forward</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Fase 3: Selección de Medio de Pago y Radicación -->
-          <div class="checkout-wizard-slide" data-wizard-slide="3">
-            <div class="surface-card wizard-step-card">
-              <div class="card-step-header">
-                <span class="step-circle">3</span>
-                <div>
-                  <h3>Método de Pago</h3>
-                  <p class="card-helper-text">
-                    Seleccione su medio de pago preferido para emitir su factura electrónica y programar el despacho de su pedido.
-                  </p>
-                </div>
-              </div>
-
-              <div class="payment-methods-grid" id="paymentMethodsGrid">
-                <button type="button" class="payment-method-card active" data-pay-method="bancolombia">
-                  <div class="pay-logo pay-logo-bco">
-                    <img src="img/bancolombia.webp" alt="Bancolombia" class="pay-brand-logo-img" />
+              <!-- Fase 1: Formulario de Destino y Selector Cartográfico -->
+              <div class="checkout-wizard-slide" data-wizard-slide="1">
+                <div class="wizard-step-card">
+                  <div class="form-group" style="margin-bottom: 1rem;">
+                    <label for="checkoutAddressSelect">Dirección de Entrega Registrada</label>
+                    <div class="address-select-row">
+                      <select id="checkoutAddressSelect" class="modal-input"></select>
+                      <a
+                        href="/perfil#direcciones-mapa-section"
+                        class="btn-icon-manage"
+                        id="btnManageAddressesIcon"
+                        title="Gestionar y editar mis direcciones guardadas"
+                        aria-label="Gestionar direcciones"
+                      >
+                        <span class="material-symbols-rounded">edit_location_alt</span>
+                      </a>
+                    </div>
                   </div>
-                  <span>Bancolombia</span>
-                </button>
-                <button type="button" class="payment-method-card" data-pay-method="nequi">
-                  <div class="pay-logo pay-logo-nequi">
-                    <img src="img/nequi.png" alt="Nequi" class="pay-brand-logo-img" />
+
+                  <!-- Módulo cartográfico interactivo con cálculo de cobertura -->
+                  <div class="checkout-map-collapsible is-collapsed" id="checkoutMapCollapsible">
+                    <div class="checkout-map-collapsible-inner">
+                      <div class="meta-municipalities-bar" id="metaMunicipalitiesBar"></div>
+                      <div class="address-map-canvas checkout-map-canvas" id="addressMapCanvas"></div>
+                    </div>
                   </div>
-                  <span>Nequi</span>
-                </button>
-                <button type="button" class="payment-method-card" data-pay-method="tarjeta">
-                  <div class="pay-logo pay-logo-card">
-                    <span class="material-symbols-rounded">credit_card</span>
+
+                  <!-- Indicador de zona geográfica y promesa de entrega -->
+                  <div class="zone-live-indicator is-villavicencio" id="zoneLiveIndicator" style="margin-bottom: 1.25rem;">
+                    <span class="material-symbols-rounded" id="zoneLiveIcon">bolt</span>
+                    <div>
+                      <strong id="zoneLiveTitle">Modalidad de Envío: Despacho el mismo día (Villavicencio)</strong>
+                      <p id="zoneLiveSubtitle">Ubicación dentro de la zona de cobertura prioritaria</p>
+                    </div>
                   </div>
-                  <span>Tarjeta Débito / Crédito</span>
-                </button>
-                <button type="button" class="payment-method-card" data-pay-method="efectivo">
-                  <div class="pay-logo pay-logo-cash">
-                    <span class="material-symbols-rounded">payments</span>
+
+                  <div class="form-row-2">
+                    <div class="form-group">
+                      <label for="checkoutRecipientName">Nombre y apellidos de quien recibe *</label>
+                      <input type="text" id="checkoutRecipientName" class="modal-input" placeholder="Ej: Carlos Andrés Méndez" required />
+                    </div>
+                    <div class="form-group">
+                      <label for="checkoutRecipientPhone">Número celular de contacto *</label>
+                      <input type="tel" id="checkoutRecipientPhone" class="modal-input" placeholder="310 000 0000" required />
+                    </div>
                   </div>
-                  <span>Pago Contraentrega</span>
-                </button>
-              </div>
 
-              <div class="payment-visual-box" id="paymentVisualBox"></div>
-
-              <div class="checkout-summary-breakdown">
-                <div class="summary-line">
-                  <span>Destino de Despacho</span>
-                  <strong id="checkoutStep3AddressText">Villavicencio</strong>
-                </div>
-                <div class="summary-line">
-                  <span>Tiempo Estimado de Entrega</span>
-                  <strong id="checkoutEtaSummaryText">Despacho el mismo día (Villavicencio)</strong>
-                </div>
-                <div class="summary-line total-line">
-                  <span>Total Facturado</span>
-                  <strong id="checkoutTotalAmount">$0</strong>
-                </div>
-              </div>
-
-              <div class="wizard-step-actions">
-                <button type="button" class="btn-secondary" id="btnWizardBackToStep2">
-                  <span class="material-symbols-rounded">arrow_back</span>
-                  <span>Volver a Productos</span>
-                </button>
-                <button type="submit" class="btn-primary btn-pay-large" id="btnSubmitFinalOrder">
-                  <span class="material-symbols-rounded">lock</span>
-                  <span>Confirmar Orden y Emitir Factura</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Fase 4: Confirmación Final, Factura Gráfica y Redirección Asistida -->
-          <div class="checkout-wizard-slide" data-wizard-slide="4">
-            <div class="surface-card wizard-step-card invoice-final-screen" id="invoiceFinalScreen">
-              <!-- Animación vectorial de validación exitosa -->
-              <div class="invoice-success-hero">
-                <div class="animated-checkmark-circle" id="animatedCheckmarkCircle">
-                  <svg class="animated-checkmark-svg" viewBox="0 0 52 52" aria-hidden="true">
-                    <circle class="animated-checkmark-ring" cx="26" cy="26" r="24" fill="none" />
-                    <path class="animated-checkmark-check" fill="none" d="M14 27l7.8 7.8L38 17" />
-                  </svg>
-                </div>
-                <span class="invoice-success-pill">¡ORDEN CONFIRMADA Y FACTURADA CON ÉXITO!</span>
-                <h2 class="invoice-success-title">Gracias por confiar en Danillanos</h2>
-                <p class="invoice-success-sub">
-                  Su pedido ha sido radicado y transferido a nuestro centro de logística y refrigeración para su preparación inmediata.
-                </p>
-              </div>
-
-              <!-- Cuenta regresiva automática para seguimiento de la orden -->
-              <div class="invoice-redirect-banner">
-                <div class="invoice-redirect-top">
-                  <div style="display:flex; align-items:center; gap:0.55rem;">
-                    <span class="material-symbols-rounded" style="color:#22c55e;">schedule</span>
-                    <span>
-                      Redireccionando al seguimiento en <strong>Mis Pedidos</strong> en
-                      <strong id="invoiceCountdownSeconds">10</strong> segundos...
-                    </span>
+                  <div class="form-row-2" style="margin-top: 0.85rem;">
+                    <div class="form-group">
+                      <label for="addrMunicipio">Municipio (Departamento del Meta) *</label>
+                      <input type="text" id="addrMunicipio" class="modal-input" value="Villavicencio" required />
+                    </div>
+                    <div class="form-group">
+                      <label for="addrRef">Barrio o punto de referencia</label>
+                      <input type="text" id="addrRef" class="modal-input" placeholder="Ej: Frente al parque, local comercial portón negro" />
+                    </div>
                   </div>
-                  <a href="/perfil#mis-pedidos-section" class="btn-primary" style="padding:0.5rem 1.05rem; font-size:0.82rem;">
-                    <span>Ver Mis Pedidos Ahora</span>
-                    <span class="material-symbols-rounded">arrow_forward</span>
-                  </a>
-                </div>
-                <div class="invoice-redirect-progress-bg">
-                  <div class="invoice-redirect-progress-fill" id="invoiceCountdownBar"></div>
+
+                  <div class="form-group" style="margin-top: 0.85rem;">
+                    <label for="addrStreet">Dirección de Despacho *</label>
+                    <input type="text" id="addrStreet" class="modal-input" placeholder="Indique la nomenclatura completa o selecciónela en el mapa..." required />
+                  </div>
+
+                  <div class="form-group" style="margin-top: 0.85rem;">
+                    <label for="checkoutObservations">Instrucciones especiales para el personal de entrega (Opcional)</label>
+                    <textarea
+                      id="checkoutObservations"
+                      class="modal-input"
+                      rows="2"
+                      placeholder="Ej: Entregar en área de recepción de cocina, timbrar en portería..."
+                    ></textarea>
+                  </div>
+
+                  <input type="hidden" id="addrLat" value="4.1420" />
+                  <input type="hidden" id="addrLng" value="-73.6266" />
+
+                  <div id="checkoutInlineFeedbackStep1" class="hidden auth-inline-feedback" role="alert"></div>
+                  <div class="wizard-step-actions">
+                    <a href="/" class="btn-secondary">
+                      <span class="material-symbols-rounded">arrow_back</span>
+                      <span>Seguir Comprando</span>
+                    </a>
+                    <button type="button" class="btn-primary btn-pay-large" id="btnWizardToStep2">
+                      <span>Continuar al Resumen del Pedido</span>
+                      <span class="material-symbols-rounded">arrow_forward</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <!-- Representación visual de la factura electrónica emitida -->
-              <div class="danillanos-visual-invoice" id="danillanosVisualInvoice"></div>
+              <!-- Fase 2: Verificación de Artículos, Ajuste de Unidades y Subtotal -->
+              <div class="checkout-wizard-slide" data-wizard-slide="2">
+                <div class="wizard-step-card">
+                  <!-- Indicador condensado del destino de entrega validado en Fase 1 -->
+                  <div class="wizard-step2-address-pill" id="wizardStep2AddressSummary"></div>
+
+                  <div class="checkout-items-list" id="checkoutItemsListContainer"></div>
+
+                  <div class="checkout-summary-breakdown" style="margin-top: 1.5rem;">
+                    <div class="summary-line">
+                      <span>Total Unidades</span>
+                      <strong id="checkoutItemsCountText">0 unidades</strong>
+                    </div>
+                    <div class="summary-line">
+                      <span>Modalidad de Envío</span>
+                      <strong id="checkoutStep2EtaText">Despacho el mismo día (Villavicencio)</strong>
+                    </div>
+                    <div class="summary-line total-line">
+                      <span>Subtotal a Confirmar</span>
+                      <strong id="checkoutStep2TotalAmount">$0</strong>
+                    </div>
+                  </div>
+
+                  <div id="checkoutInlineFeedbackStep2" class="hidden auth-inline-feedback" role="alert"></div>
+                  <div class="wizard-step-actions">
+                    <button type="button" class="btn-secondary" id="btnWizardBackToStep1">
+                      <span class="material-symbols-rounded">arrow_back</span>
+                      <span>Volver a Datos de Entrega</span>
+                    </button>
+                    <button type="button" class="btn-primary btn-pay-large" id="btnWizardToStep3">
+                      <span>Continuar al Método de Pago</span>
+                      <span class="material-symbols-rounded">arrow_forward</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Fase 3: Selección de Medio de Pago y Radicación -->
+              <div class="checkout-wizard-slide" data-wizard-slide="3">
+                <div class="wizard-step-card">
+                  <div class="payment-methods-grid" id="paymentMethodsGrid">
+                    <button type="button" class="payment-method-card active" data-pay-method="bancolombia">
+                      <div class="pay-logo pay-logo-bco">
+                        <img src="img/bancolombia.webp" alt="Bancolombia" class="pay-brand-logo-img" />
+                      </div>
+                      <span>Bancolombia</span>
+                    </button>
+                    <button type="button" class="payment-method-card" data-pay-method="nequi">
+                      <div class="pay-logo pay-logo-nequi">
+                        <img src="img/nequi.png" alt="Nequi" class="pay-brand-logo-img" />
+                      </div>
+                      <span>Nequi</span>
+                    </button>
+                    <button type="button" class="payment-method-card" data-pay-method="tarjeta">
+                      <div class="pay-logo pay-logo-card">
+                        <span class="material-symbols-rounded">credit_card</span>
+                      </div>
+                      <span>Tarjeta Débito / Crédito</span>
+                    </button>
+                    <button type="button" class="payment-method-card" data-pay-method="efectivo">
+                      <div class="pay-logo pay-logo-cash">
+                        <span class="material-symbols-rounded">payments</span>
+                      </div>
+                      <span>Pago Contraentrega</span>
+                    </button>
+                  </div>
+
+                  <div class="payment-visual-box" id="paymentVisualBox"></div>
+
+                  <div class="checkout-summary-breakdown">
+                    <div class="summary-line">
+                      <span>Destino de Despacho</span>
+                      <strong id="checkoutStep3AddressText">Villavicencio</strong>
+                    </div>
+                    <div class="summary-line">
+                      <span>Tiempo Estimado de Entrega</span>
+                      <strong id="checkoutEtaSummaryText">Despacho el mismo día (Villavicencio)</strong>
+                    </div>
+                    <div class="summary-line total-line">
+                      <span>Total Facturado</span>
+                      <strong id="checkoutTotalAmount">$0</strong>
+                    </div>
+                  </div>
+
+                  <div class="wizard-step-actions">
+                    <button type="button" class="btn-secondary" id="btnWizardBackToStep2">
+                      <span class="material-symbols-rounded">arrow_back</span>
+                      <span>Volver a Productos</span>
+                    </button>
+                    <button type="submit" class="btn-primary btn-pay-large" id="btnSubmitFinalOrder">
+                      <span class="material-symbols-rounded">lock</span>
+                      <span>Confirmar Orden y Emitir Factura</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Fase 4: Confirmación Final, Factura Gráfica y Redirección Asistida -->
+              <div class="checkout-wizard-slide" data-wizard-slide="4">
+                <div class="wizard-step-card invoice-final-screen" id="invoiceFinalScreen">
+                  <!-- Animación vectorial de validación exitosa -->
+                  <div class="invoice-success-hero">
+                    <div class="animated-checkmark-circle" id="animatedCheckmarkCircle">
+                      <svg class="animated-checkmark-svg" viewBox="0 0 52 52" aria-hidden="true">
+                        <circle class="animated-checkmark-ring" cx="26" cy="26" r="24" fill="none" />
+                        <path class="animated-checkmark-check" fill="none" d="M14 27l7.8 7.8L38 17" />
+                      </svg>
+                    </div>
+                    <span class="invoice-success-pill">¡ORDEN CONFIRMADA Y FACTURADA CON ÉXITO!</span>
+                    <h2 class="invoice-success-title">Gracias por confiar en Danillanos</h2>
+                    <p class="invoice-success-sub">
+                      Su pedido ha sido radicado y transferido a nuestro centro de logística y refrigeración para su preparación inmediata.
+                    </p>
+                  </div>
+
+                  <!-- Cuenta regresiva automática para seguimiento de la orden -->
+                  <div class="invoice-redirect-banner">
+                    <div class="invoice-redirect-top">
+                      <div style="display:flex; align-items:center; gap:0.55rem;">
+                        <span class="material-symbols-rounded" style="color:#22c55e;">schedule</span>
+                        <span>
+                          Redireccionando al seguimiento en <strong>Mis Pedidos</strong> en
+                          <strong id="invoiceCountdownSeconds">10</strong> segundos...
+                        </span>
+                      </div>
+                      <a href="/perfil#mis-pedidos-section" class="btn-primary" style="padding:0.5rem 1.05rem; font-size:0.82rem;">
+                        <span>Ver Mis Pedidos Ahora</span>
+                        <span class="material-symbols-rounded">arrow_forward</span>
+                      </a>
+                    </div>
+                    <div class="invoice-redirect-progress-bg">
+                      <div class="invoice-redirect-progress-fill" id="invoiceCountdownBar"></div>
+                    </div>
+                  </div>
+
+                  <!-- Representación visual de la factura electrónica emitida -->
+                  <div class="danillanos-visual-invoice" id="danillanosVisualInvoice"></div>
+                </div>
+              </div>
+
             </div>
           </div>
 
         </div>
       </div>
+
+      <!-- Columna derecha flotante: Resumen de "Tu pedido" -->
+      <aside class="checkout-floating-sidebar" id="checkoutFloatingSidebar" aria-label="Resumen de tu pedido">
+        <div class="surface-card checkout-floating-order-card">
+          <h3 class="floating-order-heading">Tu pedido</h3>
+          <div class="floating-order-items-list" id="checkoutFloatingOrderItems"></div>
+          <div class="floating-order-total-row">
+            <span>Total</span>
+            <strong id="checkoutFloatingTotalAmount">$0</strong>
+          </div>
+          <div class="floating-order-actions">
+            <button type="button" class="btn-primary btn-full floating-order-primary-btn" id="btnFloatingPrimaryAction">
+              <span id="btnFloatingPrimaryText">Continuar al resumen</span>
+            </button>
+            <button type="button" class="btn-secondary btn-full floating-order-secondary-btn" id="btnFloatingSecondaryAction">
+              <span id="btnFloatingSecondaryText">Volver al carrito</span>
+            </button>
+          </div>
+        </div>
+      </aside>
 
     </form>
   </main>

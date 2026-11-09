@@ -6639,6 +6639,11 @@
     state.checkoutWizardStep = stepNum;
     const track = document.getElementById('checkoutWizardTrack');
     const lineFill = document.getElementById('checkoutWizardLineFill');
+    const formContainer = document.getElementById('checkoutGatewayForm');
+
+    if (formContainer) {
+      formContainer.classList.toggle('is-final-step', stepNum === 4);
+    }
 
     if (track) {
       const offsetPct = (stepNum - 1) * 25;
@@ -6660,6 +6665,43 @@
         node.classList.add('is-current');
       }
     });
+
+    const stepMeta = {
+      1: {
+        num: '1',
+        title: 'Datos de Entrega y Destino',
+        desc: 'Seleccione una dirección guardada o interactúe con el mapa para fijar el pin exacto de entrega.',
+        primaryBtn: 'Continuar al resumen',
+        secondaryBtn: 'Volver al carrito'
+      },
+      2: {
+        num: '2',
+        title: 'Resumen y Confirmación de Productos',
+        desc: 'Verifique los artículos y cantidades de su pedido. Puede ajustar las unidades directamente antes de proceder al pago.',
+        primaryBtn: 'Continuar al pago',
+        secondaryBtn: 'Volver a entrega'
+      },
+      3: {
+        num: '3',
+        title: 'Método de Pago',
+        desc: 'Seleccione su medio de pago preferido para emitir su factura electrónica y programar el despacho de su pedido.',
+        primaryBtn: 'Confirmar pedido',
+        secondaryBtn: 'Volver al resumen'
+      }
+    }[stepNum];
+
+    if (stepMeta) {
+      const circleEl = document.getElementById('checkoutCurrentStepCircle');
+      const titleEl = document.getElementById('checkoutCurrentStepTitle');
+      const descEl = document.getElementById('checkoutCurrentStepDesc');
+      const floatPrimaryText = document.getElementById('btnFloatingPrimaryText');
+      const floatSecondaryText = document.getElementById('btnFloatingSecondaryText');
+      if (circleEl) circleEl.textContent = stepMeta.num;
+      if (titleEl) titleEl.textContent = stepMeta.title;
+      if (descEl) descEl.textContent = stepMeta.desc;
+      if (floatPrimaryText) floatPrimaryText.textContent = stepMeta.primaryBtn;
+      if (floatSecondaryText) floatSecondaryText.textContent = stepMeta.secondaryBtn;
+    }
 
     const muni = document.getElementById('addrMunicipio')?.value.trim() || 'Villavicencio';
     const street = document.getElementById('addrStreet')?.value.trim() || 'Dirección en mapa';
@@ -6791,6 +6833,26 @@
     document.getElementById('btnWizardBackToStep2')?.addEventListener('click', () => {
       showCheckoutInlineFeedback(2, '');
       goToCheckoutStep(2);
+    });
+
+    document.getElementById('btnFloatingPrimaryAction')?.addEventListener('click', () => {
+      if (state.checkoutWizardStep === 1) {
+        document.getElementById('btnWizardToStep2')?.click();
+      } else if (state.checkoutWizardStep === 2) {
+        document.getElementById('btnWizardToStep3')?.click();
+      } else if (state.checkoutWizardStep === 3) {
+        document.getElementById('btnSubmitFinalOrder')?.click();
+      }
+    });
+
+    document.getElementById('btnFloatingSecondaryAction')?.addEventListener('click', () => {
+      if (state.checkoutWizardStep === 1) {
+        document.getElementById('cartToggleBtn')?.click();
+      } else if (state.checkoutWizardStep === 2) {
+        document.getElementById('btnWizardBackToStep1')?.click();
+      } else if (state.checkoutWizardStep === 3) {
+        document.getElementById('btnWizardBackToStep2')?.click();
+      }
     });
 
     document.querySelectorAll('[data-wizard-goto]').forEach((btn) => {
@@ -7028,11 +7090,37 @@
     const countText = document.getElementById('checkoutItemsCountText');
     const totalEl = document.getElementById('checkoutTotalAmount');
     const step2TotalEl = document.getElementById('checkoutStep2TotalAmount');
+    const floatingItemsEl = document.getElementById('checkoutFloatingOrderItems');
+    const floatingTotalEl = document.getElementById('checkoutFloatingTotalAmount');
 
     const totalFormatted = formatCurrency(getCartTotal());
     if (countText) countText.textContent = `${getCartTotalUnits()} unidades (${state.cart.length} ref.)`;
     if (totalEl) totalEl.textContent = totalFormatted;
     if (step2TotalEl) step2TotalEl.textContent = totalFormatted;
+    if (floatingTotalEl) floatingTotalEl.textContent = totalFormatted;
+
+    if (floatingItemsEl) {
+      if (state.cart.length === 0) {
+        floatingItemsEl.innerHTML = `
+          <div class="floating-order-item-row">
+            <span class="floating-order-item-name">Tu carrito está vacío</span>
+            <span class="floating-order-item-price">$0</span>
+          </div>
+        `;
+      } else {
+        floatingItemsEl.innerHTML = state.cart
+          .map(
+            (item) => `
+              <div class="floating-order-item-row">
+                <span class="floating-order-item-name">${item.cantidad} &times; ${item.nombre}</span>
+                <span class="floating-order-item-price">${formatCurrency(item.precio * item.cantidad)}</span>
+              </div>
+            `
+          )
+          .join('');
+      }
+    }
+
     if (!listEl) return;
 
     if (state.cart.length === 0) {
