@@ -2427,13 +2427,13 @@
       // En pasarela de pagos: cálculo y presentación del estimado de entrega según ruta y corte
       if (insideVcio) {
         zoneIndicator.className = 'zone-live-indicator is-villavicencio';
-        if (zoneIcon) zoneIcon.textContent = 'bolt';
+        if (zoneIcon) zoneIcon.textContent = 'local_shipping';
         if (zoneTitle) zoneTitle.textContent = `Estimado de Entrega al Pagar: ${deliveryInfo.texto}`;
         if (zoneSubtitle) zoneSubtitle.textContent = 'Dirección dentro del radio urbano de Villavicencio';
         if (etaSummary) etaSummary.textContent = deliveryInfo.texto;
       } else {
         zoneIndicator.className = 'zone-live-indicator is-meta-outside';
-        if (zoneIcon) zoneIcon.textContent = 'event_available';
+        if (zoneIcon) zoneIcon.textContent = 'local_shipping';
         if (zoneTitle) zoneTitle.textContent = `Estimado de Entrega al Pagar: ${deliveryInfo.texto}`;
         if (zoneSubtitle) zoneSubtitle.textContent = `Ruta departamental del Meta (${deliveryInfo.ruta || resolvedMuni})`;
         if (etaSummary) etaSummary.textContent = deliveryInfo.texto;
@@ -2442,12 +2442,12 @@
       // En perfil de usuario: indicación de zona de cobertura geográfica
       if (insideVcio) {
         zoneIndicator.className = 'zone-live-indicator is-villavicencio';
-        if (zoneIcon) zoneIcon.textContent = 'location_on';
+        if (zoneIcon) zoneIcon.textContent = 'local_shipping';
         if (zoneTitle) zoneTitle.textContent = 'Ubicación dentro del Radio Urbano de Villavicencio';
         if (zoneSubtitle) zoneSubtitle.textContent = 'El estimado de entrega se confirmará automáticamente al momento de pagar.';
       } else {
         zoneIndicator.className = 'zone-live-indicator is-meta-outside';
-        if (zoneIcon) zoneIcon.textContent = 'map';
+        if (zoneIcon) zoneIcon.textContent = 'local_shipping';
         if (zoneTitle) zoneTitle.textContent = `Ubicación en ${resolvedMuni || 'Municipio del Meta'} (Departamento del Meta)`;
         if (zoneSubtitle) zoneSubtitle.textContent = `Ruta programada de entrega: ${deliveryInfo.diaNombre} (${deliveryInfo.ruta})`;
       }
@@ -6704,7 +6704,7 @@
       step2AddrPill.innerHTML = `
         <div>
           <strong>📍 Entrega a: ${recipient}</strong> — ${street} (${muni})
-          <div style="font-size:0.76rem; color:var(--text-secondary);">Estimado confirmado: <strong style="color:#22c55e;">${etaText}</strong></div>
+          <div style="font-size:0.76rem; color:var(--text-secondary);">Estimado confirmado: <strong style="color:var(--text-primary);">${etaText}</strong></div>
         </div>
         <button type="button" class="cart-addr-mini-btn" id="btnQuickEditStep1">Cambiar dirección</button>
       `;

@@ -207,20 +207,25 @@
                     </label>
                   </div>
 
-                  <!-- Módulo cartográfico interactivo con cálculo de cobertura -->
-                  <div class="checkout-map-collapsible is-collapsed" id="checkoutMapCollapsible">
-                    <div class="checkout-map-collapsible-inner">
-                      <div class="meta-municipalities-bar" id="metaMunicipalitiesBar"></div>
-                      <div class="address-map-canvas checkout-map-canvas" id="addressMapCanvas"></div>
+                  <!-- Tarjeta unificada de estimado de entrega y mapa interactivo (estilo monocromático redondeado) -->
+                  <div class="map-delivery-card" id="checkoutMapDeliveryCard" style="margin-bottom: 1.25rem;">
+                    <!-- Cabecera superior sobre el mapa con estimado de entrega -->
+                    <div class="zone-live-indicator is-villavicencio" id="zoneLiveIndicator">
+                      <div class="zone-live-icon-badge">
+                        <span class="material-symbols-rounded" id="zoneLiveIcon">local_shipping</span>
+                      </div>
+                      <div class="zone-live-text-box">
+                        <strong id="zoneLiveTitle">Modalidad de Envío: Despacho el mismo día (Villavicencio)</strong>
+                        <p id="zoneLiveSubtitle">Ubicación dentro de la zona de cobertura prioritaria</p>
+                      </div>
                     </div>
-                  </div>
 
-                  <!-- Indicador de zona geográfica y promesa de entrega -->
-                  <div class="zone-live-indicator is-villavicencio" id="zoneLiveIndicator" style="margin-bottom: 1.25rem;">
-                    <span class="material-symbols-rounded" id="zoneLiveIcon">bolt</span>
-                    <div>
-                      <strong id="zoneLiveTitle">Modalidad de Envío: Despacho el mismo día (Villavicencio)</strong>
-                      <p id="zoneLiveSubtitle">Ubicación dentro de la zona de cobertura prioritaria</p>
+                    <!-- Módulo cartográfico interactivo con cálculo de cobertura -->
+                    <div class="checkout-map-collapsible is-collapsed" id="checkoutMapCollapsible">
+                      <div class="checkout-map-collapsible-inner">
+                        <div class="meta-municipalities-bar" id="metaMunicipalitiesBar"></div>
+                        <div class="address-map-canvas checkout-map-canvas" id="addressMapCanvas"></div>
+                      </div>
                     </div>
                   </div>
 

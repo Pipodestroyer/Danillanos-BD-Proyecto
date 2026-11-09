@@ -376,14 +376,19 @@
       <!-- Módulo cartográfico interactivo para georreferenciación de domicilios (aparece debajo de Direcciones Guardadas) -->
       <div class="wide-map-workspace hidden" id="addressRegistrationWorkspace" style="margin-top: 1.5rem;">
         <div class="wide-map-column">
-          <div class="meta-municipalities-bar" id="metaMunicipalitiesBar"></div>
-          <div class="address-map-canvas wide-canvas" id="addressMapCanvas"></div>
-
-          <div class="zone-live-indicator is-villavicencio" id="zoneLiveIndicator">
-            <span class="material-symbols-rounded" id="zoneLiveIcon">location_on</span>
-            <div>
-              <strong id="zoneLiveTitle">Cobertura Urbana Villavicencio</strong>
-              <p id="zoneLiveSubtitle">Entrega inmediata en Villavicencio y rutas programadas en el Meta.</p>
+          <div class="map-delivery-card">
+            <div class="zone-live-indicator is-villavicencio" id="zoneLiveIndicator">
+              <div class="zone-live-icon-badge">
+                <span class="material-symbols-rounded" id="zoneLiveIcon">local_shipping</span>
+              </div>
+              <div class="zone-live-text-box">
+                <strong id="zoneLiveTitle">Cobertura Urbana Villavicencio</strong>
+                <p id="zoneLiveSubtitle">Entrega inmediata en Villavicencio y rutas programadas en el Meta.</p>
+              </div>
+            </div>
+            <div class="map-delivery-card-body">
+              <div class="meta-municipalities-bar" id="metaMunicipalitiesBar"></div>
+              <div class="address-map-canvas wide-canvas" id="addressMapCanvas"></div>
             </div>
           </div>
         </div>

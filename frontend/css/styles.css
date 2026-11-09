@@ -1685,10 +1685,22 @@ button {
 
 .wide-map-workspace {
   display: grid;
-  grid-template-columns: 1.35fr 1fr;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
   gap: 2rem;
   align-items: start;
   margin-top: 1.5rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.wide-map-column,
+.wide-addresses-column {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .wide-canvas {
@@ -2947,26 +2959,105 @@ textarea.modal-input.is-locked-field:focus {
   z-index: 10;
 }
 
-.zone-live-indicator {
-  margin-top: 0.85rem;
-  padding: 0.9rem 1.1rem;
-  border-radius: var(--radius-md);
+/* Tarjeta unificada de estimado de entrega y mapa interactivo (estilo monocromático redondeado) */
+.map-delivery-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+}
+
+.map-delivery-card-body,
+.map-delivery-card .checkout-map-collapsible:not(.is-collapsed) .checkout-map-collapsible-inner {
+  padding: 0.75rem 0.85rem 0.85rem;
+  border-top: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.map-delivery-card .address-map-canvas {
+  width: 100% !important;
+  max-width: 100% !important;
+  border-radius: 14px !important;
+  border: 1px solid var(--border-subtle) !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+.zone-live-indicator,
+.zone-live-indicator.is-villavicencio,
+.zone-live-indicator.is-meta-outside {
+  margin: 0 !important;
+  padding: 0.9rem 1.15rem !important;
+  border-radius: 0 !important;
+  border: none !important;
+  background-color: var(--bg-elevated) !important;
+  color: var(--text-primary) !important;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.85rem;
   font-size: 0.86rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
-.zone-live-indicator.is-villavicencio {
-  background-color: rgba(34, 197, 94, 0.12);
-  border: 1px solid rgba(34, 197, 94, 0.35);
-  color: #4ade80;
+.zone-live-icon-badge {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  border-radius: 50%;
+  background-color: #111827;
+  color: #ffffff !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.14);
 }
 
-.zone-live-indicator.is-meta-outside {
-  background-color: rgba(245, 158, 11, 0.13);
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  color: #fbbf24;
+html[data-theme='dark'] .zone-live-icon-badge {
+  background-color: #f8fafc;
+  color: #0f172a !important;
+}
+
+.zone-live-icon-badge .material-symbols-rounded {
+  font-size: 1.18rem !important;
+  color: inherit !important;
+}
+
+.zone-live-text-box,
+.zone-live-indicator > div:not(.zone-live-icon-badge) {
+  min-width: 0;
+  flex: 1 1 0%;
+}
+
+.zone-live-indicator strong {
+  color: var(--text-primary) !important;
+  font-weight: 800;
+  font-size: 0.9rem;
+  line-height: 1.3;
+  display: block;
+  word-break: break-word;
+}
+
+.zone-live-indicator p {
+  color: var(--text-secondary) !important;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.35;
+  margin: 2px 0 0;
+  word-break: break-word;
 }
 
 .saved-addresses-list {
@@ -3721,7 +3812,7 @@ textarea.modal-input.is-locked-field:focus {
   .driver-route-wrapper,
   .trust-strip,
   .footer-container {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .staff-sidebar,
@@ -5234,28 +5325,36 @@ html[data-theme='dark'] .staff-nav-card {
   }
 
   .zone-live-indicator {
-    padding: 0.75rem 0.85rem !important;
-    gap: 0.6rem !important;
-    font-size: 0.78rem !important;
+    padding: 0.78rem 0.9rem !important;
+    gap: 0.7rem !important;
+    font-size: 0.8rem !important;
   }
 
-  .zone-live-indicator .material-symbols-rounded {
-    font-size: 1.3rem !important;
+  .zone-live-icon-badge {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+    flex: 0 0 34px !important;
   }
 
-  .zone-live-indicator > div {
+  .zone-live-icon-badge .material-symbols-rounded {
+    font-size: 1.08rem !important;
+  }
+
+  .zone-live-indicator > div:not(.zone-live-icon-badge) {
     min-width: 0 !important;
-    flex: 1 !important;
+    flex: 1 1 0% !important;
   }
 
   .zone-live-indicator strong {
-    font-size: 0.8rem !important;
+    font-size: 0.82rem !important;
     line-height: 1.3 !important;
     display: block !important;
   }
 
   .zone-live-indicator p {
-    font-size: 0.72rem !important;
+    font-size: 0.73rem !important;
     line-height: 1.35 !important;
     margin-top: 0.15rem !important;
   }
@@ -8813,26 +8912,31 @@ body[data-page="perfil"] [data-profile-window] .block-header .section-title {
 
   .logged-profile-actions {
     display: flex !important;
-    flex-wrap: nowrap !important;
-    gap: 0.45rem !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.5rem !important;
     width: 100% !important;
   }
 
   .logged-profile-actions .btn-primary,
-  .logged-profile-actions .btn-secondary {
-    flex: 1 1 0% !important;
+  .logged-profile-actions .btn-secondary,
+  .logged-profile-actions a,
+  .logged-profile-actions button {
+    flex: 1 1 100% !important;
+    width: 100% !important;
     min-width: 0 !important;
-    padding: 0.44rem 0.55rem !important;
-    min-height: 34px !important;
-    font-size: 0.76rem !important;
+    padding: 0.62rem 0.85rem !important;
+    min-height: 40px !important;
+    font-size: 0.82rem !important;
     border-radius: 999px !important;
-    gap: 0.3rem !important;
+    gap: 0.38rem !important;
     white-space: nowrap !important;
     justify-content: center !important;
+    box-sizing: border-box !important;
   }
 
   .logged-profile-actions .material-symbols-rounded {
-    font-size: 1rem !important;
+    font-size: 1.05rem !important;
   }
 
   /* Barra de 4 Pestañas Horizontal Deslizante en Móvil (igual que en escritorio) */
@@ -8986,25 +9090,29 @@ body[data-page="perfil"] [data-profile-window] .block-header .section-title {
 
   .customer-order-actions-btns {
     display: flex !important;
-    flex-wrap: nowrap !important;
-    gap: 0.38rem !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.5rem !important;
     width: 100% !important;
   }
 
-  .customer-order-actions-btns button {
-    flex: 1 1 0% !important;
+  .customer-order-actions-btns button,
+  .customer-order-actions-btns a {
+    flex: 1 1 100% !important;
+    width: 100% !important;
     min-width: 0 !important;
-    padding: 0.42rem 0.45rem !important;
-    min-height: 34px !important;
-    font-size: 0.72rem !important;
+    padding: 0.62rem 0.85rem !important;
+    min-height: 40px !important;
+    font-size: 0.8rem !important;
     border-radius: 999px !important;
-    gap: 0.24rem !important;
+    gap: 0.35rem !important;
     white-space: nowrap !important;
     justify-content: center !important;
+    box-sizing: border-box !important;
   }
 
   .customer-order-actions-btns button .material-symbols-rounded {
-    font-size: 0.96rem !important;
+    font-size: 1.02rem !important;
   }
 
   /* Recibo Térmico sin desbordamiento en pantallas estrechas */
@@ -10091,6 +10199,72 @@ body[data-page="perfil"] [data-profile-window].hidden,
   border-color: var(--brand-red, #e01a2c) !important;
   box-shadow: 0 0 0 3px rgba(224, 26, 44, 0.14) !important;
   transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  /* Regla global en móvil: todas las filas de botones de acción van apiladas una encima de otra a ancho completo */
+  .logged-profile-actions,
+  .customer-order-actions-btns,
+  .cancel-confirm-actions,
+  .register-otp-footer-actions,
+  .auth-clean-popup-actions,
+  #danillanosActionBtnsRow,
+  .modal-actions-row,
+  .modal-footer-btns,
+  .modal-actions,
+  .native-alert-404-actions,
+  .staff-order-actions,
+  .admin-catalog-actions,
+  .support-submit-row,
+  #checkoutGuestBlockCard > div,
+  #adminProductForm > div:last-child,
+  #quickDiscountForm > div:last-child,
+  #deleteProductModalBackdrop .modal-card > div:last-child {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.55rem !important;
+    width: 100% !important;
+  }
+
+  .logged-profile-actions > *,
+  .customer-order-actions-btns > *,
+  .cancel-confirm-actions > *,
+  .register-otp-footer-actions > *,
+  .auth-clean-popup-actions > *,
+  #danillanosActionBtnsRow > *,
+  .modal-actions-row > *,
+  .modal-footer-btns > *,
+  .modal-actions > *,
+  .native-alert-404-actions > *,
+  .staff-order-actions > *,
+  .admin-catalog-actions > *,
+  .support-submit-row > *,
+  #checkoutGuestBlockCard > div > *,
+  #adminProductForm > div:last-child > *,
+  #quickDiscountForm > div:last-child > *,
+  #deleteProductModalBackdrop .modal-card > div:last-child > * {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 1 1 100% !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Contención estricta del módulo de mapa y formulario de dirección en móvil */
+  #addressRegistrationWorkspace,
+  .wide-map-workspace,
+  .wide-map-column,
+  .wide-addresses-column,
+  .wide-addresses-column > .surface-card,
+  .map-delivery-card,
+  .map-delivery-card-body {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
 }
 
 @media (max-width: 480px) {
