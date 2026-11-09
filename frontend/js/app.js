@@ -2595,9 +2595,10 @@
     const center = CONFIG.map.villavicencioCenter;
     const map = L.map(containerId).setView([center.lat, center.lng], 13);
 
-    L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 20,
-      attribution: '&copy; Google Maps • Danillanos Meta'
+      subdomains: 'abcd',
+      attribution: '&copy; OpenStreetMap &copy; CARTO • Danillanos Meta'
     }).addTo(map);
 
     L.circle([center.lat, center.lng], {
@@ -7004,6 +7005,8 @@
    */
   function toggleCheckoutMapVisibility(showMap) {
     const mapCollapsible = document.getElementById('checkoutMapCollapsible');
+    const mapCard = document.getElementById('checkoutMapDeliveryCard');
+    const muniBar = document.getElementById('metaMunicipalitiesBar');
     const muniInput = document.getElementById('addrMunicipio');
     const streetInput = document.getElementById('addrStreet');
     const refInput = document.getElementById('addrRef');
@@ -7012,6 +7015,14 @@
     if (saveNewAddrWrap) {
       const canSaveMore = !Array.isArray(state.direcciones) || state.direcciones.length < 5;
       saveNewAddrWrap.classList.toggle('hidden', !(showMap && canSaveMore));
+    }
+
+    if (muniBar) {
+      muniBar.classList.toggle('hidden', !showMap);
+    }
+
+    if (mapCard) {
+      mapCard.classList.toggle('is-map-collapsed', !showMap);
     }
 
     if (!mapCollapsible) return;
@@ -9775,9 +9786,10 @@
 
     if (!state.maps.driverMap) {
       const dMap = L.map('driverMapContainer').setView([hq.lat, hq.lng], 13);
-      L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         maxZoom: 20,
-        attribution: '&copy; Google Maps'
+        subdomains: 'abcd',
+        attribution: '&copy; OpenStreetMap &copy; CARTO'
       }).addTo(dMap);
       state.maps.driverMap = dMap;
       state.maps.driverLayerGroup = L.layerGroup().addTo(dMap);

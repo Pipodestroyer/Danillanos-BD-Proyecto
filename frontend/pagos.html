@@ -207,24 +207,27 @@
                     </label>
                   </div>
 
-                  <!-- Tarjeta unificada de estimado de entrega y mapa interactivo (estilo monocromático redondeado) -->
+                  <!-- Tarjeta blanca contenedora con píldoras de municipio arriba y estimado fusionado directamente al mapa -->
                   <div class="map-delivery-card" id="checkoutMapDeliveryCard" style="margin-bottom: 1.25rem;">
-                    <!-- Cabecera superior sobre el mapa con estimado de entrega -->
-                    <div class="zone-live-indicator is-villavicencio" id="zoneLiveIndicator">
-                      <div class="zone-live-icon-badge">
-                        <span class="material-symbols-rounded" id="zoneLiveIcon">local_shipping</span>
-                      </div>
-                      <div class="zone-live-text-box">
-                        <strong id="zoneLiveTitle">Modalidad de Envío: Despacho el mismo día (Villavicencio)</strong>
-                        <p id="zoneLiveSubtitle">Ubicación dentro de la zona de cobertura prioritaria</p>
-                      </div>
-                    </div>
+                    <div class="meta-municipalities-bar hidden" id="metaMunicipalitiesBar"></div>
 
-                    <!-- Módulo cartográfico interactivo con cálculo de cobertura -->
-                    <div class="checkout-map-collapsible is-collapsed" id="checkoutMapCollapsible">
-                      <div class="checkout-map-collapsible-inner">
-                        <div class="meta-municipalities-bar" id="metaMunicipalitiesBar"></div>
-                        <div class="address-map-canvas checkout-map-canvas" id="addressMapCanvas"></div>
+                    <div class="map-fused-unit">
+                      <!-- Extensión superior conectada directamente al borde del mapa -->
+                      <div class="zone-live-indicator is-villavicencio" id="zoneLiveIndicator">
+                        <div class="zone-live-icon-badge">
+                          <span class="material-symbols-rounded" id="zoneLiveIcon">local_shipping</span>
+                        </div>
+                        <div class="zone-live-text-box">
+                          <strong id="zoneLiveTitle">Modalidad de Envío: Despacho el mismo día (Villavicencio)</strong>
+                          <p id="zoneLiveSubtitle">Ubicación dentro de la zona de cobertura prioritaria</p>
+                        </div>
+                      </div>
+
+                      <!-- Módulo cartográfico interactivo fusionado debajo de la extensión -->
+                      <div class="checkout-map-collapsible is-collapsed" id="checkoutMapCollapsible">
+                        <div class="checkout-map-collapsible-inner">
+                          <div class="address-map-canvas checkout-map-canvas" id="addressMapCanvas"></div>
+                        </div>
                       </div>
                     </div>
                   </div>

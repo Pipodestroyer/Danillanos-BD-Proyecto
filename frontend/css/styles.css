@@ -2959,7 +2959,7 @@ textarea.modal-input.is-locked-field:focus {
   z-index: 10;
 }
 
-/* Tarjeta unificada de estimado de entrega y mapa interactivo (estilo monocromático redondeado) */
+/* Tarjeta unificada de estimado de entrega y mapa interactivo (fondo blanco exterior + mapa fusionado con estimado arriba) */
 .map-delivery-card {
   width: 100%;
   max-width: 100%;
@@ -2968,35 +2968,67 @@ textarea.modal-input.is-locked-field:focus {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 18px;
+  padding: 0.9rem;
   overflow: hidden;
   box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
 }
 
-.map-delivery-card-body,
-.map-delivery-card .checkout-map-collapsible:not(.is-collapsed) .checkout-map-collapsible-inner {
-  padding: 0.75rem 0.85rem 0.85rem;
-  border-top: 1px solid var(--border-subtle);
-  background-color: var(--bg-surface);
-  box-sizing: border-box;
+.map-delivery-card.is-map-collapsed {
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.map-delivery-card > .meta-municipalities-bar {
+  margin-bottom: 0.75rem !important;
+}
+
+/* Bloque fusionado: extensión de estimado de entrega conectada directamente al borde superior del mapa */
+.map-fused-unit {
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  box-sizing: border-box;
+  border-radius: 16px;
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  background-color: var(--bg-surface);
 }
 
-.map-delivery-card .address-map-canvas {
+.map-fused-unit .checkout-map-collapsible:not(.is-collapsed) .checkout-map-collapsible-inner {
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+}
+
+.map-fused-unit .address-map-canvas {
   width: 100% !important;
   max-width: 100% !important;
-  border-radius: 14px !important;
-  border: 1px solid var(--border-subtle) !important;
+  border-radius: 0 0 16px 16px !important;
+  border: none !important;
+  border-top: 1px solid var(--border-subtle) !important;
+  margin: 0 !important;
   overflow: hidden !important;
   box-sizing: border-box !important;
+}
+
+/* Estilo monocromático limpio (tonos grises y blancos) para los tiles del mapa interactivo */
+.address-map-canvas .leaflet-tile-pane,
+.driver-map-canvas .leaflet-tile-pane {
+  filter: grayscale(100%) contrast(98%) brightness(101%);
+}
+
+html[data-theme='dark'] .address-map-canvas .leaflet-tile-pane,
+html[data-theme='dark'] .driver-map-canvas .leaflet-tile-pane {
+  filter: grayscale(100%) invert(92%) hue-rotate(180deg) contrast(92%);
 }
 
 .zone-live-indicator,
 .zone-live-indicator.is-villavicencio,
 .zone-live-indicator.is-meta-outside {
   margin: 0 !important;
-  padding: 0.9rem 1.15rem !important;
+  padding: 0.85rem 1.05rem !important;
   border-radius: 0 !important;
   border: none !important;
   background-color: var(--bg-elevated) !important;
@@ -3017,23 +3049,18 @@ textarea.modal-input.is-locked-field:focus {
   min-width: 38px;
   min-height: 38px;
   border-radius: 50%;
-  background-color: #111827;
+  background-color: var(--brand-red, #e01a2c);
   color: #ffffff !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.14);
-}
-
-html[data-theme='dark'] .zone-live-icon-badge {
-  background-color: #f8fafc;
-  color: #0f172a !important;
+  box-shadow: 0 2px 8px rgba(224, 26, 44, 0.25);
 }
 
 .zone-live-icon-badge .material-symbols-rounded {
   font-size: 1.18rem !important;
-  color: inherit !important;
+  color: #ffffff !important;
 }
 
 .zone-live-text-box,
@@ -8726,8 +8753,25 @@ body[data-page="perfil"] [data-profile-window] .block-header .section-title {
   }
 
   .product-body {
-    padding: 0.65rem 0.65rem 0.7rem !important;
+    padding: 0.7rem 0.68rem 0.75rem !important;
     gap: 0.32rem !important;
+  }
+
+  .product-meta-top {
+    font-size: 0.62rem !important;
+    gap: 0.25rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+  }
+
+  .product-meta-top span:first-child {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .product-meta-top span:last-child {
+    display: none !important;
   }
 
   .product-title {
@@ -8737,70 +8781,102 @@ body[data-page="perfil"] [data-profile-window] .block-header .section-title {
     -webkit-line-clamp: 2 !important;
     -webkit-box-orient: vertical !important;
     overflow: hidden !important;
-    min-height: 2.02em;
+    min-height: 2.48em !important;
+    max-height: 2.48em !important;
   }
 
   .product-desc {
+    flex: 0 0 auto !important;
     font-size: 0.68rem !important;
-    line-height: 1.28 !important;
+    line-height: 1.3 !important;
     margin-bottom: 0.25rem !important;
     display: -webkit-box !important;
     -webkit-line-clamp: 2 !important;
     -webkit-box-orient: vertical !important;
     overflow: hidden !important;
+    max-height: calc(1.3em * 2) !important;
   }
 
   .product-footer {
-    padding-top: 0.42rem !important;
-    gap: 0.42rem !important;
+    margin-top: auto !important;
+    padding-top: 0.48rem !important;
+    gap: 0.45rem !important;
+  }
+
+  .product-footer-top {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    gap: 0.12rem !important;
   }
 
   .product-price-label {
     font-size: 0.58rem !important;
+    line-height: 1.1 !important;
   }
 
   .product-price {
-    font-size: 0.96rem !important;
+    font-size: 1rem !important;
     line-height: 1.15 !important;
   }
 
+  .product-bulk-row,
   .product-actions-row {
-    gap: 0.32rem !important;
-    align-items: center !important;
-    justify-content: space-between !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 0.42rem !important;
+    width: 100% !important;
   }
 
+  .product-bulk-row .bulk-qty-box,
   .bulk-qty-box {
-    padding: 2px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 34px !important;
+    padding: 2px 5px !important;
     border-radius: 999px !important;
-    gap: 1px !important;
-    flex: 1 1 auto;
-    min-width: 0;
-    justify-content: space-between;
+    gap: 4px !important;
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    justify-content: space-between !important;
+    box-sizing: border-box !important;
   }
 
   .bulk-qty-btn {
-    width: 24px !important;
-    height: 24px !important;
-    min-width: 24px !important;
-    font-size: 0.88rem !important;
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px !important;
+    font-size: 0.92rem !important;
   }
 
   .bulk-qty-input {
-    width: 28px !important;
-    height: 24px !important;
-    font-size: 0.76rem !important;
+    flex: 1 1 auto !important;
+    width: auto !important;
+    min-width: 28px !important;
+    height: 26px !important;
+    font-size: 0.8rem !important;
     padding: 0 !important;
   }
 
+  .product-bulk-row .btn-add-product,
   .btn-add-product {
-    padding: 0.42rem 0.6rem !important;
-    min-height: 30px !important;
-    height: 30px !important;
-    font-size: 0.74rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
+    padding: 0 0.75rem !important;
+    min-height: 36px !important;
+    height: 36px !important;
+    font-size: 0.78rem !important;
     border-radius: 999px !important;
-    gap: 0.25rem !important;
-    flex-shrink: 0 !important;
+    gap: 0.35rem !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+  }
+
+  .btn-add-product .btn-add-label {
+    display: inline !important;
   }
 
   .btn-add-product .material-symbols-rounded {
@@ -9350,20 +9426,7 @@ body[data-page="perfil"] [data-profile-window] .block-header .section-title {
   }
 }
 
-/* 4. Teléfonos Compactos (<= 480px): Botón de carrito icónico para que "- 1 +" y Carrito quepan en 1 fila */
-@media (max-width: 480px) {
-  .btn-add-product .btn-add-label {
-    display: none !important;
-  }
-
-  .btn-add-product {
-    width: 32px !important;
-    min-width: 32px !important;
-    height: 30px !important;
-    padding: 0 !important;
-    justify-content: center !important;
-  }
-}
+/* 4. Teléfonos Compactos (<= 480px): el botón de añadir mantiene su etiqueta apilada a ancho completo */
 
 
 /* Garantía global de ocultación: ningún selector responsivo con !important debe mostrar nodos .hidden */
@@ -10258,7 +10321,7 @@ body[data-page="perfil"] [data-profile-window].hidden,
   .wide-addresses-column,
   .wide-addresses-column > .surface-card,
   .map-delivery-card,
-  .map-delivery-card-body {
+  .map-fused-unit {
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
