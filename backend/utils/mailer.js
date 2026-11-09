@@ -119,7 +119,7 @@ function generateInvoicePdfBuffer(order) {
         .font('Helvetica')
         .fontSize(9)
         .text('DISTRIBUIMOS CALIDAD • NIT 900.842.190-4', 48, 72)
-        .text('Clle 15 # 12-91 Av. Los Maracos • Villavicencio, Meta', 48, 85);
+        .text('Vía Corredor Ecológico • Villavicencio, Meta', 48, 85);
 
       doc
         .fillColor('#111827')
@@ -342,7 +342,7 @@ function buildDanillanosEmailLayout({ title, subtitle, bodyHtml, ctaText, ctaUrl
           <tr>
             <td style="background-color: #fafafa; padding: 16px 32px; border-top: 1px solid #f1f5f9; text-align: center;">
               <p style="margin: 0; font-size: 11.5px; color: #9ca3af;">
-                Danillanos S.A.S. • Clle 15 # 12-91 Av. Los Maracos, Villavicencio — Meta
+                Danillanos S.A.S. • Vía Corredor Ecológico, Villavicencio — Meta
               </p>
             </td>
           </tr>

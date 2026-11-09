@@ -40,7 +40,7 @@ const configObject = {
   brand: {
     name: 'DANILLANOS',
     tagline: 'DISTRIBUIMOS CALIDAD',
-    address: 'CLLE 15 # 12 -91 AVENIDA LOS MARACOS, Villavicencio - Meta',
+    address: 'Vía Corredor Ecológico, Villavicencio - Meta',
     logoUrl: null
   },
   api: {
@@ -54,9 +54,9 @@ const configObject = {
     villavicencioCenter: { lat: 4.1420, lng: -73.6266 },
     villavicencioRadiusMeters: 9500,
     sedeDanillanos: {
-      nombre: 'Danillanos Sede Principal - Clle 15 # 12-91 Av. Los Maracos',
-      lat: 4.1365,
-      lng: -73.6215
+      nombre: 'Danillanos Sede Principal - Vía Corredor Ecológico',
+      lat: 4.08725,
+      lng: -73.62325
     },
     municipiosMeta
   },

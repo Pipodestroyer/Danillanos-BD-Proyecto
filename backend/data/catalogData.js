@@ -439,7 +439,7 @@ const carruselDanillanos = [
     producto_id: 24,
     subtitulo: 'TODO PARA TU RESTAURANTE Y HOGAR',
     titulo: 'Cárnicos, Hamburguesas, Costillas y Chorizos Llaneros',
-    descripcion: 'Distribuimos calidad desde nuestra sede en Av. Los Maracos (Clle 15 # 12-91). Envíos el mismo día en Villavicencio.',
+    descripcion: 'Distribuimos calidad desde nuestra sede en la Vía Corredor Ecológico. Envíos el mismo día en Villavicencio.',
     precio_destacado: 18850,
     imagen_url: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1600&q=80',
     texto_boton: 'Añadir al carrito',

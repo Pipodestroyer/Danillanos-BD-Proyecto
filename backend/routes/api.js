@@ -79,9 +79,9 @@ const googleAuthClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) :
 const VILLAVICENCIO_CENTER = { lat: 4.1420, lng: -73.6266 };
 const VILLAVICENCIO_RADIUS_KM = 9.5;
 const DANILLANOS_HQ = {
-  nombre: 'Sede Principal Danillanos - Clle 15 # 12-91 Av. Los Maracos',
-  lat: 4.1365,
-  lng: -73.6215
+  nombre: 'Sede Principal Danillanos - Vía Corredor Ecológico',
+  lat: 4.08725,
+  lng: -73.62325
 };
 
 /**
@@ -635,7 +635,15 @@ router.get('/carrusel', async (req, res) => {
       WHERE activo = 1
       ORDER BY orden ASC
     `);
-    return res.json({ source: 'mysql', data: rows });
+    const updatedRows = rows.map((r) => {
+      if (r.descripcion && /Maracos|12-91/i.test(r.descripcion)) {
+        const cleanDesc = 'Distribuimos calidad desde nuestra sede en la Vía Corredor Ecológico. Envíos el mismo día en Villavicencio.';
+        pool.query('UPDATE carrusel_promociones SET descripcion = ? WHERE id = ?', [cleanDesc, r.id]).catch(() => {});
+        return { ...r, descripcion: cleanDesc };
+      }
+      return r;
+    });
+    return res.json({ source: 'mysql', data: updatedRows });
   } catch (error) {
     return sendDatabaseError(res, error, 'Carga de promociones del carrusel');
   }

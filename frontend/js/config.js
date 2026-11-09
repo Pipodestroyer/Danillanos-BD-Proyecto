@@ -8,7 +8,7 @@ window.DANILLANOS_CONFIG = {
   "brand": {
     "name": "DANILLANOS",
     "tagline": "DISTRIBUIMOS CALIDAD",
-    "address": "CLLE 15 # 12 -91 AVENIDA LOS MARACOS, Villavicencio - Meta",
+    "address": "Vía Corredor Ecológico, Villavicencio - Meta",
     "logoUrl": null
   },
   "api": {
@@ -25,9 +25,9 @@ window.DANILLANOS_CONFIG = {
     },
     "villavicencioRadiusMeters": 9500,
     "sedeDanillanos": {
-      "nombre": "Danillanos Sede Principal - Clle 15 # 12-91 Av. Los Maracos",
-      "lat": 4.1365,
-      "lng": -73.6215
+      "nombre": "Danillanos Sede Principal - Vía Corredor Ecológico",
+      "lat": 4.08725,
+      "lng": -73.62325
     },
     "municipiosMeta": [
       {
@@ -164,7 +164,7 @@ window.DANILLANOS_CONFIG = {
       "producto_id": 24,
       "subtitulo": "TODO PARA TU RESTAURANTE Y HOGAR",
       "titulo": "Cárnicos, Hamburguesas, Costillas y Chorizos Llaneros",
-      "descripcion": "Distribuimos calidad desde nuestra sede en Av. Los Maracos (Clle 15 # 12-91). Envíos el mismo día en Villavicencio.",
+      "descripcion": "Distribuimos calidad desde nuestra sede en la Vía Corredor Ecológico. Envíos el mismo día en Villavicencio.",
       "precio_destacado": 18850,
       "imagen_url": "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1600&q=80",
       "texto_boton": "Añadir al carrito",

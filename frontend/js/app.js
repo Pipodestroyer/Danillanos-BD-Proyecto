@@ -1970,7 +1970,7 @@
                  <input type="text" id="cartQuickLabel" class="cart-quick-input" placeholder="Etiqueta (Casa, Sede)" value="Sede" />
                  <input type="text" id="cartQuickMuni" class="cart-quick-input" placeholder="Municipio" value="Villavicencio" />
                </div>
-               <input type="text" id="cartQuickStreet" class="cart-quick-input" placeholder="Dirección exacta (Ej: Calle 15 # 12-91)" />
+               <input type="text" id="cartQuickStreet" class="cart-quick-input" placeholder="Dirección exacta (Ej: Vía Corredor Ecológico)" />
                <div style="display:flex; justify-content:flex-end; gap:0.4rem;">
                  <button type="button" class="cart-addr-mini-btn" id="btnCartCancelQuickAddr">Cancelar</button>
                  <button type="button" class="cart-addr-mini-btn" id="btnCartSaveQuickAddr" style="background:var(--brand-red); color:#fff; border-color:var(--brand-red);">Guardar</button>
@@ -2221,8 +2221,8 @@
 
   /** Catálogo de barrios representativos de Villavicencio para georreferenciación instantánea. */
   const VILLAVICENCIO_BARRIOS = [
+    { nombre: 'Corredor Ecológico', lat: 4.08725, lng: -73.62325, via: 'Vía Corredor Ecológico' },
     { nombre: 'Barrio Siete de Agosto', lat: 4.1392, lng: -73.6351, via: 'Av. 40 # 26C' },
-    { nombre: 'Avenida Los Maracos', lat: 4.1365, lng: -73.6215, via: 'Calle 15 # 12' },
     { nombre: 'Barrio Barzal Alto', lat: 4.1468, lng: -73.6412, via: 'Calle 35 # 41' },
     { nombre: 'Barrio La Grama', lat: 4.1562, lng: -73.6385, via: 'Calle 44 # 30' },
     { nombre: 'Barrio Caudal', lat: 4.1605, lng: -73.6430, via: 'Carrera 33 # 48' },
@@ -2574,10 +2574,10 @@
     if (typeof L === 'undefined') return undefined;
     return L.divIcon({
       className: 'danillanos-red-pin-icon',
-      html: `<div class="danillanos-hq-pin-marker" title="Sede Principal Danillanos">🥩</div>`,
-      iconSize: [36, 36],
-      iconAnchor: [18, 18],
-      popupAnchor: [0, -18]
+      html: `<div class="danillanos-hq-pin-marker" title="Sede Principal Danillanos — Vía Corredor Ecológico"><span class="material-symbols-rounded">storefront</span></div>`,
+      iconSize: [38, 38],
+      iconAnchor: [19, 19],
+      popupAnchor: [0, -19]
     });
   }
 
@@ -2614,7 +2614,7 @@
     const hq = CONFIG.map.sedeDanillanos;
     L.marker([hq.lat, hq.lng], { icon: createHqPinIcon() })
       .addTo(map)
-      .bindPopup(`<strong>🥩 ${hq.nombre}</strong><br>Centro de Despacho`);
+      .bindPopup(`<strong><span class="material-symbols-rounded" style="font-size:1rem; vertical-align:text-bottom; color:#e01a2c;">storefront</span> ${hq.nombre}</strong><br>Centro de Despacho • 4°05'14.1&quot;N 73°37'23.7&quot;W`);
 
     const userPin = L.marker([center.lat, center.lng], {
       draggable: true,
@@ -3403,7 +3403,7 @@
             <div class="thermal-store-name">DANILLANOS S.A.S.</div>
             <div class="thermal-store-sub">DISTRIBUIDORA AGROPECUARIA & CÁRNICOS DEL META</div>
             <div class="thermal-store-sub">NIT: 900.842.190-4 • IVA RÉGIMEN SIMPLE</div>
-            <div class="thermal-store-sub">Cra 32 # 24-18, Villavicencio - Meta</div>
+            <div class="thermal-store-sub">Vía Corredor Ecológico, Villavicencio - Meta</div>
             <div class="thermal-store-sub">PBX: (608) 662-4411 • WhatsApp: 310 234 5678</div>
           </div>
 
@@ -9688,7 +9688,7 @@
 
     L.marker([hq.lat, hq.lng], { icon: createHqPinIcon() })
       .addTo(lg)
-      .bindPopup(`<strong>🥩 Sede Danillanos</strong>`);
+      .bindPopup(`<strong><span class="material-symbols-rounded" style="font-size:1rem; vertical-align:text-bottom; color:#e01a2c;">storefront</span> Sede Principal Danillanos — Vía Corredor Ecológico</strong>`);
 
     const polyPoints = [[hq.lat, hq.lng]];
     orderedStops.forEach((stop) => {
