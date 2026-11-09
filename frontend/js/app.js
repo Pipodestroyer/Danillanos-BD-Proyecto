@@ -6648,7 +6648,16 @@
     if (track) {
       const offsetPct = (stepNum - 1) * 25;
       track.style.transform = `translate3d(-${offsetPct}%, 0, 0)`;
+      track.querySelectorAll('.checkout-wizard-slide').forEach((slideEl) => {
+        const slideStep = Number(slideEl.getAttribute('data-wizard-slide'));
+        slideEl.classList.toggle('is-active-slide', slideStep === stepNum);
+      });
     }
+
+    document.querySelectorAll('[data-floating-step-actions]').forEach((actionGroup) => {
+      const groupStep = Number(actionGroup.getAttribute('data-floating-step-actions'));
+      actionGroup.classList.toggle('hidden', groupStep !== stepNum);
+    });
 
     if (lineFill) {
       const fillPct = stepNum === 1 ? 0 : stepNum === 2 ? 50 : 100;
@@ -6670,23 +6679,17 @@
       1: {
         num: '1',
         title: 'Datos de Entrega y Destino',
-        desc: 'Seleccione una dirección guardada o interactúe con el mapa para fijar el pin exacto de entrega.',
-        primaryBtn: 'Continuar al resumen',
-        secondaryBtn: 'Volver al carrito'
+        desc: 'Seleccione una dirección guardada o interactúe con el mapa para fijar el pin exacto de entrega.'
       },
       2: {
         num: '2',
         title: 'Resumen y Confirmación de Productos',
-        desc: 'Verifique los artículos y cantidades de su pedido. Puede ajustar las unidades directamente antes de proceder al pago.',
-        primaryBtn: 'Continuar al pago',
-        secondaryBtn: 'Volver a entrega'
+        desc: 'Verifique los artículos y cantidades de su pedido. Puede ajustar las unidades directamente antes de proceder al pago.'
       },
       3: {
         num: '3',
         title: 'Método de Pago',
-        desc: 'Seleccione su medio de pago preferido para emitir su factura electrónica y programar el despacho de su pedido.',
-        primaryBtn: 'Confirmar pedido',
-        secondaryBtn: 'Volver al resumen'
+        desc: 'Seleccione su medio de pago preferido para emitir su factura electrónica y programar el despacho de su pedido.'
       }
     }[stepNum];
 
@@ -6694,13 +6697,9 @@
       const circleEl = document.getElementById('checkoutCurrentStepCircle');
       const titleEl = document.getElementById('checkoutCurrentStepTitle');
       const descEl = document.getElementById('checkoutCurrentStepDesc');
-      const floatPrimaryText = document.getElementById('btnFloatingPrimaryText');
-      const floatSecondaryText = document.getElementById('btnFloatingSecondaryText');
       if (circleEl) circleEl.textContent = stepMeta.num;
       if (titleEl) titleEl.textContent = stepMeta.title;
       if (descEl) descEl.textContent = stepMeta.desc;
-      if (floatPrimaryText) floatPrimaryText.textContent = stepMeta.primaryBtn;
-      if (floatSecondaryText) floatSecondaryText.textContent = stepMeta.secondaryBtn;
     }
 
     const muni = document.getElementById('addrMunicipio')?.value.trim() || 'Villavicencio';
@@ -6833,26 +6832,6 @@
     document.getElementById('btnWizardBackToStep2')?.addEventListener('click', () => {
       showCheckoutInlineFeedback(2, '');
       goToCheckoutStep(2);
-    });
-
-    document.getElementById('btnFloatingPrimaryAction')?.addEventListener('click', () => {
-      if (state.checkoutWizardStep === 1) {
-        document.getElementById('btnWizardToStep2')?.click();
-      } else if (state.checkoutWizardStep === 2) {
-        document.getElementById('btnWizardToStep3')?.click();
-      } else if (state.checkoutWizardStep === 3) {
-        document.getElementById('btnSubmitFinalOrder')?.click();
-      }
-    });
-
-    document.getElementById('btnFloatingSecondaryAction')?.addEventListener('click', () => {
-      if (state.checkoutWizardStep === 1) {
-        document.getElementById('cartToggleBtn')?.click();
-      } else if (state.checkoutWizardStep === 2) {
-        document.getElementById('btnWizardBackToStep1')?.click();
-      } else if (state.checkoutWizardStep === 3) {
-        document.getElementById('btnWizardBackToStep2')?.click();
-      }
     });
 
     document.querySelectorAll('[data-wizard-goto]').forEach((btn) => {

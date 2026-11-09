@@ -185,7 +185,7 @@
             <div class="checkout-wizard-track" id="checkoutWizardTrack">
 
               <!-- Fase 1: Formulario de Destino y Selector Cartográfico -->
-              <div class="checkout-wizard-slide" data-wizard-slide="1">
+              <div class="checkout-wizard-slide is-active-slide" data-wizard-slide="1">
                 <div class="wizard-step-card">
                   <div class="form-group" style="margin-bottom: 1rem;">
                     <label for="checkoutAddressSelect">Dirección de Entrega Registrada</label>
@@ -261,16 +261,6 @@
                   <input type="hidden" id="addrLng" value="-73.6266" />
 
                   <div id="checkoutInlineFeedbackStep1" class="hidden auth-inline-feedback" role="alert"></div>
-                  <div class="wizard-step-actions">
-                    <a href="/" class="btn-secondary">
-                      <span class="material-symbols-rounded">arrow_back</span>
-                      <span>Seguir Comprando</span>
-                    </a>
-                    <button type="button" class="btn-primary btn-pay-large" id="btnWizardToStep2">
-                      <span>Continuar al Resumen del Pedido</span>
-                      <span class="material-symbols-rounded">arrow_forward</span>
-                    </button>
-                  </div>
                 </div>
               </div>
 
@@ -298,16 +288,6 @@
                   </div>
 
                   <div id="checkoutInlineFeedbackStep2" class="hidden auth-inline-feedback" role="alert"></div>
-                  <div class="wizard-step-actions">
-                    <button type="button" class="btn-secondary" id="btnWizardBackToStep1">
-                      <span class="material-symbols-rounded">arrow_back</span>
-                      <span>Volver a Datos de Entrega</span>
-                    </button>
-                    <button type="button" class="btn-primary btn-pay-large" id="btnWizardToStep3">
-                      <span>Continuar al Método de Pago</span>
-                      <span class="material-symbols-rounded">arrow_forward</span>
-                    </button>
-                  </div>
                 </div>
               </div>
 
@@ -356,17 +336,6 @@
                       <span>Total Facturado</span>
                       <strong id="checkoutTotalAmount">$0</strong>
                     </div>
-                  </div>
-
-                  <div class="wizard-step-actions">
-                    <button type="button" class="btn-secondary" id="btnWizardBackToStep2">
-                      <span class="material-symbols-rounded">arrow_back</span>
-                      <span>Volver a Productos</span>
-                    </button>
-                    <button type="submit" class="btn-primary btn-pay-large" id="btnSubmitFinalOrder">
-                      <span class="material-symbols-rounded">lock</span>
-                      <span>Confirmar Orden y Emitir Factura</span>
-                    </button>
                   </div>
                 </div>
               </div>
@@ -420,7 +389,7 @@
         </div>
       </div>
 
-      <!-- Columna derecha flotante: Resumen de "Tu pedido" -->
+      <!-- Columna derecha flotante: Resumen de "Tu pedido" con los botones redondeados y sus iconos -->
       <aside class="checkout-floating-sidebar" id="checkoutFloatingSidebar" aria-label="Resumen de tu pedido">
         <div class="surface-card checkout-floating-order-card">
           <h3 class="floating-order-heading">Tu pedido</h3>
@@ -429,12 +398,40 @@
             <span>Total</span>
             <strong id="checkoutFloatingTotalAmount">$0</strong>
           </div>
-          <div class="floating-order-actions">
-            <button type="button" class="btn-primary btn-full floating-order-primary-btn" id="btnFloatingPrimaryAction">
-              <span id="btnFloatingPrimaryText">Continuar al resumen</span>
+
+          <!-- Botones del Paso 1 -->
+          <div class="floating-order-actions" data-floating-step-actions="1">
+            <button type="button" class="btn-primary btn-pay-large btn-full floating-pill-btn" id="btnWizardToStep2">
+              <span>Continuar al Resumen del Pedido</span>
+              <span class="material-symbols-rounded">arrow_forward</span>
             </button>
-            <button type="button" class="btn-secondary btn-full floating-order-secondary-btn" id="btnFloatingSecondaryAction">
-              <span id="btnFloatingSecondaryText">Volver al carrito</span>
+            <a href="/" class="btn-secondary btn-full floating-pill-btn">
+              <span class="material-symbols-rounded">arrow_back</span>
+              <span>Seguir Comprando</span>
+            </a>
+          </div>
+
+          <!-- Botones del Paso 2 -->
+          <div class="floating-order-actions hidden" data-floating-step-actions="2">
+            <button type="button" class="btn-primary btn-pay-large btn-full floating-pill-btn" id="btnWizardToStep3">
+              <span>Continuar al Método de Pago</span>
+              <span class="material-symbols-rounded">arrow_forward</span>
+            </button>
+            <button type="button" class="btn-secondary btn-full floating-pill-btn" id="btnWizardBackToStep1">
+              <span class="material-symbols-rounded">arrow_back</span>
+              <span>Volver a Datos de Entrega</span>
+            </button>
+          </div>
+
+          <!-- Botones del Paso 3 -->
+          <div class="floating-order-actions hidden" data-floating-step-actions="3">
+            <button type="submit" class="btn-primary btn-pay-large btn-full floating-pill-btn" id="btnSubmitFinalOrder">
+              <span class="material-symbols-rounded">lock</span>
+              <span>Confirmar Orden y Emitir Factura</span>
+            </button>
+            <button type="button" class="btn-secondary btn-full floating-pill-btn" id="btnWizardBackToStep2">
+              <span class="material-symbols-rounded">arrow_back</span>
+              <span>Volver a Productos</span>
             </button>
           </div>
         </div>
