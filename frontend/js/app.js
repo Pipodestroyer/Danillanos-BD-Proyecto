@@ -6839,51 +6839,17 @@
     populateCheckoutSavedAddressesDropdown();
     goToCheckoutStep(1);
 
-    document.getElementById('btnWizardToStep2')?.addEventListener('click', async () => {
+    document.getElementById('btnWizardToStep2')?.addEventListener('click', () => {
+      if (!Array.isArray(state.cart) || state.cart.length === 0) {
+        showCheckoutInlineFeedback(1, 'Tu carrito está vacío. Agrega productos desde el catálogo antes de continuar.', 'error');
+        return;
+      }
       const recName = document.getElementById('checkoutRecipientName')?.value.trim();
       const recPhone = document.getElementById('checkoutRecipientPhone')?.value.trim();
       const street = document.getElementById('addrStreet')?.value.trim();
       if (!recName || !recPhone || !street) {
         showCheckoutInlineFeedback(1, 'Por favor completa el nombre de quien recibe, celular y ubica la dirección en el mapa.', 'error');
         return;
-      }
-
-      const addrSelectEl = document.getElementById('checkoutAddressSelect');
-      const saveNewCheck = document.getElementById('checkoutSaveNewAddressCheck');
-      if (addrSelectEl && addrSelectEl.value === 'map_pin' && saveNewCheck && saveNewCheck.checked && state.direcciones.length < 5) {
-        const muni = document.getElementById('addrMunicipio')?.value.trim() || 'Villavicencio';
-        const ref = document.getElementById('addrRef')?.value.trim() || '';
-        const lat = Number(document.getElementById('addrLat')?.value || 4.142);
-        const lng = Number(document.getElementById('addrLng')?.value || -73.6266);
-        const etiqueta = state.direcciones.length === 0 ? 'Principal' : `Dirección ${state.direcciones.length + 1}`;
-        try {
-          const res = await fetch(`${CONFIG.api.baseUrl}/direcciones`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({
-              etiqueta,
-              municipio: muni,
-              direccion: street,
-              barrio_referencia: ref,
-              lat,
-              lng
-            })
-          });
-          const data = await res.json();
-          if (data && data.ok && Array.isArray(data.direcciones)) {
-            state.direcciones = data.direcciones;
-            const newest = state.direcciones[state.direcciones.length - 1];
-            if (newest) {
-              state.selectedAddressId = newest.id;
-              sessionStorage.setItem('danillanos_selected_addr_id', String(newest.id));
-            }
-            sessionStorage.setItem('danillanos_dirs', JSON.stringify(state.direcciones));
-            populateCheckoutSavedAddressesDropdown();
-            showToast('Dirección guardada para tus próximos pedidos', 'check_circle');
-          }
-        } catch (_) {
-          // Continuar al resumen aunque falle el guardado secundario
-        }
       }
 
       showCheckoutInlineFeedback(1, '');
@@ -6979,6 +6945,38 @@
         });
         const data = await res.json();
         if (data.ok) {
+          // Guardar la nueva dirección marcada con el pin únicamente cuando el pedido se ha confirmado con éxito
+          const addrSelectEl = document.getElementById('checkoutAddressSelect');
+          const saveNewCheck = document.getElementById('checkoutSaveNewAddressCheck');
+          if (addrSelectEl && addrSelectEl.value === 'map_pin' && saveNewCheck && saveNewCheck.checked && state.direcciones.length < 5) {
+            const ref = document.getElementById('addrRef')?.value.trim() || '';
+            const etiqueta = state.direcciones.length === 0 ? 'Principal' : `Dirección ${state.direcciones.length + 1}`;
+            try {
+              const addrRes = await fetch(`${CONFIG.api.baseUrl}/direcciones`, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({
+                  etiqueta,
+                  municipio: payload.municipio || 'Villavicencio',
+                  direccion: payload.direccion_entrega,
+                  barrio_referencia: ref,
+                  lat: payload.lat,
+                  lng: payload.lng
+                })
+              });
+              const addrData = await addrRes.json();
+              if (addrData && addrData.ok && Array.isArray(addrData.direcciones)) {
+                state.direcciones = addrData.direcciones;
+                const newest = state.direcciones[state.direcciones.length - 1];
+                if (newest) {
+                  state.selectedAddressId = newest.id;
+                  sessionStorage.setItem('danillanos_selected_addr_id', String(newest.id));
+                }
+                sessionStorage.setItem('danillanos_dirs', JSON.stringify(state.direcciones));
+              }
+            } catch (_) {}
+          }
+
           itemsSnapshot.forEach((it) => {
             const pIdx = state.products.findIndex((p) => Number(p.id) === Number(it.id));
             if (pIdx !== -1 && state.products[pIdx].descuento_activo && state.products[pIdx].descuento_tipo === 'unidades') {

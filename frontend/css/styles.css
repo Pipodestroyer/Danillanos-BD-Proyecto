@@ -4735,9 +4735,9 @@ html[data-theme='dark'] .staff-nav-card {
   max-width: 25%;
   min-width: 0;
   flex: 0 0 25%;
-  padding: 0.05rem;
+  padding: 5px;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
   align-self: flex-start;
 }
 
@@ -5228,20 +5228,33 @@ html[data-theme='dark'] .staff-nav-card {
     border-radius: var(--radius-lg) !important;
   }
 
-  .wizard-inline-header {
-    gap: 0.75rem !important;
-    margin-bottom: 1rem !important;
+  .wizard-inline-header,
+  .card-step-header.wizard-inline-header {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.9rem !important;
+    margin-bottom: 1.05rem !important;
+  }
+
+  .wizard-inline-header > .wizard-inline-title-group {
+    width: 100% !important;
+    flex: 0 0 auto !important;
   }
 
   .checkout-wizard-steps {
-    gap: 0.85rem !important;
-    width: auto !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    justify-content: space-between !important;
+    padding: 0.15rem 0.35rem 0 !important;
+    gap: 0.65rem !important;
+    flex: 0 0 auto !important;
   }
 
   .checkout-wizard-line-bg {
-    top: 14px !important;
-    left: 18px !important;
-    right: 18px !important;
+    top: 16px !important;
+    left: 24px !important;
+    right: 24px !important;
     height: 3px !important;
   }
 
@@ -5290,9 +5303,9 @@ html[data-theme='dark'] .staff-nav-card {
     max-width: 25% !important;
     min-width: 0 !important;
     flex: 0 0 25% !important;
-    padding: 0 !important;
+    padding: 5px !important;
     box-sizing: border-box !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
 
   .wizard-step-card {
