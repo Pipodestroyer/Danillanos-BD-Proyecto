@@ -71,6 +71,7 @@ function sendDatabaseError(res, error, actionDescription) {
  */
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const googleAuthClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
+const MAP_API_KEY = (process.env.MAP_API_KEY || '').trim();
 
 /**
  * Coordenadas de referencia para el centro urbano de Villavicencio.
@@ -613,6 +614,7 @@ router.get('/health', async (req, res) => {
     ok: true,
     empresa: 'Danillanos Cárnicos, Congelados e Insumos',
     googleClientId: GOOGLE_CLIENT_ID || null,
+    mapApiKey: MAP_API_KEY || null,
     sede: DANILLANOS_HQ,
     villavicencioCenter: VILLAVICENCIO_CENTER,
     villavicencioRadiusKm: VILLAVICENCIO_RADIUS_KM,

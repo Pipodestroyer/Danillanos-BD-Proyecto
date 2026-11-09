@@ -118,12 +118,25 @@
       rafId: null
     },
     maps: {
+      mapApiKey: (CONFIG.map && CONFIG.map.apiKey) || '',
       addressMap: null,
       addressMarker: null,
       driverMap: null,
       driverLayerGroup: null
     }
   };
+
+  // Sincroniza MAP_API_KEY desde variables de entorno (.env) expuestas por /api/health
+  try {
+    fetch(`${CONFIG.api.baseUrl}/health`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && data.mapApiKey) {
+          state.maps.mapApiKey = String(data.mapApiKey).trim();
+        }
+      })
+      .catch(() => {});
+  } catch (_) {}
 
   // ==========================================================================
   // UTILIDADES GENERALES, GEOMETRÍA HAVERSINE Y SESIÓN
@@ -2581,6 +2594,20 @@
   }
 
   /**
+   * Crea y adjunta la capa de teselas del mapa interactivo con acabado monocromático.
+   * Utiliza MAP_API_KEY de .env cuando está definida y opera sin marca de agua cuando no se especifica.
+   * @param {Object} mapInstance - Instancia del mapa Leaflet.
+   */
+  function attachMonochromeMapTiles(mapInstance) {
+    const apiKey = (state.maps.mapApiKey || (CONFIG.map && CONFIG.map.apiKey) || '').trim();
+    const keyQuery = apiKey ? `&key=${encodeURIComponent(apiKey)}` : '';
+    return L.tileLayer(`https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}${keyQuery}`, {
+      maxZoom: 20,
+      attribution: '&copy; Google Maps • Danillanos Meta'
+    }).addTo(mapInstance);
+  }
+
+  /**
    * Inicializa el mapa interactivo Leaflet de cobertura urbana y departamental del Meta.
    * @param {string} containerId - Identificador del elemento HTML contenedor del mapa.
    */
@@ -2595,11 +2622,7 @@
     const center = CONFIG.map.villavicencioCenter;
     const map = L.map(containerId).setView([center.lat, center.lng], 13);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 20,
-      subdomains: 'abcd',
-      attribution: '&copy; OpenStreetMap &copy; CARTO • Danillanos Meta'
-    }).addTo(map);
+    attachMonochromeMapTiles(map);
 
     L.circle([center.lat, center.lng], {
       color: '#e01a2c',
@@ -9786,11 +9809,7 @@
 
     if (!state.maps.driverMap) {
       const dMap = L.map('driverMapContainer').setView([hq.lat, hq.lng], 13);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 20,
-        subdomains: 'abcd',
-        attribution: '&copy; OpenStreetMap &copy; CARTO'
-      }).addTo(dMap);
+      attachMonochromeMapTiles(dMap);
       state.maps.driverMap = dMap;
       state.maps.driverLayerGroup = L.layerGroup().addTo(dMap);
     }

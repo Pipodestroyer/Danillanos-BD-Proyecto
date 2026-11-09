@@ -202,9 +202,12 @@ DATABASE_URL=${{MySQL.MYSQL_URL}}
 ENCRYPTION_KEY=tu_clave_secreta_de_cifrado_aes256_de_al_menos_32_caracteres_aqui
 JWT_SECRET=tu_clave_secreta_jwt_para_firmar_tokens_de_sesion_aqui
 GOOGLE_CLIENT_ID=tu_cliente_id_de_google_oauth.apps.googleusercontent.com
+MAP_API_KEY=tu_api_key_del_mapa_opcional_aqui
+RESEND_API_KEY=re_tu_api_key_de_resend_aqui
+RESEND_FROM_EMAIL=Danillanos <no-reply@tudominio.com>
 NODE_ENV=production
 ```
-*(Nota: Si no usas la variable de referencia `${{MySQL.MYSQL_URL}}`, puedes usar la URL completa con el formato `DATABASE_URL=mysql://usuario:password@host:puerto/basedatos`).*
+*(Nota: Si no usas la variable de referencia `${{MySQL.MYSQL_URL}}`, puedes usar la URL completa con el formato `DATABASE_URL=mysql://usuario:password@host:puerto/basedatos`. El mapa interactivo funciona de inmediato en escala de grises sin marca de agua aún sin configurar `MAP_API_KEY`, pero si defines `MAP_API_KEY` en `.env`, el cliente la utiliza automáticamente).*
 
 #### Entorno Local o Tradicional:
 ```env
@@ -220,6 +223,13 @@ ENCRYPTION_KEY=tu_clave_secreta_de_cifrado_de_32_caracteres_exactos
 
 # Google OAuth 2.0 (GIS)
 GOOGLE_CLIENT_ID=tu_cliente_id_de_google_oauth.apps.googleusercontent.com
+
+# Mapa Interactivo (Opcional: el mapa opera sin marca de agua por defecto o usa esta clave si se define)
+MAP_API_KEY=tu_api_key_del_mapa_opcional_aqui
+
+# Correos Transaccionales (Resend)
+RESEND_API_KEY=re_tu_api_key_de_resend_aqui
+RESEND_FROM_EMAIL=Danillanos <no-reply@tudominio.com>
 ```
 
 ### 3. Inicializar la Base de Datos
