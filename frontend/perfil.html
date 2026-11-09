@@ -358,8 +358,23 @@
       <!-- Tarjeta informativa con datos comerciales modificables en línea -->
       <div class="surface-card company-summary-card" id="companySummaryCard"></div>
 
-      <!-- Módulo cartográfico interactivo para georreferenciación de domicilios -->
-      <div class="wide-map-workspace hidden" id="addressRegistrationWorkspace" style="margin-bottom: 1.5rem;">
+      <!-- Listado de domicilios guardados por el cliente (máximo 5) -->
+      <div class="surface-card saved-addresses-card" id="savedAddressesCard" style="margin-top: 1.5rem; padding: 1.4rem 1.65rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom:1.15rem;">
+          <div>
+            <h3 style="margin:0; font-family:'Outfit',sans-serif; font-size:1.18rem; font-weight:800;">Direcciones Guardadas (<span id="savedAddressesCountText">0 de 5</span>)</h3>
+            <p style="font-size:0.8rem; color:var(--text-secondary); margin:2px 0 0;">Tus sedes y domicilios guardados para despachos rápidos</p>
+          </div>
+          <button type="button" class="btn-secondary btn-add-addr-toggle" id="btnToggleAddAddressSection">
+            <span class="material-symbols-rounded">add_location_alt</span>
+            <span id="toggleAddAddressBtnText">Añadir Dirección</span>
+          </button>
+        </div>
+        <div class="saved-addresses-list" id="savedAddressesList"></div>
+      </div>
+
+      <!-- Módulo cartográfico interactivo para georreferenciación de domicilios (aparece debajo de Direcciones Guardadas) -->
+      <div class="wide-map-workspace hidden" id="addressRegistrationWorkspace" style="margin-top: 1.5rem;">
         <div class="wide-map-column">
           <div class="meta-municipalities-bar" id="metaMunicipalitiesBar"></div>
           <div class="address-map-canvas wide-canvas" id="addressMapCanvas"></div>
@@ -416,21 +431,6 @@
             </form>
           </div>
         </div>
-      </div>
-
-      <!-- Listado de domicilios guardados por el cliente (máximo 5) -->
-      <div class="surface-card saved-addresses-card" id="savedAddressesCard" style="margin-top: 1.5rem; padding: 1.4rem 1.65rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom:1.15rem;">
-          <div>
-            <h3 style="margin:0; font-family:'Outfit',sans-serif; font-size:1.18rem; font-weight:800;">Direcciones Guardadas (<span id="savedAddressesCountText">0 de 5</span>)</h3>
-            <p style="font-size:0.8rem; color:var(--text-secondary); margin:2px 0 0;">Tus sedes y domicilios guardados para despachos rápidos</p>
-          </div>
-          <button type="button" class="btn-secondary btn-add-addr-toggle" id="btnToggleAddAddressSection">
-            <span class="material-symbols-rounded">add_location_alt</span>
-            <span id="toggleAddAddressBtnText">Añadir Dirección</span>
-          </button>
-        </div>
-        <div class="saved-addresses-list" id="savedAddressesList"></div>
       </div>
     </section>
 

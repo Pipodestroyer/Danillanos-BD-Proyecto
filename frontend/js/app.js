@@ -2078,7 +2078,6 @@
 
     if (toggleBtn && drawer && backdrop) {
       toggleBtn.addEventListener('click', () => {
-        renderCartLiveAddressManager();
         drawer.classList.add('is-open');
         backdrop.classList.add('is-open');
       });
@@ -4988,6 +4987,8 @@
         renderSavedAddressesList();
         renderCartLiveAddressManager();
         renderSharedHeaderAuthUI();
+        toggleAddAddressSection(false);
+        showToast('Dirección guardada correctamente', 'check_circle');
       }
     });
 
@@ -5016,6 +5017,7 @@
         renderSavedAddressesList();
         renderCartLiveAddressManager();
         renderSharedHeaderAuthUI();
+        showToast('Dirección eliminada correctamente', 'delete');
       }
     });
 
@@ -10300,26 +10302,21 @@
   // Observador de mutaciones para enriquecer automáticamente selects generados dinámicamente en el DOM
   try {
     const autoSelectObserver = new MutationObserver((mutations) => {
-      let hasNewSelect = false;
       for (const m of mutations) {
         if (m.addedNodes && m.addedNodes.length > 0) {
           for (const n of m.addedNodes) {
             if (n.nodeType === 1) {
               if (n.tagName === 'SELECT' && n.dataset.customized !== 'true') {
-                hasNewSelect = true;
-                break;
-              }
-              if (n.querySelector && n.querySelector('select:not([data-customized="true"])')) {
-                hasNewSelect = true;
-                break;
+                enhanceCustomSelect(n);
+              } else if (n.querySelectorAll) {
+                const newSelects = n.querySelectorAll('select:not([data-customized="true"])');
+                if (newSelects.length > 0) {
+                  newSelects.forEach((s) => enhanceCustomSelect(s));
+                }
               }
             }
           }
         }
-        if (hasNewSelect) break;
-      }
-      if (hasNewSelect) {
-        enhanceAllCustomSelects(document.body);
       }
     });
     autoSelectObserver.observe(document.body, { childList: true, subtree: true });
