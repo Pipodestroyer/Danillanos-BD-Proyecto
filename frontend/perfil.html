@@ -358,29 +358,6 @@
       <!-- Tarjeta informativa con datos comerciales modificables en línea -->
       <div class="surface-card company-summary-card" id="companySummaryCard"></div>
 
-      <!-- Tarjeta de gestión de seguridad y credenciales de acceso -->
-      <div class="surface-card security-summary-card" id="securitySummaryCard">
-        <div class="security-card-inner">
-          <div class="security-card-left">
-            <div class="security-card-icon-badge">
-              <span class="material-symbols-rounded" id="securityCardIcon">lock</span>
-            </div>
-            <div class="security-card-text">
-              <strong class="security-card-title">Seguridad y Contraseña</strong>
-              <p class="security-card-desc" id="securityCardStatusText">
-                Protege tu cuenta y gestiona tu clave de acceso.
-              </p>
-            </div>
-          </div>
-          <div class="security-card-actions">
-            <button type="button" class="btn-secondary security-pwd-btn" id="btnOpenPasswordModal">
-              <span class="material-symbols-rounded">password</span>
-              <span id="btnOpenPasswordModalText">Cambiar Contraseña</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
       <!-- Módulo cartográfico interactivo para georreferenciación de domicilios -->
       <div class="wide-map-workspace hidden" id="addressRegistrationWorkspace" style="margin-bottom: 1.5rem;">
         <div class="wide-map-column">
@@ -443,11 +420,15 @@
 
       <!-- Listado de domicilios guardados por el cliente (máximo 5) -->
       <div class="surface-card saved-addresses-card" id="savedAddressesCard" style="margin-top: 1.5rem; padding: 1.4rem 1.65rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:1.15rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom:1.15rem;">
           <div>
             <h3 style="margin:0; font-family:'Outfit',sans-serif; font-size:1.18rem; font-weight:800;">Direcciones Guardadas (<span id="savedAddressesCountText">0 de 5</span>)</h3>
             <p style="font-size:0.8rem; color:var(--text-secondary); margin:2px 0 0;">Tus sedes y domicilios guardados para despachos rápidos</p>
           </div>
+          <button type="button" class="btn-secondary btn-add-addr-toggle" id="btnToggleAddAddressSection">
+            <span class="material-symbols-rounded">add_location_alt</span>
+            <span id="toggleAddAddressBtnText">Añadir Dirección</span>
+          </button>
         </div>
         <div class="saved-addresses-list" id="savedAddressesList"></div>
       </div>

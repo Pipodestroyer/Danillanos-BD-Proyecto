@@ -4417,7 +4417,7 @@ html[data-theme='dark'] .staff-nav-card {
   min-width: 0;
   margin: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: 1.5rem;
   align-items: start;
   box-sizing: border-box;
@@ -4706,12 +4706,35 @@ html[data-theme='dark'] .staff-nav-card {
   width: 100%;
   justify-content: center;
   border-radius: var(--radius-pill) !important;
-  padding: 0.78rem 1.1rem;
+  padding: 0.76rem 0.9rem;
   font-weight: 700;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.checkout-save-address-check {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  margin-top: 0.55rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkout-save-address-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand-red);
+  cursor: pointer;
+  border-radius: 4px;
+  margin: 0;
+  flex-shrink: 0;
 }
 
 @media (max-width: 960px) {

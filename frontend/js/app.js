@@ -5271,6 +5271,10 @@
       }
     });
 
+    document.getElementById('btnToggleAddAddressSection')?.addEventListener('click', () => {
+      toggleAddAddressSection();
+    });
+
     document.getElementById('companySummaryCard')?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && e.target.closest('#inlineProfileForm input')) {
         e.preventDefault();
@@ -5492,6 +5496,7 @@
 
       const companyCard = document.getElementById('companySummaryCard');
       if (companyCard) {
+        const hasPass = state.user ? state.user.has_password !== false : true;
         companyCard.innerHTML = `
           <div class="company-card-header">
             <div class="company-card-header-left">
@@ -5500,9 +5505,9 @@
               </div>
             </div>
             <div class="company-card-actions">
-              <button type="button" class="btn-secondary btn-add-addr-toggle" id="btnToggleAddAddressSection">
-                <span class="material-symbols-rounded">add_location_alt</span>
-                <span id="toggleAddAddressBtnText">Añadir Dirección</span>
+              <button type="button" class="btn-secondary security-pwd-btn" id="btnOpenPasswordModal">
+                <span class="material-symbols-rounded">password</span>
+                <span id="btnOpenPasswordModalText">${hasPass ? 'Cambiar Contraseña' : 'Asignar Contraseña'}</span>
               </button>
               <button type="button" class="btn-profile-pencil-round" id="btnToggleProfileEdit" title="Editar información comercial" aria-label="Editar o Guardar datos comerciales">
                 <span class="material-symbols-rounded" id="btnToggleProfileEditIcon">edit</span>
@@ -5604,25 +5609,6 @@
           <div id="inlineProfileSaveMsg" style="display:none; margin-top:0.85rem; font-size:0.85rem; font-weight:700;"></div>
         `;
         enhanceAllCustomSelects(companyCard);
-      }
-
-      const securityCard = document.getElementById('securitySummaryCard');
-      if (securityCard) {
-        const hasPass = Boolean(state.user && state.user.has_password);
-        const iconEl = document.getElementById('securityCardIcon');
-        const statusTextEl = document.getElementById('securityCardStatusText');
-        const btnTextEl = document.getElementById('btnOpenPasswordModalText');
-        if (iconEl && statusTextEl && btnTextEl) {
-          if (hasPass) {
-            iconEl.textContent = 'lock';
-            statusTextEl.textContent = 'Tu cuenta está protegida con contraseña personal.';
-            btnTextEl.textContent = 'Cambiar Contraseña';
-          } else {
-            iconEl.textContent = 'lock_open';
-            statusTextEl.textContent = 'Iniciaste con Google. Asigna una contraseña para acceder directamente.';
-            btnTextEl.textContent = 'Asignar Contraseña';
-          }
-        }
       }
 
       const staffBtn = document.getElementById('btnGoToStaffPanel');
@@ -6802,7 +6788,7 @@
     populateCheckoutSavedAddressesDropdown();
     goToCheckoutStep(1);
 
-    document.getElementById('btnWizardToStep2')?.addEventListener('click', () => {
+    document.getElementById('btnWizardToStep2')?.addEventListener('click', async () => {
       const recName = document.getElementById('checkoutRecipientName')?.value.trim();
       const recPhone = document.getElementById('checkoutRecipientPhone')?.value.trim();
       const street = document.getElementById('addrStreet')?.value.trim();
@@ -6810,6 +6796,45 @@
         showCheckoutInlineFeedback(1, 'Por favor completa el nombre de quien recibe, celular y ubica la dirección en el mapa.', 'error');
         return;
       }
+
+      const addrSelectEl = document.getElementById('checkoutAddressSelect');
+      const saveNewCheck = document.getElementById('checkoutSaveNewAddressCheck');
+      if (addrSelectEl && addrSelectEl.value === 'map_pin' && saveNewCheck && saveNewCheck.checked && state.direcciones.length < 5) {
+        const muni = document.getElementById('addrMunicipio')?.value.trim() || 'Villavicencio';
+        const ref = document.getElementById('addrRef')?.value.trim() || '';
+        const lat = Number(document.getElementById('addrLat')?.value || 4.142);
+        const lng = Number(document.getElementById('addrLng')?.value || -73.6266);
+        const etiqueta = state.direcciones.length === 0 ? 'Principal' : `Dirección ${state.direcciones.length + 1}`;
+        try {
+          const res = await fetch(`${CONFIG.api.baseUrl}/direcciones`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+              etiqueta,
+              municipio: muni,
+              direccion: street,
+              barrio_referencia: ref,
+              lat,
+              lng
+            })
+          });
+          const data = await res.json();
+          if (data && data.ok && Array.isArray(data.direcciones)) {
+            state.direcciones = data.direcciones;
+            const newest = state.direcciones[state.direcciones.length - 1];
+            if (newest) {
+              state.selectedAddressId = newest.id;
+              sessionStorage.setItem('danillanos_selected_addr_id', String(newest.id));
+            }
+            sessionStorage.setItem('danillanos_dirs', JSON.stringify(state.direcciones));
+            populateCheckoutSavedAddressesDropdown();
+            showToast('Dirección guardada para tus próximos pedidos', 'check_circle');
+          }
+        } catch (_) {
+          // Continuar al resumen aunque falle el guardado secundario
+        }
+      }
+
       showCheckoutInlineFeedback(1, '');
       renderCheckoutPageItems();
       goToCheckoutStep(2);
@@ -6980,6 +7005,12 @@
     const muniInput = document.getElementById('addrMunicipio');
     const streetInput = document.getElementById('addrStreet');
     const refInput = document.getElementById('addrRef');
+    const saveNewAddrWrap = document.getElementById('checkoutSaveNewAddressWrap');
+
+    if (saveNewAddrWrap) {
+      const canSaveMore = !Array.isArray(state.direcciones) || state.direcciones.length < 5;
+      saveNewAddrWrap.classList.toggle('hidden', !(showMap && canSaveMore));
+    }
 
     if (!mapCollapsible) return;
 

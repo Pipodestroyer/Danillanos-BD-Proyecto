@@ -328,6 +328,22 @@ async function autoInitializeDatabaseIfEmpty() {
     } else {
       console.log('✅ Tablas verificadas en MySQL (usuarios, productos, etc. activos).');
     }
+    try {
+      await pool.query(
+        "UPDATE productos SET imagen_url = ? WHERE imagen_url LIKE '%1584308666744%'",
+        ['https://plus.unsplash.com/premium_photo-1675855723466-fd4729e23d5d?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D']
+      );
+      await pool.query(
+        "UPDATE productos SET imagen_url = ? WHERE imagen_url LIKE '%1576107232684%'",
+        ['https://images.unsplash.com/photo-1601599967100-f16100982063?q=80&w=764&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D']
+      );
+      await pool.query(
+        "UPDATE hero_slides SET imagen_url = ? WHERE imagen_url LIKE '%1576107232684%'",
+        ['https://images.unsplash.com/photo-1601599967100-f16100982063?q=80&w=764&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D']
+      );
+    } catch (_) {
+      // Ignorar si alguna tabla aún no está disponible
+    }
     await syncAdminAccountInDatabase(pool);
     return true;
   } catch (initErr) {
