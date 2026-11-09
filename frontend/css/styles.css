@@ -3024,6 +3024,15 @@ html[data-theme='dark'] .driver-map-canvas .leaflet-tile-pane {
   filter: grayscale(100%) invert(92%) hue-rotate(180deg) contrast(92%);
 }
 
+.address-map-canvas .leaflet-popup-content,
+.driver-map-canvas .leaflet-popup-content {
+  min-width: 195px !important;
+  max-width: 260px !important;
+  white-space: normal !important;
+  line-height: 1.38 !important;
+  margin: 10px 14px !important;
+}
+
 .zone-live-indicator,
 .zone-live-indicator.is-villavicencio,
 .zone-live-indicator.is-meta-outside {

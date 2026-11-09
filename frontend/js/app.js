@@ -128,38 +128,39 @@
   };
 
   /**
-   * Construye la URL de teselas de CARTO Positron Light inyectando MAP_API_KEY si está configurada en .env.
+   * Construye la URL de teselas de CARTO Positron Light inyectando MAP_API_KEY (?key=...) si está configurada en .env.
    * @param {string} [explicitKey] - Clave API opcional.
    * @returns {string} URL plantilla para L.tileLayer.
    */
   function buildCartoTileUrl(explicitKey) {
-    const apiKey = (explicitKey !== undefined ? explicitKey : (state.maps.mapApiKey || (CONFIG.map && CONFIG.map.apiKey) || '')).trim();
-    const keyQuery = apiKey ? `?api_key=${encodeURIComponent(apiKey)}` : '';
+    const rawKey = explicitKey !== undefined ? explicitKey : (state.maps.mapApiKey || (CONFIG.map && CONFIG.map.apiKey) || '');
+    const apiKey = String(rawKey).trim().replace(/^['"]+|['"]+$/g, '').trim();
+    const keyQuery = apiKey ? `?key=${encodeURIComponent(apiKey)}&api_key=${encodeURIComponent(apiKey)}` : '';
     return `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png${keyQuery}`;
   }
 
   // Sincroniza MAP_API_KEY desde variables de entorno (.env) expuestas por /api/health
-  try {
-    fetch(`${CONFIG.api.baseUrl}/health`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data && data.mapApiKey) {
-          const freshKey = String(data.mapApiKey).trim();
-          if (freshKey && freshKey !== state.maps.mapApiKey) {
-            state.maps.mapApiKey = freshKey;
-            if (Array.isArray(state.maps.tileLayers)) {
-              const updatedUrl = buildCartoTileUrl(freshKey);
-              state.maps.tileLayers.forEach((tl) => {
-                if (tl && typeof tl.setUrl === 'function') {
-                  tl.setUrl(updatedUrl);
-                }
-              });
-            }
+  const healthKeyPromise = (async () => {
+    try {
+      const r = await fetch(`${CONFIG.api.baseUrl}/health`, { cache: 'no-store' });
+      const data = await r.json();
+      if (data && data.mapApiKey) {
+        const freshKey = String(data.mapApiKey).trim().replace(/^['"]+|['"]+$/g, '').trim();
+        if (freshKey) {
+          state.maps.mapApiKey = freshKey;
+          if (CONFIG.map) CONFIG.map.apiKey = freshKey;
+          if (Array.isArray(state.maps.tileLayers)) {
+            const updatedUrl = buildCartoTileUrl(freshKey);
+            state.maps.tileLayers.forEach((tl) => {
+              if (tl && typeof tl.setUrl === 'function') {
+                tl.setUrl(updatedUrl);
+              }
+            });
           }
         }
-      })
-      .catch(() => {});
-  } catch (_) {}
+      }
+    } catch (_) {}
+  })();
 
   // ==========================================================================
   // UTILIDADES GENERALES, GEOMETRÍA HAVERSINE Y SESIÓN
@@ -2617,19 +2618,49 @@
   }
 
   /**
-   * Crea y adjunta la capa de teselas CARTO Positron Light utilizando MAP_API_KEY desde .env.
+   * Crea y adjunta la capa de teselas CARTO Positron Light utilizando MAP_API_KEY (?key=...) desde .env.
+   * Si la clave aún no está en memoria local, espera a que /api/health responda antes de pedir teselas.
    * @param {Object} mapInstance - Instancia del mapa Leaflet.
    */
   function attachMonochromeMapTiles(mapInstance) {
-    const layer = L.tileLayer(buildCartoTileUrl(), {
-      maxZoom: 20,
-      subdomains: 'abcd',
-      attribution: '&copy; OpenStreetMap &copy; CARTO • Danillanos Meta'
-    }).addTo(mapInstance);
-    if (Array.isArray(state.maps.tileLayers)) {
-      state.maps.tileLayers.push(layer);
+    const mountTiles = () => {
+      const layer = L.tileLayer(buildCartoTileUrl(), {
+        maxZoom: 20,
+        subdomains: 'abcd',
+        attribution: '&copy; OpenStreetMap &copy; CARTO • Danillanos Meta'
+      }).addTo(mapInstance);
+      if (Array.isArray(state.maps.tileLayers)) {
+        state.maps.tileLayers.push(layer);
+      }
+      return layer;
+    };
+
+    const existingKey = (state.maps.mapApiKey || (CONFIG.map && CONFIG.map.apiKey) || '').trim();
+    if (existingKey) {
+      return mountTiles();
     }
-    return layer;
+    healthKeyPromise.finally(() => {
+      mountTiles();
+    });
+    return null;
+  }
+
+  /**
+   * Recalcula el tamaño del lienzo Leaflet y reposiciona el globo de texto encima del pin rojo.
+   */
+  function refreshAddressMapLayoutAndPopup() {
+    const map = state.maps.addressMap;
+    const marker = state.maps.addressMarker;
+    if (!map) return;
+    map.invalidateSize();
+    if (marker) {
+      const pos = marker.getLatLng();
+      map.setView(pos, map.getZoom() || 13, { animate: false });
+      const popup = marker.getPopup();
+      if (popup) popup.update();
+      marker.closePopup();
+      marker.openPopup();
+    }
   }
 
   /**
@@ -2640,7 +2671,7 @@
     const mapEl = document.getElementById(containerId);
     if (!mapEl || typeof L === 'undefined') return;
     if (state.maps.addressMap) {
-      setTimeout(() => state.maps.addressMap.invalidateSize(), 150);
+      setTimeout(refreshAddressMapLayoutAndPopup, 160);
       return;
     }
 
@@ -2669,8 +2700,14 @@
       icon: createBrandRedPinIcon('★')
     })
       .addTo(map)
-      .bindPopup('<strong>📍 Tu Pin Rojo Danillanos</strong><br>Así mismo lo verá el entregador')
-      .openPopup();
+      .bindPopup('<strong>📍 Tu Pin Rojo Danillanos</strong><br>Así mismo lo verá el entregador', {
+        minWidth: 205,
+        maxWidth: 260
+      });
+
+    if (mapEl.clientWidth > 0) {
+      userPin.openPopup();
+    }
 
     userPin.on('dragend', () => {
       const pos = userPin.getLatLng();
@@ -3687,8 +3724,11 @@
     }
 
     if (state.activeProfileTab === 'direcciones' && state.user) {
-      setupInteractiveCoverageMap('addressMapCanvas');
-      setTimeout(() => state.maps.addressMap?.invalidateSize(), 200);
+      const ws = document.getElementById('addressRegistrationWorkspace');
+      if (ws && !ws.classList.contains('hidden')) {
+        setupInteractiveCoverageMap('addressMapCanvas');
+        setTimeout(refreshAddressMapLayoutAndPopup, 200);
+      }
     }
 
     if (state.activeProfileTab === 'soporte' && state.user) {
@@ -5125,9 +5165,9 @@
         if (btn) btn.classList.add('is-active');
         setupInteractiveCoverageMap('addressMapCanvas');
         setTimeout(() => {
-          state.maps.addressMap?.invalidateSize();
+          refreshAddressMapLayoutAndPopup();
           ws.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }, 150);
+        }, 160);
       } else {
         ws.classList.add('hidden');
         if (btnText) btnText.textContent = 'Añadir Dirección';
@@ -7088,7 +7128,7 @@
         refInput.classList.remove('is-locked-field');
       }
       setTimeout(() => {
-        state.maps.addressMap?.invalidateSize();
+        refreshAddressMapLayoutAndPopup();
       }, 380);
     } else {
       mapCollapsible.classList.add('is-collapsed');
