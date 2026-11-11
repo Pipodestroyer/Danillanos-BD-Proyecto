@@ -87,11 +87,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// Política CORS restringida: permite el mismo host del despliegue o dominios explícitos en ALLOWED_ORIGINS
-const explicitAllowedOrigins = (process.env.ALLOWED_ORIGINS || '')
-  .split(',')
-  .map((o) => o.trim().replace(/\/+$/, ''))
-  .filter(Boolean);
+// Política CORS restringida: permite el mismo host del despliegue, localhost o el dominio oficial del proyecto
+const explicitAllowedOrigins = [
+  ...((process.env.ALLOWED_ORIGINS || '').split(',').map((o) => o.trim().replace(/\/+$/, '')).filter(Boolean)),
+  ...(process.env.PUBLIC_URL ? [process.env.PUBLIC_URL.trim().replace(/\/+$/, '')] : []),
+  ...(process.env.RAILWAY_PUBLIC_DOMAIN ? [`https://${process.env.RAILWAY_PUBLIC_DOMAIN.trim().replace(/\/+$/, '')}`] : []),
+  ...(process.env.RAILWAY_STATIC_URL ? [`https://${process.env.RAILWAY_STATIC_URL.trim().replace(/\/+$/, '')}`] : [])
+];
 
 app.use(
   cors({
@@ -102,12 +104,6 @@ app.use(
         return callback(null, true);
       }
       if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(cleanOrigin)) {
-        return callback(null, true);
-      }
-      if (/^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(cleanOrigin)) {
-        return callback(null, true);
-      }
-      if (/^https:\/\/[a-z0-9.-]+\.up\.railway\.app$/i.test(cleanOrigin)) {
         return callback(null, true);
       }
       if (/^https?:\/\/(.*\.)?icedlemontea\.dev$/i.test(cleanOrigin)) {
@@ -199,14 +195,15 @@ app.use((req, res, next) => {
   next();
 });
 
-// Inyección dinámica en tiempo de ejecución de MAP_API_KEY y GOOGLE_CLIENT_ID desde .env sin exponerlos en el repositorio
+// Inyección dinámica en tiempo de ejecución de GOOGLE_CLIENT_ID desde .env sin exponer datos privados en el repositorio
 app.get('/js/config.js', (req, res, next) => {
   try {
     const configFilePath = path.join(frontendPath, 'js', 'config.js');
     const rawConfig = fs.readFileSync(configFilePath, 'utf8');
-    const runtimeMapKey = (process.env.MAP_API_KEY || '').trim();
     const runtimeGoogleId = (process.env.GOOGLE_CLIENT_ID || '').trim();
-    const runtimeOverrides = `\n;(function(){\n  if (window.DANILLANOS_CONFIG) {\n    if (${JSON.stringify(runtimeMapKey)}) window.DANILLANOS_CONFIG.map.apiKey = ${JSON.stringify(runtimeMapKey)};\n    if (${JSON.stringify(runtimeGoogleId)}) window.DANILLANOS_CONFIG.auth.googleClientId = ${JSON.stringify(runtimeGoogleId)};\n  }\n})();\n`;
+    const runtimeOverrides = runtimeGoogleId
+      ? `\n;(function(){\n  if (window.DANILLANOS_CONFIG && window.DANILLANOS_CONFIG.auth) {\n    window.DANILLANOS_CONFIG.auth.googleClientId = ${JSON.stringify(runtimeGoogleId)};\n  }\n})();\n`
+      : '';
     res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');
     return res.send(rawConfig + runtimeOverrides);

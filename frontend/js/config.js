@@ -19,7 +19,6 @@ window.DANILLANOS_CONFIG = {
     "googleClientId": ""
   },
   "map": {
-    "apiKey": "",
     "villavicencioCenter": {
       "lat": 4.142,
       "lng": -73.6266

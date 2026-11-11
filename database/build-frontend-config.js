@@ -51,7 +51,6 @@ const configObject = {
     googleClientId: process.env.GOOGLE_CLIENT_ID || ''
   },
   map: {
-    apiKey: process.env.MAP_API_KEY || '',
     villavicencioCenter: { lat: 4.1420, lng: -73.6266 },
     villavicencioRadiusMeters: 9500,
     sedeDanillanos: {

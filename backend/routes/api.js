@@ -11,6 +11,7 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
+const https = require('https');
 const { OAuth2Client } = require('google-auth-library');
 const {
   resolveAppBaseUrl,
@@ -50,18 +51,25 @@ function sendDatabaseError(res, error, actionDescription) {
     devHint = 'No hay conectividad con el host MySQL. Revisa el host y puerto en Railway.';
   }
 
+  const isProd = process.env.NODE_ENV === 'production';
   return res.status(503).json({
     ok: false,
     success: false,
-    error: 'Error de conexión o fallo en la base de datos del servidor.',
-    devDetails: {
-      action: actionDescription,
-      code: error.code || 'DB_ERROR',
-      message: error.message,
-      sqlMessage: error.sqlMessage || null,
-      sqlState: error.sqlState || null,
-      hint: devHint
-    }
+    error: isProd
+      ? 'Error temporal al comunicarse con los servicios de base de datos. Por favor intenta nuevamente más tarde.'
+      : 'Error de conexión o fallo en la base de datos del servidor.',
+    ...(isProd
+      ? {}
+      : {
+          devDetails: {
+            action: actionDescription,
+            code: error.code || 'DB_ERROR',
+            message: error.message,
+            sqlMessage: error.sqlMessage || null,
+            sqlState: error.sqlState || null,
+            hint: devHint
+          }
+        })
   });
 }
 
@@ -614,12 +622,65 @@ router.get('/health', async (req, res) => {
     ok: true,
     empresa: 'Danillanos Cárnicos, Congelados e Insumos',
     googleClientId: GOOGLE_CLIENT_ID || null,
-    mapApiKey: MAP_API_KEY || null,
     sede: DANILLANOS_HQ,
     villavicencioCenter: VILLAVICENCIO_CENTER,
     villavicencioRadiusKm: VILLAVICENCIO_RADIUS_KM,
     database: mysqlConnected ? 'MySQL Conectado (Encriptación AES-256-GCM Activa)' : 'Modo Respaldo Activo',
     mysqlConnected
+  });
+});
+
+/**
+ * @route GET /api/map/tiles/:z/:x/:y
+ * @desc Proxy seguro de teselas cartográficas que inyecta MAP_API_KEY en el servidor backend,
+ * garantizando que la clave nunca se exponga ni viaje al navegador del cliente.
+ * @access Público
+ */
+router.get('/map/tiles/:z/:x/:y', (req, res) => {
+  const z = parseInt(req.params.z, 10);
+  const x = parseInt(req.params.x, 10);
+  const yRaw = String(req.params.y || '');
+  const is2x = yRaw.includes('@2x');
+  const yClean = parseInt(yRaw.replace(/(@2x)?\.png$/i, ''), 10);
+
+  if (isNaN(z) || isNaN(x) || isNaN(yClean) || z < 0 || z > 22 || x < 0 || yClean < 0) {
+    return res.status(400).send('Coordenadas de tesela no válidas.');
+  }
+
+  const subdomains = ['a', 'b', 'c', 'd'];
+  const s = subdomains[(x + yClean) % subdomains.length];
+  const scale = is2x ? '@2x' : '';
+  const keyParam = MAP_API_KEY ? `?key=${encodeURIComponent(MAP_API_KEY)}&api_key=${encodeURIComponent(MAP_API_KEY)}` : '';
+  const targetUrl = `https://${s}.basemaps.cartocdn.com/light_all/${z}/${x}/${yClean}${scale}.png${keyParam}`;
+
+  const proxyReq = https.get(
+    targetUrl,
+    {
+      headers: {
+        'User-Agent': 'Danillanos-Proxy/1.0',
+        'Accept': 'image/avif,image/webp,image/png,image/*;q=0.8'
+      },
+      timeout: 8000
+    },
+    (remoteRes) => {
+      if (remoteRes.statusCode !== 200) {
+        res.status(remoteRes.statusCode).end();
+        return;
+      }
+      res.setHeader('Content-Type', remoteRes.headers['content-type'] || 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+      remoteRes.pipe(res);
+    }
+  );
+
+  proxyReq.on('error', (err) => {
+    console.error('⚠️ [TileProxy Error]:', err.message);
+    if (!res.headersSent) res.status(502).end();
+  });
+
+  proxyReq.on('timeout', () => {
+    proxyReq.destroy();
+    if (!res.headersSent) res.status(504).end();
   });
 });
 

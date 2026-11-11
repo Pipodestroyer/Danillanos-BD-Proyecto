@@ -118,7 +118,6 @@
       rafId: null
     },
     maps: {
-      mapApiKey: (CONFIG.map && CONFIG.map.apiKey) || '',
       tileLayers: [],
       addressMap: null,
       addressMarker: null,
@@ -126,41 +125,6 @@
       driverLayerGroup: null
     }
   };
-
-  /**
-   * Construye la URL de teselas de CARTO Positron Light inyectando MAP_API_KEY (?key=...) si está configurada en .env.
-   * @param {string} [explicitKey] - Clave API opcional.
-   * @returns {string} URL plantilla para L.tileLayer.
-   */
-  function buildCartoTileUrl(explicitKey) {
-    const rawKey = explicitKey !== undefined ? explicitKey : (state.maps.mapApiKey || (CONFIG.map && CONFIG.map.apiKey) || '');
-    const apiKey = String(rawKey).trim().replace(/^['"]+|['"]+$/g, '').trim();
-    const keyQuery = apiKey ? `?key=${encodeURIComponent(apiKey)}&api_key=${encodeURIComponent(apiKey)}` : '';
-    return `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png${keyQuery}`;
-  }
-
-  // Sincroniza MAP_API_KEY desde variables de entorno (.env) expuestas por /api/health
-  const healthKeyPromise = (async () => {
-    try {
-      const r = await fetch(`${CONFIG.api.baseUrl}/health`, { cache: 'no-store' });
-      const data = await r.json();
-      if (data && data.mapApiKey) {
-        const freshKey = String(data.mapApiKey).trim().replace(/^['"]+|['"]+$/g, '').trim();
-        if (freshKey) {
-          state.maps.mapApiKey = freshKey;
-          if (CONFIG.map) CONFIG.map.apiKey = freshKey;
-          if (Array.isArray(state.maps.tileLayers)) {
-            const updatedUrl = buildCartoTileUrl(freshKey);
-            state.maps.tileLayers.forEach((tl) => {
-              if (tl && typeof tl.setUrl === 'function') {
-                tl.setUrl(updatedUrl);
-              }
-            });
-          }
-        }
-      }
-    } catch (_) {}
-  })();
 
   // ==========================================================================
   // UTILIDADES GENERALES, GEOMETRÍA HAVERSINE Y SESIÓN
@@ -2618,31 +2582,19 @@
   }
 
   /**
-   * Crea y adjunta la capa de teselas CARTO Positron Light utilizando MAP_API_KEY (?key=...) desde .env.
-   * Si la clave aún no está en memoria local, espera a que /api/health responda antes de pedir teselas.
+   * Crea y adjunta la capa de teselas CARTO Positron Light a través del proxy seguro del backend.
+   * La MAP_API_KEY se inyecta exclusivamente en el servidor y nunca se expone al navegador.
    * @param {Object} mapInstance - Instancia del mapa Leaflet.
    */
   function attachMonochromeMapTiles(mapInstance) {
-    const mountTiles = () => {
-      const layer = L.tileLayer(buildCartoTileUrl(), {
-        maxZoom: 20,
-        subdomains: 'abcd',
-        attribution: '&copy; OpenStreetMap &copy; CARTO • Danillanos Meta'
-      }).addTo(mapInstance);
-      if (Array.isArray(state.maps.tileLayers)) {
-        state.maps.tileLayers.push(layer);
-      }
-      return layer;
-    };
-
-    const existingKey = (state.maps.mapApiKey || (CONFIG.map && CONFIG.map.apiKey) || '').trim();
-    if (existingKey) {
-      return mountTiles();
+    const layer = L.tileLayer(`${CONFIG.api.baseUrl}/map/tiles/{z}/{x}/{y}.png`, {
+      maxZoom: 20,
+      attribution: '&copy; OpenStreetMap &copy; CARTO • Danillanos Meta'
+    }).addTo(mapInstance);
+    if (Array.isArray(state.maps.tileLayers)) {
+      state.maps.tileLayers.push(layer);
     }
-    healthKeyPromise.finally(() => {
-      mountTiles();
-    });
-    return null;
+    return layer;
   }
 
   /**
