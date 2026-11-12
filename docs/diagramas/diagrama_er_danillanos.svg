@@ -1,0 +1,2323 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2300 1550" width="2300" height="1550">
+  <defs>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000000" flood-opacity="0.55" />
+    </filter>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090d16" />
+      <stop offset="50%" stop-color="#0b1120" />
+      <stop offset="100%" stop-color="#030712" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="2300" height="1550" fill="url(#bgGrad)" />
+
+  <!-- Grid Pattern -->
+  <g opacity="0.07">
+    <line x1="0" y1="0" x2="0" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="50" y1="0" x2="50" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="100" y1="0" x2="100" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="150" y1="0" x2="150" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="200" y1="0" x2="200" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="250" y1="0" x2="250" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="300" y1="0" x2="300" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="350" y1="0" x2="350" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="400" y1="0" x2="400" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="450" y1="0" x2="450" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="500" y1="0" x2="500" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="550" y1="0" x2="550" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="600" y1="0" x2="600" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="650" y1="0" x2="650" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="700" y1="0" x2="700" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="750" y1="0" x2="750" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="800" y1="0" x2="800" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="850" y1="0" x2="850" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="900" y1="0" x2="900" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="950" y1="0" x2="950" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1000" y1="0" x2="1000" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1050" y1="0" x2="1050" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1100" y1="0" x2="1100" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1150" y1="0" x2="1150" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1200" y1="0" x2="1200" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1250" y1="0" x2="1250" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1300" y1="0" x2="1300" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1350" y1="0" x2="1350" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1400" y1="0" x2="1400" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1450" y1="0" x2="1450" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1500" y1="0" x2="1500" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1550" y1="0" x2="1550" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1600" y1="0" x2="1600" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1650" y1="0" x2="1650" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1700" y1="0" x2="1700" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1750" y1="0" x2="1750" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1800" y1="0" x2="1800" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1850" y1="0" x2="1850" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1900" y1="0" x2="1900" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1950" y1="0" x2="1950" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="2000" y1="0" x2="2000" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="2050" y1="0" x2="2050" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="2100" y1="0" x2="2100" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="2150" y1="0" x2="2150" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="2200" y1="0" x2="2200" y2="1550" stroke="#94a3b8" stroke-width="1" />
+    <line x1="0" y1="0" x2="2300" y2="0" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="50" x2="2300" y2="50" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="100" x2="2300" y2="100" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="150" x2="2300" y2="150" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="200" x2="2300" y2="200" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="250" x2="2300" y2="250" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="300" x2="2300" y2="300" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="350" x2="2300" y2="350" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="400" x2="2300" y2="400" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="450" x2="2300" y2="450" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="500" x2="2300" y2="500" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="550" x2="2300" y2="550" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="600" x2="2300" y2="600" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="650" x2="2300" y2="650" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="700" x2="2300" y2="700" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="750" x2="2300" y2="750" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="800" x2="2300" y2="800" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="850" x2="2300" y2="850" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="900" x2="2300" y2="900" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="950" x2="2300" y2="950" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1000" x2="2300" y2="1000" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1050" x2="2300" y2="1050" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1100" x2="2300" y2="1100" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1150" x2="2300" y2="1150" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1200" x2="2300" y2="1200" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1250" x2="2300" y2="1250" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1300" x2="2300" y2="1300" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1350" x2="2300" y2="1350" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1400" x2="2300" y2="1400" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1450" x2="2300" y2="1450" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1500" x2="2300" y2="1500" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1550" x2="2300" y2="1550" stroke="#94a3b8" stroke-width="1" />
+  </g>
+
+  <!-- Title & Metadata Header -->
+  <g transform="translate(80, 50)">
+    <rect x="0" y="0" width="12" height="42" rx="4" fill="#e01a2c" />
+    <text x="24" y="26" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="26" font-weight="800" letter-spacing="-0.5px">DANILLANOS • DIAGRAMA ENTIDAD - RELACIÓN (E-R)</text>
+    <text x="24" y="44" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="13">Base de Datos MySQL (danillanos_db) • 10 Tablas Relacionales • Cifrado AES-256-GCM + Blind Indexing</text>
+
+    <!-- Legend -->
+    <g transform="translate(1450, 4)">
+      <rect x="0" y="0" width="670" height="42" rx="8" fill="#1e293b" opacity="0.8" />
+      <rect x="18" y="14" width="22" height="14" rx="3" fill="rgba(239, 68, 68, 0.3)" />
+      <text x="29" y="25" fill="#f87171" font-family="system-ui" font-size="9" font-weight="700" text-anchor="middle">PK</text>
+      <text x="46" y="26" fill="#cbd5e1" font-family="system-ui" font-size="12">Primary Key</text>
+
+      <rect x="135" y="14" width="22" height="14" rx="3" fill="rgba(59, 130, 246, 0.3)" />
+      <text x="146" y="25" fill="#60a5fa" font-family="system-ui" font-size="9" font-weight="700" text-anchor="middle">FK</text>
+      <text x="163" y="26" fill="#cbd5e1" font-family="system-ui" font-size="12">Foreign Key</text>
+
+      <text x="260" y="26" fill="#eab308" font-family="system-ui" font-size="12">🔒 Cifrado AES-256-GCM</text>
+      <text x="430" y="26" fill="#34d399" font-family="system-ui" font-size="12">⚡ Índice Blind Index (HMAC)</text>
+      <line x1="600" y1="21" x2="650" y2="21" stroke="#60a5fa" stroke-width="2" />
+      <circle cx="600" cy="21" r="3" fill="#60a5fa" />
+      <circle cx="650" cy="21" r="3" fill="#f43f5e" />
+    </g>
+  </g>
+
+  <!-- Connectors -->
+  
+      <!-- Relación: fk_producto_categoria -->
+      <g>
+        <path d="M 400 180 L 480 180" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85" />
+        <circle cx="400" cy="180" r="4" fill="#60a5fa" />
+        <circle cx="480" cy="180" r="4" fill="#f43f5e" />
+      </g>
+    
+
+      <!-- Relación: fk_carrusel_producto -->
+      <g>
+        <path d="M 840 200 L 930 200" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85" />
+        <circle cx="840" cy="200" r="4" fill="#60a5fa" />
+        <circle cx="930" cy="200" r="4" fill="#f43f5e" />
+      </g>
+    
+
+      <!-- Relación: fk_direccion_usuario -->
+      <g>
+        <path d="M 480 820 L 420 820" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85" />
+        <circle cx="480" cy="820" r="4" fill="#60a5fa" />
+        <circle cx="420" cy="820" r="4" fill="#f43f5e" />
+      </g>
+    
+
+      <!-- Relación: fk_recuperacion_usuario -->
+      <g>
+        <path d="M 670 1250 L 670 1300" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85" />
+        <circle cx="670" cy="1250" r="4" fill="#60a5fa" />
+        <circle cx="670" cy="1300" r="4" fill="#f43f5e" />
+      </g>
+    
+
+      <!-- Relación: fk_pedido_usuario -->
+      <g>
+        <path d="M 860 840 L 1120 840 L 1120 540 L 1380 540" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85" />
+        <circle cx="860" cy="840" r="4" fill="#60a5fa" />
+        <circle cx="1380" cy="540" r="4" fill="#f43f5e" />
+      </g>
+    
+
+      <!-- Relación: entregador_id -->
+      <g>
+        <path d="M 860 880 L 1140 880 L 1140 890 L 1380 890" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85" />
+        <circle cx="860" cy="880" r="4" fill="#60a5fa" />
+        <circle cx="1380" cy="890" r="4" fill="#f43f5e" />
+      </g>
+    
+
+      <!-- Relación: fk_item_pedido -->
+      <g>
+        <path d="M 1770 520 L 1820 520 L 1820 300 L 1870 300" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85" />
+        <circle cx="1770" cy="520" r="4" fill="#60a5fa" />
+        <circle cx="1870" cy="300" r="4" fill="#f43f5e" />
+      </g>
+    
+
+      <!-- Relación: fk_item_producto -->
+      <g>
+        <path d="M 840 280 L 1350 280 L 1350 240 L 1870 240" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85" />
+        <circle cx="840" cy="280" r="4" fill="#60a5fa" />
+        <circle cx="1870" cy="240" r="4" fill="#f43f5e" />
+      </g>
+    
+
+      <!-- Relación: fk_ticket_pedido -->
+      <g>
+        <path d="M 1770 700 L 1820 700 L 1820 900 L 1870 900" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85" />
+        <circle cx="1770" cy="700" r="4" fill="#60a5fa" />
+        <circle cx="1870" cy="900" r="4" fill="#f43f5e" />
+      </g>
+    
+
+      <!-- Relación: fk_ticket_usuario -->
+      <g>
+        <path d="M 860 920 L 1160 920 L 1160 1020 L 1870 1020" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85" />
+        <circle cx="860" cy="920" r="4" fill="#60a5fa" />
+        <circle cx="1870" cy="1020" r="4" fill="#f43f5e" />
+      </g>
+    
+
+      <!-- Relación: asoc_hash -->
+      <g>
+        <path d="M 480 1200 L 400 1200 L 400 1260" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85" />
+        <circle cx="480" cy="1200" r="4" fill="#60a5fa" />
+        <circle cx="400" cy="1260" r="4" fill="#f43f5e" />
+      </g>
+    
+
+  <!-- Tables -->
+  
+    <!-- TABLE categorias -->
+    <g id="table_categorias">
+      <!-- Box shadow -->
+      <rect x="80" y="140" width="320" height="236" rx="12" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+      <!-- Header bar -->
+      <path d="M 80 152 Q 80 140 92 140 L 388 140 Q 400 140 400 152 L 400 184 L 80 184 Z" fill="#1e2433" />
+      <rect x="80" y="183" width="320" height="1" fill="#334155" />
+      <rect x="94" y="154" width="6" height="16" rx="3" fill="#e01a2c" />
+      <text x="108" y="166" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700">categorias</text>
+      <text x="384" y="166" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" text-anchor="end">Líneas Comerciales</text>
+      
+      <!-- Row id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="190" width="28" height="16" rx="4" fill="rgba(239, 68, 68, 0.2)" />
+        <text x="106" y="202" fill="#f87171" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">PK</text>
+
+        <!-- Column name -->
+        <text x="128" y="202" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="386" y="202" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT (AI)</text>
+      </g>
+    
+      <!-- Row nombre -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="216" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="228" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="228" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">nombre</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="386" y="228" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(100)</text>
+      </g>
+    
+      <!-- Row slug -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="242" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="254" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="254" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">slug</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="386" y="254" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(80) UQ</text>
+      </g>
+    
+      <!-- Row icono -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="268" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="280" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="280" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">icono</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="386" y="280" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(60)</text>
+      </g>
+    
+      <!-- Row descripcion -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="294" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="306" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="306" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">descripcion</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="386" y="306" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(255)</text>
+      </g>
+    
+      <!-- Row activo -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="320" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="332" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="332" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">activo</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="386" y="332" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TINYINT(1)</text>
+      </g>
+    
+      <!-- Row creado_en -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="346" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="358" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="358" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">creado_en</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="386" y="358" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TIMESTAMP</text>
+      </g>
+    
+    </g>
+  
+
+    <!-- TABLE productos -->
+    <g id="table_productos">
+      <!-- Box shadow -->
+      <rect x="480" y="140" width="360" height="600" rx="12" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+      <!-- Header bar -->
+      <path d="M 480 152 Q 480 140 492 140 L 828 140 Q 840 140 840 152 L 840 184 L 480 184 Z" fill="#1e2433" />
+      <rect x="480" y="183" width="360" height="1" fill="#334155" />
+      <rect x="494" y="154" width="6" height="16" rx="3" fill="#e01a2c" />
+      <text x="508" y="166" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700">productos</text>
+      <text x="824" y="166" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" text-anchor="end">235 Artículos Oficiales</text>
+      
+      <!-- Row id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="190" width="28" height="16" rx="4" fill="rgba(239, 68, 68, 0.2)" />
+        <text x="506" y="202" fill="#f87171" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">PK</text>
+
+        <!-- Column name -->
+        <text x="528" y="202" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="202" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT (AI)</text>
+      </g>
+    
+      <!-- Row categoria_id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="216" width="28" height="16" rx="4" fill="rgba(59, 130, 246, 0.2)" />
+        <text x="506" y="228" fill="#60a5fa" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">FK</text>
+
+        <!-- Column name -->
+        <text x="528" y="228" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">categoria_id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="228" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT</text>
+      </g>
+    
+      <!-- Row codigo_sku -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="242" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="254" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="254" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">codigo_sku</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="254" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(50) UQ</text>
+      </g>
+    
+      <!-- Row nombre -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="268" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="280" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="280" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">nombre</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="280" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(160)</text>
+      </g>
+    
+      <!-- Row descripcion -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="294" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="306" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="306" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">descripcion</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="306" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TEXT</text>
+      </g>
+    
+      <!-- Row presentacion -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="320" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="332" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="332" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">presentacion</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="332" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(80)</text>
+      </g>
+    
+      <!-- Row precio -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="346" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="358" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="358" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">precio</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="358" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">DECIMAL(12,2)</text>
+      </g>
+    
+      <!-- Row precio_anterior -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="372" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="384" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="384" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">precio_anterior</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="384" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">DECIMAL(12,2)</text>
+      </g>
+    
+      <!-- Row descuento_porcentaje -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="398" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="410" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="410" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">descuento_porcentaje</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="410" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">DECIMAL(5,2)</text>
+      </g>
+    
+      <!-- Row descuento_tipo -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="424" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="436" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="436" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">descuento_tipo</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="436" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(20)</text>
+      </g>
+    
+      <!-- Row descuento_expira_en -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="450" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="462" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="462" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">descuento_expira_en</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="462" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">DATETIME</text>
+      </g>
+    
+      <!-- Row descuento_expira_ms -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="476" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="488" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="488" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">descuento_expira_ms</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="488" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">BIGINT</text>
+      </g>
+    
+      <!-- Row descuento_unidades_limite -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="502" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="514" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="514" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">descuento_unidades_limite</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="514" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT</text>
+      </g>
+    
+      <!-- Row descuento_unidades_vendidas -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="528" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="540" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="540" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">descuento_unidades_vendidas</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="540" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT</text>
+      </g>
+    
+      <!-- Row imagen_url -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="554" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="566" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="566" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">imagen_url</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="566" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(500)</text>
+      </g>
+    
+      <!-- Row stock -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="580" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="592" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="592" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">stock</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="592" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT</text>
+      </g>
+    
+      <!-- Row es_mas_vendido -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="606" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="618" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="618" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">es_mas_vendido</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="618" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TINYINT(1)</text>
+      </g>
+    
+      <!-- Row etiqueta -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="632" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="644" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="644" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">etiqueta</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="644" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(50)</text>
+      </g>
+    
+      <!-- Row temperatura_conservacion -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="658" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="670" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="670" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">temperatura_conservacion</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="670" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(60)</text>
+      </g>
+    
+      <!-- Row activo -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="684" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="696" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="696" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">activo</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="696" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TINYINT(1)</text>
+      </g>
+    
+      <!-- Row creado_en -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="710" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="722" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="722" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">creado_en</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="826" y="722" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TIMESTAMP</text>
+      </g>
+    
+    </g>
+  
+
+    <!-- TABLE carrusel_promociones -->
+    <g id="table_carrusel_promociones">
+      <!-- Box shadow -->
+      <rect x="930" y="140" width="330" height="340" rx="12" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+      <!-- Header bar -->
+      <path d="M 930 152 Q 930 140 942 140 L 1248 140 Q 1260 140 1260 152 L 1260 184 L 930 184 Z" fill="#1e2433" />
+      <rect x="930" y="183" width="330" height="1" fill="#334155" />
+      <rect x="944" y="154" width="6" height="16" rx="3" fill="#e01a2c" />
+      <text x="958" y="166" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700">carrusel_promociones</text>
+      <text x="1244" y="166" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" text-anchor="end">Banners Publicitarios</text>
+      
+      <!-- Row id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="942" y="190" width="28" height="16" rx="4" fill="rgba(239, 68, 68, 0.2)" />
+        <text x="956" y="202" fill="#f87171" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">PK</text>
+
+        <!-- Column name -->
+        <text x="978" y="202" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1246" y="202" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT (AI)</text>
+      </g>
+    
+      <!-- Row producto_id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="942" y="216" width="28" height="16" rx="4" fill="rgba(59, 130, 246, 0.2)" />
+        <text x="956" y="228" fill="#60a5fa" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">FK</text>
+
+        <!-- Column name -->
+        <text x="978" y="228" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">producto_id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1246" y="228" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT</text>
+      </g>
+    
+      <!-- Row subtitulo -->
+      <g>
+        <!-- Key badge -->
+        <rect x="942" y="242" width="28" height="16" rx="4" fill="#222738" />
+        <text x="956" y="254" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="978" y="254" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">subtitulo</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1246" y="254" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(100)</text>
+      </g>
+    
+      <!-- Row titulo -->
+      <g>
+        <!-- Key badge -->
+        <rect x="942" y="268" width="28" height="16" rx="4" fill="#222738" />
+        <text x="956" y="280" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="978" y="280" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">titulo</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1246" y="280" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(160)</text>
+      </g>
+    
+      <!-- Row descripcion -->
+      <g>
+        <!-- Key badge -->
+        <rect x="942" y="294" width="28" height="16" rx="4" fill="#222738" />
+        <text x="956" y="306" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="978" y="306" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">descripcion</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1246" y="306" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(320)</text>
+      </g>
+    
+      <!-- Row precio_destacado -->
+      <g>
+        <!-- Key badge -->
+        <rect x="942" y="320" width="28" height="16" rx="4" fill="#222738" />
+        <text x="956" y="332" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="978" y="332" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">precio_destacado</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1246" y="332" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">DECIMAL(12,2)</text>
+      </g>
+    
+      <!-- Row imagen_url -->
+      <g>
+        <!-- Key badge -->
+        <rect x="942" y="346" width="28" height="16" rx="4" fill="#222738" />
+        <text x="956" y="358" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="978" y="358" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">imagen_url</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1246" y="358" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(500)</text>
+      </g>
+    
+      <!-- Row texto_boton -->
+      <g>
+        <!-- Key badge -->
+        <rect x="942" y="372" width="28" height="16" rx="4" fill="#222738" />
+        <text x="956" y="384" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="978" y="384" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">texto_boton</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1246" y="384" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(60)</text>
+      </g>
+    
+      <!-- Row tipo_accion -->
+      <g>
+        <!-- Key badge -->
+        <rect x="942" y="398" width="28" height="16" rx="4" fill="#222738" />
+        <text x="956" y="410" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="978" y="410" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">tipo_accion</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1246" y="410" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">ENUM</text>
+      </g>
+    
+      <!-- Row orden -->
+      <g>
+        <!-- Key badge -->
+        <rect x="942" y="424" width="28" height="16" rx="4" fill="#222738" />
+        <text x="956" y="436" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="978" y="436" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">orden</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1246" y="436" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT</text>
+      </g>
+    
+      <!-- Row activo -->
+      <g>
+        <!-- Key badge -->
+        <rect x="942" y="450" width="28" height="16" rx="4" fill="#222738" />
+        <text x="956" y="462" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="978" y="462" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">activo</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1246" y="462" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TINYINT(1)</text>
+      </g>
+    
+    </g>
+  
+
+    <!-- TABLE usuarios -->
+    <g id="table_usuarios">
+      <!-- Box shadow -->
+      <rect x="480" y="780" width="380" height="496" rx="12" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+      <!-- Header bar -->
+      <path d="M 480 792 Q 480 780 492 780 L 848 780 Q 860 780 860 792 L 860 824 L 480 824 Z" fill="#1e2433" />
+      <rect x="480" y="823" width="380" height="1" fill="#334155" />
+      <rect x="494" y="794" width="6" height="16" rx="3" fill="#3b82f6" />
+      <text x="508" y="806" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700">usuarios</text>
+      <text x="844" y="806" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" text-anchor="end">Cuentas y Criptografía</text>
+      
+      <!-- Row id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="830" width="28" height="16" rx="4" fill="rgba(239, 68, 68, 0.2)" />
+        <text x="506" y="842" fill="#f87171" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">PK</text>
+
+        <!-- Column name -->
+        <text x="528" y="842" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="846" y="842" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT (AI)</text>
+      </g>
+    
+      <!-- Row username -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="856" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="868" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="868" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">username</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="846" y="868" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(80)</text>
+      </g>
+    
+      <!-- Row nombre_completo_enc -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="882" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="894" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="894" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">nombre_completo_enc</text>
+
+        <!-- Encryption icon if any -->
+        <text x="715" y="894" fill="#eab308" font-family="system-ui" font-size="10" title="Cifrado AES-256-GCM">🔒</text>
+
+        <!-- Datatype -->
+        <text x="846" y="894" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TEXT</text>
+      </g>
+    
+      <!-- Row nombres_enc -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="908" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="920" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="920" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">nombres_enc</text>
+
+        <!-- Encryption icon if any -->
+        <text x="715" y="920" fill="#eab308" font-family="system-ui" font-size="10" title="Cifrado AES-256-GCM">🔒</text>
+
+        <!-- Datatype -->
+        <text x="846" y="920" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TEXT</text>
+      </g>
+    
+      <!-- Row apellidos_enc -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="934" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="946" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="946" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">apellidos_enc</text>
+
+        <!-- Encryption icon if any -->
+        <text x="715" y="946" fill="#eab308" font-family="system-ui" font-size="10" title="Cifrado AES-256-GCM">🔒</text>
+
+        <!-- Datatype -->
+        <text x="846" y="946" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TEXT</text>
+      </g>
+    
+      <!-- Row empresa_enc -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="960" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="972" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="972" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">empresa_enc</text>
+
+        <!-- Encryption icon if any -->
+        <text x="715" y="972" fill="#eab308" font-family="system-ui" font-size="10" title="Cifrado AES-256-GCM">🔒</text>
+
+        <!-- Datatype -->
+        <text x="846" y="972" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TEXT</text>
+      </g>
+    
+      <!-- Row tipo_documento -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="986" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="998" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="998" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">tipo_documento</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="846" y="998" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(20)</text>
+      </g>
+    
+      <!-- Row numero_documento_enc -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="1012" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="1024" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="1024" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">numero_documento_enc</text>
+
+        <!-- Encryption icon if any -->
+        <text x="715" y="1024" fill="#eab308" font-family="system-ui" font-size="10" title="Cifrado AES-256-GCM">🔒</text>
+
+        <!-- Datatype -->
+        <text x="846" y="1024" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TEXT</text>
+      </g>
+    
+      <!-- Row email_hash -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="1038" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="1050" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="1050" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">email_hash</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="846" y="1050" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(128) UQ</text>
+      </g>
+    
+      <!-- Row email_enc -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="1064" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="1076" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="1076" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">email_enc</text>
+
+        <!-- Encryption icon if any -->
+        <text x="715" y="1076" fill="#eab308" font-family="system-ui" font-size="10" title="Cifrado AES-256-GCM">🔒</text>
+
+        <!-- Datatype -->
+        <text x="846" y="1076" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TEXT</text>
+      </g>
+    
+      <!-- Row password_hash -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="1090" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="1102" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="1102" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">password_hash</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="846" y="1102" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(255)</text>
+      </g>
+    
+      <!-- Row google_id_enc -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="1116" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="1128" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="1128" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">google_id_enc</text>
+
+        <!-- Encryption icon if any -->
+        <text x="715" y="1128" fill="#eab308" font-family="system-ui" font-size="10" title="Cifrado AES-256-GCM">🔒</text>
+
+        <!-- Datatype -->
+        <text x="846" y="1128" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TEXT</text>
+      </g>
+    
+      <!-- Row telefono_enc -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="1142" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="1154" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="1154" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">telefono_enc</text>
+
+        <!-- Encryption icon if any -->
+        <text x="715" y="1154" fill="#eab308" font-family="system-ui" font-size="10" title="Cifrado AES-256-GCM">🔒</text>
+
+        <!-- Datatype -->
+        <text x="846" y="1154" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TEXT</text>
+      </g>
+    
+      <!-- Row avatar_url -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="1168" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="1180" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="1180" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">avatar_url</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="846" y="1180" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(500)</text>
+      </g>
+    
+      <!-- Row rol -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="1194" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="1206" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="1206" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">rol</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="846" y="1206" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">ENUM (6 roles)</text>
+      </g>
+    
+      <!-- Row activo -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="1220" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="1232" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="1232" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">activo</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="846" y="1232" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TINYINT(1)</text>
+      </g>
+    
+      <!-- Row creado_en -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="1246" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="1258" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="1258" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">creado_en</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="846" y="1258" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TIMESTAMP</text>
+      </g>
+    
+    </g>
+  
+
+    <!-- TABLE usuario_direcciones -->
+    <g id="table_usuario_direcciones">
+      <!-- Box shadow -->
+      <rect x="80" y="780" width="340" height="392" rx="12" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+      <!-- Header bar -->
+      <path d="M 80 792 Q 80 780 92 780 L 408 780 Q 420 780 420 792 L 420 824 L 80 824 Z" fill="#1e2433" />
+      <rect x="80" y="823" width="340" height="1" fill="#334155" />
+      <rect x="94" y="794" width="6" height="16" rx="3" fill="#3b82f6" />
+      <text x="108" y="806" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700">usuario_direcciones</text>
+      <text x="404" y="806" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" text-anchor="end">Geoposición y Cobertura</text>
+      
+      <!-- Row id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="830" width="28" height="16" rx="4" fill="rgba(239, 68, 68, 0.2)" />
+        <text x="106" y="842" fill="#f87171" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">PK</text>
+
+        <!-- Column name -->
+        <text x="128" y="842" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="406" y="842" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT (AI)</text>
+      </g>
+    
+      <!-- Row usuario_id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="856" width="28" height="16" rx="4" fill="rgba(59, 130, 246, 0.2)" />
+        <text x="106" y="868" fill="#60a5fa" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">FK</text>
+
+        <!-- Column name -->
+        <text x="128" y="868" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">usuario_id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="406" y="868" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT</text>
+      </g>
+    
+      <!-- Row etiqueta -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="882" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="894" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="894" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">etiqueta</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="406" y="894" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(60)</text>
+      </g>
+    
+      <!-- Row direccion_enc -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="908" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="920" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="920" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">direccion_enc</text>
+
+        <!-- Encryption icon if any -->
+        <text x="275" y="920" fill="#eab308" font-family="system-ui" font-size="10" title="Cifrado AES-256-GCM">🔒</text>
+
+        <!-- Datatype -->
+        <text x="406" y="920" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TEXT</text>
+      </g>
+    
+      <!-- Row barrio_referencia -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="934" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="946" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="946" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">barrio_referencia</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="406" y="946" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(140)</text>
+      </g>
+    
+      <!-- Row municipio -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="960" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="972" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="972" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">municipio</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="406" y="972" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(80)</text>
+      </g>
+    
+      <!-- Row departamento -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="986" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="998" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="998" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">departamento</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="406" y="998" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(80)</text>
+      </g>
+    
+      <!-- Row lat -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="1012" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="1024" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="1024" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">lat</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="406" y="1024" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">DECIMAL(10,7)</text>
+      </g>
+    
+      <!-- Row lng -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="1038" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="1050" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="1050" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">lng</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="406" y="1050" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">DECIMAL(10,7)</text>
+      </g>
+    
+      <!-- Row es_villavicencio -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="1064" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="1076" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="1076" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">es_villavicencio</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="406" y="1076" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TINYINT(1)</text>
+      </g>
+    
+      <!-- Row tiempo_entrega_estimado -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="1090" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="1102" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="1102" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">tiempo_entrega_estimado</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="406" y="1102" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(100)</text>
+      </g>
+    
+      <!-- Row es_principal -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="1116" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="1128" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="1128" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">es_principal</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="406" y="1128" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TINYINT(1)</text>
+      </g>
+    
+      <!-- Row creado_en -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="1142" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="1154" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="1154" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">creado_en</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="406" y="1154" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TIMESTAMP</text>
+      </g>
+    
+    </g>
+  
+
+    <!-- TABLE verificaciones_correo -->
+    <g id="table_verificaciones_correo">
+      <!-- Box shadow -->
+      <rect x="80" y="1220" width="320" height="236" rx="12" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+      <!-- Header bar -->
+      <path d="M 80 1232 Q 80 1220 92 1220 L 388 1220 Q 400 1220 400 1232 L 400 1264 L 80 1264 Z" fill="#1e2433" />
+      <rect x="80" y="1263" width="320" height="1" fill="#334155" />
+      <rect x="94" y="1234" width="6" height="16" rx="3" fill="#10b981" />
+      <text x="108" y="1246" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700">verificaciones_correo</text>
+      <text x="384" y="1246" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" text-anchor="end">OTP Criptográfico 10m</text>
+      
+      <!-- Row id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="1270" width="28" height="16" rx="4" fill="rgba(239, 68, 68, 0.2)" />
+        <text x="106" y="1282" fill="#f87171" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">PK</text>
+
+        <!-- Column name -->
+        <text x="128" y="1282" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="386" y="1282" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT (AI)</text>
+      </g>
+    
+      <!-- Row email_hash -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="1296" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="1308" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="1308" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">email_hash</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="386" y="1308" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(128) IDX</text>
+      </g>
+    
+      <!-- Row codigo_hash -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="1322" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="1334" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="1334" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">codigo_hash</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="386" y="1334" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(128) UQ</text>
+      </g>
+    
+      <!-- Row expira_ms -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="1348" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="1360" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="1360" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">expira_ms</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="386" y="1360" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">BIGINT</text>
+      </g>
+    
+      <!-- Row intentos -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="1374" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="1386" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="1386" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">intentos</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="386" y="1386" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT</text>
+      </g>
+    
+      <!-- Row usado -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="1400" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="1412" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="1412" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">usado</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="386" y="1412" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TINYINT(1)</text>
+      </g>
+    
+      <!-- Row creado_en -->
+      <g>
+        <!-- Key badge -->
+        <rect x="92" y="1426" width="28" height="16" rx="4" fill="#222738" />
+        <text x="106" y="1438" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="128" y="1438" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">creado_en</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="386" y="1438" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TIMESTAMP</text>
+      </g>
+    
+    </g>
+  
+
+    <!-- TABLE recuperaciones_password -->
+    <g id="table_recuperaciones_password">
+      <!-- Box shadow -->
+      <rect x="480" y="1300" width="350" height="236" rx="12" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+      <!-- Header bar -->
+      <path d="M 480 1312 Q 480 1300 492 1300 L 818 1300 Q 830 1300 830 1312 L 830 1344 L 480 1344 Z" fill="#1e2433" />
+      <rect x="480" y="1343" width="350" height="1" fill="#334155" />
+      <rect x="494" y="1314" width="6" height="16" rx="3" fill="#10b981" />
+      <text x="508" y="1326" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700">recuperaciones_password</text>
+      <text x="814" y="1326" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" text-anchor="end">Reset Token Hash 10m</text>
+      
+      <!-- Row id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="1350" width="28" height="16" rx="4" fill="rgba(239, 68, 68, 0.2)" />
+        <text x="506" y="1362" fill="#f87171" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">PK</text>
+
+        <!-- Column name -->
+        <text x="528" y="1362" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="816" y="1362" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT (AI)</text>
+      </g>
+    
+      <!-- Row usuario_id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="1376" width="28" height="16" rx="4" fill="rgba(59, 130, 246, 0.2)" />
+        <text x="506" y="1388" fill="#60a5fa" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">FK</text>
+
+        <!-- Column name -->
+        <text x="528" y="1388" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">usuario_id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="816" y="1388" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT</text>
+      </g>
+    
+      <!-- Row email_hash -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="1402" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="1414" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="1414" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">email_hash</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="816" y="1414" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(128)</text>
+      </g>
+    
+      <!-- Row token_hash -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="1428" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="1440" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="1440" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">token_hash</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="816" y="1440" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(128) UQ</text>
+      </g>
+    
+      <!-- Row expira_ms -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="1454" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="1466" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="1466" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">expira_ms</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="816" y="1466" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">BIGINT</text>
+      </g>
+    
+      <!-- Row usado -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="1480" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="1492" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="1492" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">usado</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="816" y="1492" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TINYINT(1)</text>
+      </g>
+    
+      <!-- Row creado_en -->
+      <g>
+        <!-- Key badge -->
+        <rect x="492" y="1506" width="28" height="16" rx="4" fill="#222738" />
+        <text x="506" y="1518" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="528" y="1518" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">creado_en</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="816" y="1518" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TIMESTAMP</text>
+      </g>
+    
+    </g>
+  
+
+    <!-- TABLE pedidos -->
+    <g id="table_pedidos">
+      <!-- Box shadow -->
+      <rect x="1380" y="460" width="390" height="652" rx="12" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+      <!-- Header bar -->
+      <path d="M 1380 472 Q 1380 460 1392 460 L 1758 460 Q 1770 460 1770 472 L 1770 504 L 1380 504 Z" fill="#1e2433" />
+      <rect x="1380" y="503" width="390" height="1" fill="#334155" />
+      <rect x="1394" y="474" width="6" height="16" rx="3" fill="#8b5cf6" />
+      <text x="1408" y="486" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700">pedidos</text>
+      <text x="1754" y="486" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" text-anchor="end">Gestión y Despacho Logístico</text>
+      
+      <!-- Row id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="510" width="28" height="16" rx="4" fill="rgba(239, 68, 68, 0.2)" />
+        <text x="1406" y="522" fill="#f87171" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">PK</text>
+
+        <!-- Column name -->
+        <text x="1428" y="522" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="522" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT (AI)</text>
+      </g>
+    
+      <!-- Row usuario_id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="536" width="28" height="16" rx="4" fill="rgba(59, 130, 246, 0.2)" />
+        <text x="1406" y="548" fill="#60a5fa" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">FK</text>
+
+        <!-- Column name -->
+        <text x="1428" y="548" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">usuario_id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="548" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT</text>
+      </g>
+    
+      <!-- Row nombre_recibe_enc -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="562" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="574" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="574" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">nombre_recibe_enc</text>
+
+        <!-- Encryption icon if any -->
+        <text x="1625" y="574" fill="#eab308" font-family="system-ui" font-size="10" title="Cifrado AES-256-GCM">🔒</text>
+
+        <!-- Datatype -->
+        <text x="1756" y="574" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TEXT</text>
+      </g>
+    
+      <!-- Row telefono_cliente_enc -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="588" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="600" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="600" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">telefono_cliente_enc</text>
+
+        <!-- Encryption icon if any -->
+        <text x="1625" y="600" fill="#eab308" font-family="system-ui" font-size="10" title="Cifrado AES-256-GCM">🔒</text>
+
+        <!-- Datatype -->
+        <text x="1756" y="600" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TEXT</text>
+      </g>
+    
+      <!-- Row direccion_entrega_enc -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="614" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="626" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="626" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">direccion_entrega_enc</text>
+
+        <!-- Encryption icon if any -->
+        <text x="1625" y="626" fill="#eab308" font-family="system-ui" font-size="10" title="Cifrado AES-256-GCM">🔒</text>
+
+        <!-- Datatype -->
+        <text x="1756" y="626" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TEXT</text>
+      </g>
+    
+      <!-- Row municipio -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="640" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="652" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="652" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">municipio</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="652" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(80)</text>
+      </g>
+    
+      <!-- Row lat -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="666" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="678" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="678" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">lat</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="678" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">DECIMAL(10,7)</text>
+      </g>
+    
+      <!-- Row lng -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="692" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="704" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="704" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">lng</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="704" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">DECIMAL(10,7)</text>
+      </g>
+    
+      <!-- Row es_villavicencio -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="718" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="730" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="730" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">es_villavicencio</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="730" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TINYINT(1)</text>
+      </g>
+    
+      <!-- Row tiempo_entrega_estimado -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="744" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="756" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="756" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">tiempo_entrega_estimado</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="756" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(100)</text>
+      </g>
+    
+      <!-- Row metodo_pago -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="770" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="782" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="782" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">metodo_pago</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="782" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">ENUM (5 métodos)</text>
+      </g>
+    
+      <!-- Row referencia_pago -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="796" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="808" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="808" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">referencia_pago</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="808" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(100)</text>
+      </g>
+    
+      <!-- Row total -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="822" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="834" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="834" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">total</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="834" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">DECIMAL(12,2)</text>
+      </g>
+    
+      <!-- Row estado -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="848" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="860" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="860" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">estado</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="860" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">ENUM (5 estados)</text>
+      </g>
+    
+      <!-- Row observaciones_cliente -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="874" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="886" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="886" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">observaciones_cliente</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="886" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TEXT</text>
+      </g>
+    
+      <!-- Row razon_cancelacion -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="900" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="912" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="912" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">razon_cancelacion</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="912" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TEXT</text>
+      </g>
+    
+      <!-- Row reembolso_estado -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="926" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="938" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="938" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">reembolso_estado</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="938" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">ENUM</text>
+      </g>
+    
+      <!-- Row entregador_id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="952" width="28" height="16" rx="4" fill="rgba(59, 130, 246, 0.2)" />
+        <text x="1406" y="964" fill="#60a5fa" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">FK</text>
+
+        <!-- Column name -->
+        <text x="1428" y="964" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">entregador_id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="964" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT</text>
+      </g>
+    
+      <!-- Row observaciones_entregador -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="978" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="990" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="990" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">observaciones_entregador</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="990" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TEXT</text>
+      </g>
+    
+      <!-- Row foto_entrega_url -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="1004" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="1016" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="1016" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">foto_entrega_url</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="1016" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">LONGTEXT</text>
+      </g>
+    
+      <!-- Row fecha_confirmacion -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="1030" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="1042" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="1042" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">fecha_confirmacion</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="1042" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">DATETIME</text>
+      </g>
+    
+      <!-- Row fecha_entrega -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="1056" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="1068" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="1068" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">fecha_entrega</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="1068" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">DATETIME</text>
+      </g>
+    
+      <!-- Row creado_en -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1392" y="1082" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1406" y="1094" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1428" y="1094" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">creado_en</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="1756" y="1094" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TIMESTAMP</text>
+      </g>
+    
+    </g>
+  
+
+    <!-- TABLE pedido_items -->
+    <g id="table_pedido_items">
+      <!-- Box shadow -->
+      <rect x="1870" y="220" width="340" height="236" rx="12" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+      <!-- Header bar -->
+      <path d="M 1870 232 Q 1870 220 1882 220 L 2198 220 Q 2210 220 2210 232 L 2210 264 L 1870 264 Z" fill="#1e2433" />
+      <rect x="1870" y="263" width="340" height="1" fill="#334155" />
+      <rect x="1884" y="234" width="6" height="16" rx="3" fill="#8b5cf6" />
+      <text x="1898" y="246" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700">pedido_items</text>
+      <text x="2194" y="246" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" text-anchor="end">Líneas de Facturación</text>
+      
+      <!-- Row id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1882" y="270" width="28" height="16" rx="4" fill="rgba(239, 68, 68, 0.2)" />
+        <text x="1896" y="282" fill="#f87171" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">PK</text>
+
+        <!-- Column name -->
+        <text x="1918" y="282" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="2196" y="282" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT (AI)</text>
+      </g>
+    
+      <!-- Row pedido_id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1882" y="296" width="28" height="16" rx="4" fill="rgba(59, 130, 246, 0.2)" />
+        <text x="1896" y="308" fill="#60a5fa" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">FK</text>
+
+        <!-- Column name -->
+        <text x="1918" y="308" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">pedido_id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="2196" y="308" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT</text>
+      </g>
+    
+      <!-- Row producto_id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1882" y="322" width="28" height="16" rx="4" fill="rgba(59, 130, 246, 0.2)" />
+        <text x="1896" y="334" fill="#60a5fa" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">FK</text>
+
+        <!-- Column name -->
+        <text x="1918" y="334" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">producto_id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="2196" y="334" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT</text>
+      </g>
+    
+      <!-- Row nombre_producto -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1882" y="348" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1896" y="360" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1918" y="360" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">nombre_producto</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="2196" y="360" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(160)</text>
+      </g>
+    
+      <!-- Row cantidad -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1882" y="374" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1896" y="386" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1918" y="386" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">cantidad</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="2196" y="386" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT</text>
+      </g>
+    
+      <!-- Row precio_unitario -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1882" y="400" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1896" y="412" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1918" y="412" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">precio_unitario</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="2196" y="412" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">DECIMAL(12,2)</text>
+      </g>
+    
+      <!-- Row subtotal -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1882" y="426" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1896" y="438" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1918" y="438" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">subtotal</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="2196" y="438" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">DECIMAL(12,2)</text>
+      </g>
+    
+    </g>
+  
+
+    <!-- TABLE tickets_soporte -->
+    <g id="table_tickets_soporte">
+      <!-- Box shadow -->
+      <rect x="1870" y="840" width="350" height="314" rx="12" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+      <!-- Header bar -->
+      <path d="M 1870 852 Q 1870 840 1882 840 L 2208 840 Q 2220 840 2220 852 L 2220 884 L 1870 884 Z" fill="#1e2433" />
+      <rect x="1870" y="883" width="350" height="1" fill="#334155" />
+      <rect x="1884" y="854" width="6" height="16" rx="3" fill="#ec4899" />
+      <text x="1898" y="866" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700">tickets_soporte</text>
+      <text x="2204" y="866" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" text-anchor="end">Módulo PQRS y Evidencias</text>
+      
+      <!-- Row id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1882" y="890" width="28" height="16" rx="4" fill="rgba(239, 68, 68, 0.2)" />
+        <text x="1896" y="902" fill="#f87171" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">PK</text>
+
+        <!-- Column name -->
+        <text x="1918" y="902" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="2206" y="902" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT (AI)</text>
+      </g>
+    
+      <!-- Row pedido_id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1882" y="916" width="28" height="16" rx="4" fill="rgba(59, 130, 246, 0.2)" />
+        <text x="1896" y="928" fill="#60a5fa" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">FK</text>
+
+        <!-- Column name -->
+        <text x="1918" y="928" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">pedido_id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="2206" y="928" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT</text>
+      </g>
+    
+      <!-- Row usuario_id -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1882" y="942" width="28" height="16" rx="4" fill="rgba(59, 130, 246, 0.2)" />
+        <text x="1896" y="954" fill="#60a5fa" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle">FK</text>
+
+        <!-- Column name -->
+        <text x="1918" y="954" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">usuario_id</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="2206" y="954" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">INT</text>
+      </g>
+    
+      <!-- Row tipo -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1882" y="968" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1896" y="980" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1918" y="980" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">tipo</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="2206" y="980" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">ENUM (5 tipos)</text>
+      </g>
+    
+      <!-- Row asunto -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1882" y="994" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1896" y="1006" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1918" y="1006" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">asunto</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="2206" y="1006" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">VARCHAR(160)</text>
+      </g>
+    
+      <!-- Row descripcion -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1882" y="1020" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1896" y="1032" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1918" y="1032" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">descripcion</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="2206" y="1032" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TEXT</text>
+      </g>
+    
+      <!-- Row imagen_cliente_url -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1882" y="1046" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1896" y="1058" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1918" y="1058" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">imagen_cliente_url</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="2206" y="1058" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">LONGTEXT</text>
+      </g>
+    
+      <!-- Row estado -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1882" y="1072" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1896" y="1084" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1918" y="1084" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">estado</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="2206" y="1084" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">ENUM (3 estados)</text>
+      </g>
+    
+      <!-- Row respuesta_soporte -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1882" y="1098" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1896" y="1110" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1918" y="1110" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">respuesta_soporte</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="2206" y="1110" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TEXT</text>
+      </g>
+    
+      <!-- Row creado_en -->
+      <g>
+        <!-- Key badge -->
+        <rect x="1882" y="1124" width="28" height="16" rx="4" fill="#222738" />
+        <text x="1896" y="1136" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" text-anchor="middle"> </text>
+
+        <!-- Column name -->
+        <text x="1918" y="1136" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400">creado_en</text>
+
+        <!-- Encryption icon if any -->
+        
+
+        <!-- Datatype -->
+        <text x="2206" y="1136" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" text-anchor="end">TIMESTAMP</text>
+      </g>
+    
+    </g>
+  
+
+</svg>

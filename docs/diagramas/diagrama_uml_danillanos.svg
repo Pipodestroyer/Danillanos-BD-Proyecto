@@ -1,0 +1,400 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2300 1550" width="2300" height="1550">
+  <defs>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000000" flood-opacity="0.55" />
+    </filter>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090d16" />
+      <stop offset="50%" stop-color="#0b1120" />
+      <stop offset="100%" stop-color="#030712" />
+    </linearGradient>
+  </defs>
+
+  <rect width="2300" height="1550" fill="url(#bgGrad)" />
+
+  <g opacity="0.07">
+    <line x1="0" y1="0" x2="0" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="50" y1="0" x2="50" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="100" y1="0" x2="100" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="150" y1="0" x2="150" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="200" y1="0" x2="200" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="250" y1="0" x2="250" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="300" y1="0" x2="300" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="350" y1="0" x2="350" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="400" y1="0" x2="400" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="450" y1="0" x2="450" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="500" y1="0" x2="500" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="550" y1="0" x2="550" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="600" y1="0" x2="600" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="650" y1="0" x2="650" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="700" y1="0" x2="700" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="750" y1="0" x2="750" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="800" y1="0" x2="800" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="850" y1="0" x2="850" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="900" y1="0" x2="900" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="950" y1="0" x2="950" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1000" y1="0" x2="1000" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1050" y1="0" x2="1050" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1100" y1="0" x2="1100" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1150" y1="0" x2="1150" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1200" y1="0" x2="1200" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1250" y1="0" x2="1250" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1300" y1="0" x2="1300" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1350" y1="0" x2="1350" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1400" y1="0" x2="1400" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1450" y1="0" x2="1450" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1500" y1="0" x2="1500" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1550" y1="0" x2="1550" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1600" y1="0" x2="1600" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1650" y1="0" x2="1650" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1700" y1="0" x2="1700" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1750" y1="0" x2="1750" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1800" y1="0" x2="1800" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1850" y1="0" x2="1850" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1900" y1="0" x2="1900" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="1950" y1="0" x2="1950" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="2000" y1="0" x2="2000" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="2050" y1="0" x2="2050" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="2100" y1="0" x2="2100" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="2150" y1="0" x2="2150" y2="1550" stroke="#94a3b8" stroke-width="1" />
+<line x1="2200" y1="0" x2="2200" y2="1550" stroke="#94a3b8" stroke-width="1" />
+    <line x1="0" y1="0" x2="2300" y2="0" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="50" x2="2300" y2="50" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="100" x2="2300" y2="100" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="150" x2="2300" y2="150" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="200" x2="2300" y2="200" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="250" x2="2300" y2="250" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="300" x2="2300" y2="300" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="350" x2="2300" y2="350" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="400" x2="2300" y2="400" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="450" x2="2300" y2="450" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="500" x2="2300" y2="500" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="550" x2="2300" y2="550" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="600" x2="2300" y2="600" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="650" x2="2300" y2="650" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="700" x2="2300" y2="700" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="750" x2="2300" y2="750" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="800" x2="2300" y2="800" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="850" x2="2300" y2="850" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="900" x2="2300" y2="900" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="950" x2="2300" y2="950" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1000" x2="2300" y2="1000" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1050" x2="2300" y2="1050" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1100" x2="2300" y2="1100" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1150" x2="2300" y2="1150" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1200" x2="2300" y2="1200" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1250" x2="2300" y2="1250" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1300" x2="2300" y2="1300" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1350" x2="2300" y2="1350" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1400" x2="2300" y2="1400" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1450" x2="2300" y2="1450" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1500" x2="2300" y2="1500" stroke="#94a3b8" stroke-width="1" />
+<line x1="0" y1="1550" x2="2300" y2="1550" stroke="#94a3b8" stroke-width="1" />
+  </g>
+
+  <!-- Title & Metadata -->
+  <g transform="translate(80, 50)">
+    <rect x="0" y="0" width="12" height="42" rx="4" fill="#3b82f6" />
+    <text x="24" y="26" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="26" font-weight="800">DANILLANOS • DIAGRAMA DE CLASES UML (DOMAIN MODEL)</text>
+    <text x="24" y="44" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="13">Arquitectura Orientada a Dominio (DDD) • Entidades, Value Objects, Servicios Criptográficos y Operaciones</text>
+
+    <!-- Legend -->
+    <g transform="translate(1480, 4)">
+      <rect x="0" y="0" width="640" height="42" rx="8" fill="#1e293b" opacity="0.8" />
+      <text x="20" y="26" fill="#22c55e" font-family="ui-monospace" font-size="13" font-weight="700">+</text>
+      <text x="35" y="26" fill="#cbd5e1" font-family="system-ui" font-size="12">Público</text>
+
+      <text x="95" y="26" fill="#ef4444" font-family="ui-monospace" font-size="13" font-weight="700">-</text>
+      <text x="110" y="26" fill="#cbd5e1" font-family="system-ui" font-size="12">Privado / Protegido</text>
+
+      <text x="250" y="26" fill="#38bdf8" font-family="system-ui" font-size="12">◆ Composición</text>
+      <text x="380" y="26" fill="#38bdf8" font-family="system-ui" font-size="12">◇ Agregación</text>
+      <text x="500" y="26" fill="#eab308" font-family="system-ui" font-size="12">🔒 Cifrado AES</text>
+    </g>
+  </g>
+
+  <!-- Connectors -->
+  
+    <g>
+      <path d="M 400 180 L 480 180" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="450" y="172" fill="#94a3b8" font-family="system-ui" font-size="11" font-weight="600">1..*</text>
+    </g>
+  
+
+    <g>
+      <path d="M 860 200 L 940 200" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="910" y="192" fill="#94a3b8" font-family="system-ui" font-size="11" font-weight="600">0..1</text>
+    </g>
+  
+
+    <g>
+      <path d="M 480 720 L 420 720" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="390" y="712" fill="#94a3b8" font-family="system-ui" font-size="11" font-weight="600">0..5</text>
+    </g>
+  
+
+    <g>
+      <path d="M 660 1120 L 660 1180" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="630" y="1172" fill="#94a3b8" font-family="system-ui" font-size="11" font-weight="600">1..*</text>
+    </g>
+  
+
+    <g>
+      <path d="M 880 720 L 1120 720 L 1120 540 L 1380 540" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="1350" y="532" fill="#94a3b8" font-family="system-ui" font-size="11" font-weight="600">1..*</text>
+    </g>
+  
+
+    <g>
+      <path d="M 1780 520 L 1820 520 L 1820 320 L 1870 320" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="1840" y="312" fill="#94a3b8" font-family="system-ui" font-size="11" font-weight="600">1..*</text>
+    </g>
+  
+
+    <g>
+      <path d="M 860 280 L 1350 280 L 1350 250 L 1870 250" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="1840" y="242" fill="#94a3b8" font-family="system-ui" font-size="11" font-weight="600">1</text>
+    </g>
+  
+
+    <g>
+      <path d="M 1780 700 L 1820 700 L 1820 860 L 1870 860" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="1840" y="852" fill="#94a3b8" font-family="system-ui" font-size="11" font-weight="600">0..1</text>
+    </g>
+  
+
+  <!-- Classes -->
+  
+      <!-- UML CLASS Categoria -->
+      <g id="class_Categoria">
+        <rect x="80" y="140" width="320" height="254" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+        <path d="M 80 150 Q 80 140 90 140 L 390 140 Q 400 140 400 150 L 400 192 L 80 192 Z" fill="#1e2433" />
+        <rect x="80" y="192" width="320" height="1" fill="#334155" />
+        <rect x="92" y="154" width="4" height="24" rx="2" fill="#e01a2c" />
+        <text x="240" y="160" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-style="italic" text-anchor="middle">&lt;&lt;Entity&gt;&gt;</text>
+        <text x="240" y="178" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" text-anchor="middle">Categoria</text>
+        <text x="94" y="208" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> id: int</text>
+<text x="94" y="230" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> nombre: string</text>
+<text x="94" y="252" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> slug: string</text>
+<text x="94" y="274" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> icono: string</text>
+<text x="94" y="296" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> descripcion: string</text>
+<text x="94" y="318" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> activo: boolean</text>
+        <line x1="80" y1="336" x2="400" y2="336" stroke="#334155" stroke-dasharray="3,3" />
+        <text x="94" y="360" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> listarActivas(): Categoria[]</text>
+<text x="94" y="382" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> obtenerProductos(): Producto[]</text>
+      </g>
+    
+
+      <!-- UML CLASS Producto -->
+      <g id="class_Producto">
+        <rect x="480" y="140" width="380" height="430" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+        <path d="M 480 150 Q 480 140 490 140 L 850 140 Q 860 140 860 150 L 860 192 L 480 192 Z" fill="#1e2433" />
+        <rect x="480" y="192" width="380" height="1" fill="#334155" />
+        <rect x="492" y="154" width="4" height="24" rx="2" fill="#e01a2c" />
+        <text x="670" y="160" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-style="italic" text-anchor="middle">&lt;&lt;Entity&gt;&gt;</text>
+        <text x="670" y="178" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" text-anchor="middle">Producto</text>
+        <text x="494" y="208" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> id: int</text>
+<text x="494" y="230" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> categoria_id: int</text>
+<text x="494" y="252" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> codigo_sku: string</text>
+<text x="494" y="274" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> nombre: string</text>
+<text x="494" y="296" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> descripcion: string</text>
+<text x="494" y="318" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> presentacion: string</text>
+<text x="494" y="340" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> precio: decimal</text>
+<text x="494" y="362" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> precio_anterior: decimal</text>
+<text x="494" y="384" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> descuento_porcentaje: decimal</text>
+<text x="494" y="406" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> descuento_tipo: string</text>
+<text x="494" y="428" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> stock: int</text>
+<text x="494" y="450" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> activo: boolean</text>
+        <line x1="480" y1="468" x2="860" y2="468" stroke="#334155" stroke-dasharray="3,3" />
+        <text x="494" y="492" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> calcularPrecioVenta(): decimal</text>
+<text x="494" y="514" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> verificarVigenciaDescuento(): boolean</text>
+<text x="494" y="536" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> descontarUnidadesStock(cant: int): void</text>
+<text x="494" y="558" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> aplicarOfertaFlash(pct: decimal): void</text>
+      </g>
+    
+
+      <!-- UML CLASS CarruselPromocion -->
+      <g id="class_CarruselPromocion">
+        <rect x="940" y="140" width="330" height="276" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+        <path d="M 940 150 Q 940 140 950 140 L 1260 140 Q 1270 140 1270 150 L 1270 192 L 940 192 Z" fill="#1e2433" />
+        <rect x="940" y="192" width="330" height="1" fill="#334155" />
+        <rect x="952" y="154" width="4" height="24" rx="2" fill="#e01a2c" />
+        <text x="1105" y="160" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-style="italic" text-anchor="middle">&lt;&lt;Entity&gt;&gt;</text>
+        <text x="1105" y="178" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" text-anchor="middle">CarruselPromocion</text>
+        <text x="954" y="208" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> id: int</text>
+<text x="954" y="230" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> producto_id: int</text>
+<text x="954" y="252" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> titulo: string</text>
+<text x="954" y="274" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> subtitulo: string</text>
+<text x="954" y="296" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> precio_destacado: decimal</text>
+<text x="954" y="318" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> imagen_url: string</text>
+<text x="954" y="340" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> tipo_accion: enum</text>
+        <line x1="940" y1="358" x2="1270" y2="358" stroke="#334155" stroke-dasharray="3,3" />
+        <text x="954" y="382" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> obtenerProductoAsociado(): Producto</text>
+<text x="954" y="404" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> esActivo(): boolean</text>
+      </g>
+    
+
+      <!-- UML CLASS Usuario -->
+      <g id="class_Usuario">
+        <rect x="480" y="680" width="400" height="408" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+        <path d="M 480 690 Q 480 680 490 680 L 870 680 Q 880 680 880 690 L 880 732 L 480 732 Z" fill="#1e2433" />
+        <rect x="480" y="732" width="400" height="1" fill="#334155" />
+        <rect x="492" y="694" width="4" height="24" rx="2" fill="#3b82f6" />
+        <text x="680" y="700" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-style="italic" text-anchor="middle">&lt;&lt;Aggregate Root&gt;&gt;</text>
+        <text x="680" y="718" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" text-anchor="middle">Usuario</text>
+        <text x="494" y="748" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> id: int</text>
+<text x="494" y="770" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> username: string</text>
+<text x="494" y="792" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#ef4444">-</tspan> nombre_completo_enc: text 🔒</text>
+<text x="494" y="814" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#ef4444">-</tspan> numero_documento_enc: text 🔒</text>
+<text x="494" y="836" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#ef4444">-</tspan> email_hash: string ⚡</text>
+<text x="494" y="858" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#ef4444">-</tspan> email_enc: text 🔒</text>
+<text x="494" y="880" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#ef4444">-</tspan> password_hash: string [Scrypt]</text>
+<text x="494" y="902" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#ef4444">-</tspan> telefono_enc: text 🔒</text>
+<text x="494" y="924" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> rol: RolUsuario [Enum]</text>
+<text x="494" y="946" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> activo: boolean</text>
+        <line x1="480" y1="964" x2="880" y2="964" stroke="#334155" stroke-dasharray="3,3" />
+        <text x="494" y="988" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> verificarPassword(plain: string): boolean</text>
+<text x="494" y="1010" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> descifrarDatosPersonales(): UserPII</text>
+<text x="494" y="1032" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> esStaff(): boolean</text>
+<text x="494" y="1054" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> esAdministrador(): boolean</text>
+<text x="494" y="1076" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> cambiarPassword(nueva: string): void</text>
+      </g>
+    
+
+      <!-- UML CLASS UsuarioDireccion -->
+      <g id="class_UsuarioDireccion">
+        <rect x="80" y="680" width="340" height="320" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+        <path d="M 80 690 Q 80 680 90 680 L 410 680 Q 420 680 420 690 L 420 732 L 80 732 Z" fill="#1e2433" />
+        <rect x="80" y="732" width="340" height="1" fill="#334155" />
+        <rect x="92" y="694" width="4" height="24" rx="2" fill="#3b82f6" />
+        <text x="250" y="700" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-style="italic" text-anchor="middle">&lt;&lt;Value Object&gt;&gt;</text>
+        <text x="250" y="718" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" text-anchor="middle">UsuarioDireccion</text>
+        <text x="94" y="748" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> id: int</text>
+<text x="94" y="770" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> usuario_id: int</text>
+<text x="94" y="792" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> etiqueta: string</text>
+<text x="94" y="814" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#ef4444">-</tspan> direccion_enc: text 🔒</text>
+<text x="94" y="836" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> municipio: string</text>
+<text x="94" y="858" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> lat: decimal</text>
+<text x="94" y="880" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> lng: decimal</text>
+<text x="94" y="902" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> es_villavicencio: boolean</text>
+        <line x1="80" y1="920" x2="420" y2="920" stroke="#334155" stroke-dasharray="3,3" />
+        <text x="94" y="944" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> calcularDistanciaSedeKm(): decimal</text>
+<text x="94" y="966" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> estaDentroDeRadioUrbano(): boolean</text>
+<text x="94" y="988" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> obtenerTiempoEntrega(): string</text>
+      </g>
+    
+
+      <!-- UML CLASS VerificacionCorreo -->
+      <g id="class_VerificacionCorreo">
+        <rect x="80" y="1140" width="320" height="276" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+        <path d="M 80 1150 Q 80 1140 90 1140 L 390 1140 Q 400 1140 400 1150 L 400 1192 L 80 1192 Z" fill="#1e2433" />
+        <rect x="80" y="1192" width="320" height="1" fill="#334155" />
+        <rect x="92" y="1154" width="4" height="24" rx="2" fill="#10b981" />
+        <text x="240" y="1160" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-style="italic" text-anchor="middle">&lt;&lt;Security Service&gt;&gt;</text>
+        <text x="240" y="1178" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" text-anchor="middle">VerificacionCorreo</text>
+        <text x="94" y="1208" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> id: int</text>
+<text x="94" y="1230" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> email_hash: string ⚡</text>
+<text x="94" y="1252" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#ef4444">-</tspan> codigo_hash: string ⚡</text>
+<text x="94" y="1274" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> expira_ms: bigint</text>
+<text x="94" y="1296" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> intentos: int</text>
+<text x="94" y="1318" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> usado: boolean</text>
+        <line x1="80" y1="1336" x2="400" y2="1336" stroke="#334155" stroke-dasharray="3,3" />
+        <text x="94" y="1360" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> generarCodigoOTP6(): string</text>
+<text x="94" y="1382" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> validarCodigoIngresado(c: str): bool</text>
+<text x="94" y="1404" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> haExpirado(): boolean</text>
+      </g>
+    
+
+      <!-- UML CLASS RecuperacionPassword -->
+      <g id="class_RecuperacionPassword">
+        <rect x="480" y="1180" width="350" height="232" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+        <path d="M 480 1190 Q 480 1180 490 1180 L 820 1180 Q 830 1180 830 1190 L 830 1232 L 480 1232 Z" fill="#1e2433" />
+        <rect x="480" y="1232" width="350" height="1" fill="#334155" />
+        <rect x="492" y="1194" width="4" height="24" rx="2" fill="#10b981" />
+        <text x="655" y="1200" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-style="italic" text-anchor="middle">&lt;&lt;Security Service&gt;&gt;</text>
+        <text x="655" y="1218" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" text-anchor="middle">RecuperacionPassword</text>
+        <text x="494" y="1248" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> id: int</text>
+<text x="494" y="1270" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> usuario_id: int</text>
+<text x="494" y="1292" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#ef4444">-</tspan> token_hash: string ⚡</text>
+<text x="494" y="1314" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> expira_ms: bigint</text>
+<text x="494" y="1336" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> usado: boolean</text>
+        <line x1="480" y1="1354" x2="830" y2="1354" stroke="#334155" stroke-dasharray="3,3" />
+        <text x="494" y="1378" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> generarTokenSeguro(): string</text>
+<text x="494" y="1400" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> validarTokenVigente(): boolean</text>
+      </g>
+    
+
+      <!-- UML CLASS Pedido -->
+      <g id="class_Pedido">
+        <rect x="1380" y="460" width="400" height="430" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+        <path d="M 1380 470 Q 1380 460 1390 460 L 1770 460 Q 1780 460 1780 470 L 1780 512 L 1380 512 Z" fill="#1e2433" />
+        <rect x="1380" y="512" width="400" height="1" fill="#334155" />
+        <rect x="1392" y="474" width="4" height="24" rx="2" fill="#8b5cf6" />
+        <text x="1580" y="480" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-style="italic" text-anchor="middle">&lt;&lt;Aggregate Root&gt;&gt;</text>
+        <text x="1580" y="498" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" text-anchor="middle">Pedido</text>
+        <text x="1394" y="528" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> id: int</text>
+<text x="1394" y="550" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> usuario_id: int</text>
+<text x="1394" y="572" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#ef4444">-</tspan> nombre_recibe_enc: text 🔒</text>
+<text x="1394" y="594" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#ef4444">-</tspan> telefono_cliente_enc: text 🔒</text>
+<text x="1394" y="616" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#ef4444">-</tspan> direccion_entrega_enc: text 🔒</text>
+<text x="1394" y="638" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> municipio: string</text>
+<text x="1394" y="660" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> metodo_pago: MetodoPago</text>
+<text x="1394" y="682" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> total: decimal</text>
+<text x="1394" y="704" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> estado: EstadoPedido</text>
+<text x="1394" y="726" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> entregador_id: int</text>
+<text x="1394" y="748" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> foto_entrega_url: string</text>
+        <line x1="1380" y1="766" x2="1780" y2="766" stroke="#334155" stroke-dasharray="3,3" />
+        <text x="1394" y="790" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> calcularTotalConDescuentos(): decimal</text>
+<text x="1394" y="812" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> avanzarEtapaLogistica(e: Estado): void</text>
+<text x="1394" y="834" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> asignarEntregador(id: int): void</text>
+<text x="1394" y="856" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> cancelarPedido(motivo: string): boolean</text>
+<text x="1394" y="878" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> adjuntarFotoComprobante(url: str): void</text>
+      </g>
+    
+
+      <!-- UML CLASS PedidoItem -->
+      <g id="class_PedidoItem">
+        <rect x="1870" y="240" width="340" height="276" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+        <path d="M 1870 250 Q 1870 240 1880 240 L 2200 240 Q 2210 240 2210 250 L 2210 292 L 1870 292 Z" fill="#1e2433" />
+        <rect x="1870" y="292" width="340" height="1" fill="#334155" />
+        <rect x="1882" y="254" width="4" height="24" rx="2" fill="#8b5cf6" />
+        <text x="2040" y="260" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-style="italic" text-anchor="middle">&lt;&lt;Value Object&gt;&gt;</text>
+        <text x="2040" y="278" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" text-anchor="middle">PedidoItem</text>
+        <text x="1884" y="308" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> id: int</text>
+<text x="1884" y="330" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> pedido_id: int</text>
+<text x="1884" y="352" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> producto_id: int</text>
+<text x="1884" y="374" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> nombre_producto: string</text>
+<text x="1884" y="396" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> cantidad: int</text>
+<text x="1884" y="418" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> precio_unitario: decimal</text>
+<text x="1884" y="440" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> subtotal: decimal</text>
+        <line x1="1870" y1="458" x2="2210" y2="458" stroke="#334155" stroke-dasharray="3,3" />
+        <text x="1884" y="482" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> calcularSubtotal(): decimal</text>
+<text x="1884" y="504" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> validarDisponibilidad(): boolean</text>
+      </g>
+    
+
+      <!-- UML CLASS TicketSoporte -->
+      <g id="class_TicketSoporte">
+        <rect x="1870" y="780" width="360" height="320" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+        <path d="M 1870 790 Q 1870 780 1880 780 L 2220 780 Q 2230 780 2230 790 L 2230 832 L 1870 832 Z" fill="#1e2433" />
+        <rect x="1870" y="832" width="360" height="1" fill="#334155" />
+        <rect x="1882" y="794" width="4" height="24" rx="2" fill="#ec4899" />
+        <text x="2050" y="800" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-style="italic" text-anchor="middle">&lt;&lt;Entity&gt;&gt;</text>
+        <text x="2050" y="818" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" text-anchor="middle">TicketSoporte</text>
+        <text x="1884" y="848" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> id: int</text>
+<text x="1884" y="870" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> pedido_id: int</text>
+<text x="1884" y="892" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> usuario_id: int</text>
+<text x="1884" y="914" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> tipo: TipoTicket</text>
+<text x="1884" y="936" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> asunto: string</text>
+<text x="1884" y="958" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> descripcion: string</text>
+<text x="1884" y="980" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> imagen_cliente_url: string</text>
+<text x="1884" y="1002" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> estado: EstadoTicket</text>
+        <line x1="1870" y1="1020" x2="2230" y2="1020" stroke="#334155" stroke-dasharray="3,3" />
+        <text x="1884" y="1044" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> agregarMensajeHilo(texto: string): void</text>
+<text x="1884" y="1066" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> responderComoStaff(r: string): void</text>
+<text x="1884" y="1088" fill="#93c5fd" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11.5"><tspan fill="#22c55e">+</tspan> cerrarTicket(): void</text>
+      </g>
+    
+
+</svg>

@@ -55,8 +55,14 @@ Danillanos-BD-Proyecto/
 ├── database/
 │   ├── build-frontend-config.js  # Compilador de configuración frontend sincronizada
 │   ├── generate-schema.js        # Generador de esquema SQL con vistas, procedimientos y semillas
-│   ├── schema.sql                # Definición DDL y DML completa de MySQL
+│   ├── schema.sql                # Definición DDL y DML completa de MySQL (10 tablas)
 │   └── schema_comments.sql       # Script SQL completamente comentado para DBA
+├── docs/
+│   └── diagramas/                # Diagramas vectoriales SVG, UML, E-R y visor interactivo
+│       ├── diagrama_er_danillanos.svg   # Diagrama Entidad-Relación vectorial HD
+│       ├── diagrama_uml_danillanos.svg  # Diagrama de Clases UML (Domain Model) HD
+│       ├── diagrama_interactivo.html    # Visor web interactivo con zoom y pestañas
+│       └── README.md                    # Especificación técnica con diagramas Mermaid
 ├── frontend/
 │   ├── css/
 │   │   └── styles.css            # Sistema de diseño, tokens CSS, modo claro/oscuro y componentes
