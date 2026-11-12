@@ -187,6 +187,24 @@ erDiagram
     }
 ```
 
+### 🔷 Rombos de Relación, Verbos Semánticos y Cardinalidades (Notación Chen)
+
+El archivo vectorial [`diagrama_er_danillanos.svg`](diagrama_er_danillanos.svg) incorpora formalmente la notación de Peter Chen con **rombos semánticos**, **flechas de dirección** y **etiquetas de cardinalidad** explícitas entre las 10 entidades:
+
+| # | Entidad Origen | Rombo (Verbo) | Entidad Destino | Cardinalidad | Tipo de Relación | Descripción Semántica |
+|---|----------------|---------------|-----------------|--------------|------------------|------------------------|
+| **1** | `categorias` | **`CLASIFICA`** | `productos` | `1 : N` | Uno a Muchos | Una categoría clasifica múltiples productos comerciales; cada producto pertenece estrictamente a una categoría. |
+| **2** | `productos` | **`PROMOCIONA`** | `carrusel_promociones` | `0..1 : N` | Uno a Muchos (Opcional) | Un producto puede o no estar promocionado en uno o varios banners activos en portada. |
+| **3** | `productos` | **`ABASTECE`** | `pedido_items` | `1 : N` | Uno a Muchos | Un producto del catálogo abastece múltiples líneas de pedido a lo largo del tiempo. |
+| **4** | `pedidos` | **`CONTIENE`** | `pedido_items` | `1 : 1..N` | Uno a Muchos (Obligatorio) | Un pedido contiene una o más líneas de facturación con snapshot inmutable de precios. Resuelve la relación **Muchos a Muchos (`pedidos` N : M `productos`)**. |
+| **5** | `usuarios` | **`POSEE`** | `usuario_direcciones` | `1 : 0..5` | Uno a N Acotado | Un cliente puede registrar entre 0 y hasta un límite de 5 direcciones con geocodificación y validación de cobertura. |
+| **6** | `usuarios` | **`RADICA`** | `pedidos` | `1 : N` | Uno a Muchos | Un usuario en rol cliente radica sus órdenes de compra. |
+| **7** | `usuarios` | **`DESPACHA`** | `pedidos` | `0..1 : N` | Uno a Muchos (Condicional) | Un usuario en rol `entregador` / `repartidor` es asignado para despachar y transportar uno o varios pedidos en ruta. |
+| **8** | `pedidos` | **`GENERA`** | `tickets_soporte` | `0..1 : N` | Uno a Muchos (Opcional) | Un pedido entregado o en tránsito puede ser la causa de una o varias reclamaciones de soporte (PQRS). |
+| **9** | `usuarios` | **`GESTIONA`** | `tickets_soporte` | `1 : N` | Uno a Muchos | Un cliente abre y da seguimiento a sus incidencias de soporte. |
+| **10** | `usuarios` | **`SOLICITA`** | `recuperaciones_password` | `1 : N` | Uno a Muchos | Un usuario solicita códigos de recuperación temporal (tokens HMAC) de 10 minutos. |
+| **11** | `usuarios` | **`VALIDA`** | `verificaciones_correo` | `1 : N` | Uno a Muchos (vía Hash) | Asociación criptográfica mediante `email_hash` para validar códigos OTP de confirmación de cuenta. |
+
 ---
 
 ## 🏛️ 2. Diagrama de Clases UML (Domain Model)
